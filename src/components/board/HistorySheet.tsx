@@ -1,0 +1,102 @@
+import { RotateCcw } from 'lucide-react'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '#/components/ui/sheet'
+import { Button } from '#/components/ui/button'
+import { ScrollArea } from '#/components/ui/scroll-area'
+import { Skeleton } from '#/components/ui/skeleton'
+import { formatDateFull } from '#/lib/utils'
+import { useItems } from '#/hooks/items/useItems'
+import { useItemMutations } from '#/hooks/items/useItemMutations'
+import type { Item } from '#/entities/Item'
+
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  spaceId: string
+  spaceName: string
+}
+
+export function HistorySheet({ open, onOpenChange, spaceId, spaceName }: Props) {
+  const { data: items, isLoading } = useItems(spaceId)
+  const { reAdd } = useItemMutations(spaceId)
+
+  // Sort newest first, then deduplicate by title (case-insensitive).
+  // The DB should already have one row per item (reAddItem uncompletes rather
+  // than inserts), but we deduplicate here as a safety net for old data.
+  const seen = new Set<string>()
+  const completed = (items ?? [])
+    .filter((i) => i.completed)
+    .sort(
+      (a, b) =>
+        (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
+    )
+    .filter((i) => {
+      const key = i.title.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+  function handleReAdd(item: Item) {
+    reAdd.mutate(item)
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex max-w-sm flex-col gap-0 p-0">
+        <SheetHeader className="border-b border-border p-6">
+          <SheetTitle>{spaceName} — History</SheetTitle>
+        </SheetHeader>
+
+        <ScrollArea className="flex-1">
+          <div className="flex flex-col p-4">
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 py-3">
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ))
+            ) : completed.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No completed items yet
+              </p>
+            ) : (
+              completed.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 border-b border-border py-3 last:border-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm line-through text-muted-foreground">
+                      {item.title}
+                    </p>
+                    {item.completedAt && (
+                      <p className="text-xs text-muted-foreground/70">
+                        {formatDateFull(item.completedAt)}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => handleReAdd(item)}
+                    disabled={reAdd.isPending}
+                  >
+                    <RotateCcw className="mr-1.5 h-3 w-3" />
+                    Re-add
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  )
+}
