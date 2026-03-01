@@ -57,8 +57,8 @@ export function SpaceColumn({ space, familyId }: Props) {
     <>
       <div
         ref={setNodeRef}
-        style={style}
-        className="flex h-full w-72 shrink-0 flex-col rounded-xl border border-border bg-card"
+        style={{ ...style, borderTop: `3px solid ${space.color}` }}
+        className="flex h-full w-72 shrink-0 flex-col rounded-xl bg-card shadow-sm"
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 pt-3 pb-1">

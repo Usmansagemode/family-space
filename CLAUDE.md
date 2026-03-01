@@ -1,4 +1,4 @@
-# Family Board — Claude Instructions
+# Family Space — Claude Instructions
 
 ## Project Overview
 A family management kanban board. Each column ("Space") is either a family member or a store. Items live inside Spaces. Everything in one scrollable view.
@@ -55,7 +55,7 @@ src/
 │   │   ├── AddSpaceSheet.tsx
 │   │   ├── AddItemSheet.tsx
 │   │   └── HistorySheet.tsx
-│   ├── Header.tsx          # "Family Board" title + demo badge + theme toggle
+│   ├── Header.tsx          # "Family Space" title + demo badge + theme toggle
 │   └── ThemeToggle.tsx     # Light/dark/auto cycle, persists to localStorage
 ├── hooks/
 │   ├── spaces/

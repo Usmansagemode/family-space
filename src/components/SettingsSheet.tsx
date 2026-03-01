@@ -43,8 +43,12 @@ const STEPS = [
     title: 'Create OAuth credentials',
     body: (
       <>
-        Go to <strong>APIs &amp; Services → Credentials → Create Credentials → OAuth 2.0
-        Client ID</strong>. Choose <strong>Web application</strong>. Under{' '}
+        Go to{' '}
+        <strong>
+          APIs &amp; Services → Credentials → Create Credentials → OAuth 2.0
+          Client ID
+        </strong>
+        . Choose <strong>Web application</strong>. Under{' '}
         <strong>Authorised redirect URIs</strong> add:
         <code className="mt-1 block rounded bg-muted px-2 py-1 text-xs break-all">
           https://fmwenxuqdnsbpattjefo.supabase.co/auth/v1/callback
@@ -66,8 +70,8 @@ const STEPS = [
         >
           Supabase dashboard <ExternalLink className="h-3 w-3" />
         </a>
-        , go to <strong>Authentication → Providers → Google</strong>, enable it, and
-        paste in the Client ID and Client Secret from step 2.
+        , go to <strong>Authentication → Providers → Google</strong>, enable it,
+        and paste in the Client ID and Client Secret from step 2.
       </>
     ),
   },
@@ -75,10 +79,10 @@ const STEPS = [
     title: 'Add yourself as a test user',
     body: (
       <>
-        In Google Cloud Console go to <strong>APIs &amp; Services → OAuth consent
-        screen → Test users</strong> and add your Gmail address. This lets you sign
-        in while the app is in testing mode (no Google review needed for personal
-        use).
+        In Google Cloud Console go to{' '}
+        <strong>APIs &amp; Services → OAuth consent screen → Test users</strong>{' '}
+        and add your Gmail address. This lets you sign in while the app is in
+        testing mode (no Google review needed for personal use).
       </>
     ),
   },
@@ -99,9 +103,9 @@ const STEPS = [
         >
           Google Calendar <ExternalLink className="h-3 w-3" />
         </a>
-        . In the left sidebar click <strong>Other calendars → +</strong> and choose{' '}
-        <strong>Create new calendar</strong>. Name it something like{' '}
-        <em>Family Board</em> and click <strong>Create calendar</strong>.
+        . In the left sidebar click <strong>Other calendars → +</strong> and
+        choose <strong>Create new calendar</strong>. Name it something like{' '}
+        <em>Family Space</em> and click <strong>Create calendar</strong>.
       </>
     ),
   },
@@ -109,8 +113,9 @@ const STEPS = [
     title: 'Find and copy the Calendar ID',
     body: (
       <>
-        Click the three dots next to your new calendar → <strong>Settings</strong>.
-        Scroll down to <strong>Integrate calendar</strong>. Copy the{' '}
+        Click the three dots next to your new calendar →{' '}
+        <strong>Settings</strong>. Scroll down to{' '}
+        <strong>Integrate calendar</strong>. Copy the{' '}
         <strong>Calendar ID</strong> — it looks like{' '}
         <code className="rounded bg-muted px-1 py-0.5 text-xs">
           abc123@group.calendar.google.com
@@ -123,9 +128,9 @@ const STEPS = [
     title: 'Paste the Calendar ID here',
     body: (
       <>
-        Paste it into the <strong>Google Calendar ID</strong> field above and click{' '}
-        <strong>Save</strong>. Any item you add with a date will now appear in that
-        calendar automatically.
+        Paste it into the <strong>Google Calendar ID</strong> field above and
+        click <strong>Save</strong>. Any item you add with a date will now
+        appear in that calendar automatically.
       </>
     ),
   },
@@ -147,7 +152,12 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
       setEmbedUrl(family?.googleCalendarEmbedUrl ?? '')
       setHowToOpen(false)
     }
-  }, [open, family?.name, family?.googleCalendarId, family?.googleCalendarEmbedUrl])
+  }, [
+    open,
+    family?.name,
+    family?.googleCalendarId,
+    family?.googleCalendarEmbedUrl,
+  ])
 
   const save = useMutation({
     mutationFn: () =>
@@ -157,7 +167,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
         googleCalendarEmbedUrl: embedUrl.trim() || undefined,
       }),
     onSuccess: (updated) => {
-      void queryClient.invalidateQueries({ queryKey: ['family', 'user', user?.id] })
+      void queryClient.invalidateQueries({
+        queryKey: ['family', 'user', user?.id],
+      })
       void queryClient.invalidateQueries({ queryKey: ['family', updated.id] })
       toast.success('Settings saved')
       onOpenChange(false)
@@ -172,7 +184,7 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
       <SheetContent className="flex max-w-sm flex-col gap-0 p-0">
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle>Settings</SheetTitle>
-          <SheetDescription>Configure your family board</SheetDescription>
+          <SheetDescription>Configure your family space</SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
@@ -209,45 +221,51 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
               value={embedUrl}
               onChange={(e) => setEmbedUrl(e.target.value)}
             />
+            {embedUrl.trim() &&
+              !embedUrl.trim().startsWith('https://calendar.google.com/calendar/embed') && (
+                <p className="text-xs text-destructive">
+                  Should start with https://calendar.google.com/calendar/embed
+                </p>
+              )}
             <p className="text-xs text-muted-foreground">
               Google Calendar → Settings → your calendar → Integrate calendar →
               copy the <strong>src=</strong> URL from the Embed code.
             </p>
           </div>
 
-          {/* How-to collapsible */}
-          <div className="rounded-lg border border-border">
+          {/* How-to — subtle help link */}
+          <div>
             <button
               type="button"
               onClick={() => setHowToOpen((v) => !v)}
-              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium transition hover:bg-muted/50"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
             >
               {howToOpen ? (
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ChevronDown className="h-3 w-3 shrink-0" />
               ) : (
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ChevronRight className="h-3 w-3 shrink-0" />
               )}
               How to set up Google Calendar
             </button>
 
             {howToOpen && (
-              <div className="border-t border-border px-4 pb-4">
-                <ol className="mt-4 flex flex-col gap-5">
-                  {STEPS.map((step, i) => (
-                    <li key={i} className="flex gap-3">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-                        {i + 1}
-                      </span>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium leading-snug">{step.title}</p>
-                        <p className="text-xs leading-relaxed text-muted-foreground">
-                          {step.body}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+              <ol className="mt-4 flex flex-col gap-5 border-l-2 border-border pl-4">
+                {STEPS.map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-medium leading-snug">
+                        {step.title}
+                      </p>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {step.body}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
         </div>

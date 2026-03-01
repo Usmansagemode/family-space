@@ -136,7 +136,8 @@ export function AddItemSheet({
           ? format(editItem.endDate, 'HH:mm')
           : '',
       )
-      setShowSuggestions(false)
+      // Show suggestions immediately when creating (not editing)
+      setShowSuggestions(!editItem)
     }
   }, [open, editItem, reset])
 

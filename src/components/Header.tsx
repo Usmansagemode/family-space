@@ -73,7 +73,8 @@ export function Header() {
         )}
       </div>
 
-      {/* Avatar dropdown */}
+      {/* Avatar dropdown — only shown when authenticated */}
+      {(isDemoMode || !!user) && (
       <div className="ml-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -136,8 +137,9 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      )}
 
-      {!isDemoMode && (
+      {!isDemoMode && !!user && (
         <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       )}
     </header>

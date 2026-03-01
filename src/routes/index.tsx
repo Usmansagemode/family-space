@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { LayoutGrid, CalendarDays } from 'lucide-react'
-import { BoardView } from '#/components/board/BoardView'
+import { SpaceView } from '#/components/board/SpaceView'
 import { CalendarView } from '#/components/CalendarView'
 import { LoginPage } from '#/components/auth/LoginPage'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -66,23 +66,34 @@ function FamilyContent({
   calendarId: string | null
   embedUrl?: string
 }) {
-  const [tab, setTab] = useState<Tab>('board')
+  const [tab, setTab] = useState<Tab>(() => {
+    try {
+      const stored = window.localStorage.getItem('fs-tab')
+      if (stored === 'calendar') return 'calendar'
+    } catch {}
+    return 'board'
+  })
+
+  function handleTabChange(newTab: Tab) {
+    setTab(newTab)
+    try { window.localStorage.setItem('fs-tab', newTab) } catch {}
+  }
 
   return (
     <div className="flex h-full">
       {/* Vertical tab sidebar */}
-      <div className="flex shrink-0 flex-col border-r border-border py-3">
+      <div className="flex shrink-0 flex-col border-r border-border/40 py-3">
         <TabButton
           active={tab === 'board'}
           icon={<LayoutGrid className="h-4 w-4" />}
-          onClick={() => setTab('board')}
+          onClick={() => handleTabChange('board')}
         >
-          Board
+          Spaces
         </TabButton>
         <TabButton
           active={tab === 'calendar'}
           icon={<CalendarDays className="h-4 w-4" />}
-          onClick={() => setTab('calendar')}
+          onClick={() => handleTabChange('calendar')}
         >
           Calendar
         </TabButton>
@@ -90,7 +101,7 @@ function FamilyContent({
 
       {/* Content — both mounted to preserve iframe state */}
       <div className={cn('min-w-0 flex-1', tab !== 'board' && 'hidden')}>
-        <BoardView
+        <SpaceView
           familyId={familyId}
           providerToken={providerToken}
           calendarId={calendarId}

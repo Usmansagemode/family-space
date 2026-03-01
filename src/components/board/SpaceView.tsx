@@ -29,7 +29,7 @@ type Props = {
   calendarId: string | null
 }
 
-export function BoardView({ familyId, providerToken, calendarId }: Props) {
+export function SpaceView({ familyId, providerToken, calendarId }: Props) {
   const [addSpaceOpen, setAddSpaceOpen] = useState(false)
   const { data: spaces, isLoading } = useSpaces(familyId)
   const { create, reorder } = useSpaceMutations(familyId)

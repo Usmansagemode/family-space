@@ -51,6 +51,7 @@ export function useItemMutations(spaceId: string) {
     },
     onSuccess: () => {
       void invalidate()
+      toast.success('Item added')
     },
     onError: () => {
       toast.error('Failed to add item')
@@ -129,6 +130,9 @@ export function useItemMutations(spaceId: string) {
       )
       return { prev }
     },
+    onSuccess: () => {
+      toast.success('Marked as done')
+    },
     onError: (_err, _item, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(key, ctx.prev)
       toast.error('Failed to complete item')
@@ -175,13 +179,15 @@ export function useItemMutations(spaceId: string) {
       )
       return { prev }
     },
+    onSuccess: () => {
+      toast.success('Item re-added')
+    },
     onError: (_err, _item, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(key, ctx.prev)
       toast.error('Failed to re-add item')
     },
     onSettled: () => {
       void invalidate()
-      toast.success('Item re-added')
     },
   })
 
