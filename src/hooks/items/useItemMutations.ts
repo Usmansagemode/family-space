@@ -33,6 +33,7 @@ export function useItemMutations(spaceId: string) {
     mutationFn: async (input: {
       title: string
       description?: string
+      quantity?: string
       startDate?: Date
       endDate?: Date
     }) => {
@@ -63,26 +64,38 @@ export function useItemMutations(spaceId: string) {
       id: string
       title?: string
       description?: string
+      quantity?: string | null
       startDate?: Date
       endDate?: Date
     }) => {
       let googleEventId: string | null | undefined = undefined
 
       if (providerToken && calendarId) {
-        const cached = queryClient.getQueryData<Item[]>(key)?.find((i) => i.id === input.id)
+        const cached = queryClient
+          .getQueryData<Item[]>(key)
+          ?.find((i) => i.id === input.id)
         const existingEventId = cached?.googleEventId
 
         if (existingEventId) {
           if (input.startDate !== undefined) {
             // Date still set — update the event (title or date may have changed)
-            await updateCalendarEvent(providerToken, calendarId, existingEventId, {
-              title: input.title ?? cached?.title ?? '',
-              startDate: input.startDate,
-              endDate: input.endDate,
-            })
+            await updateCalendarEvent(
+              providerToken,
+              calendarId,
+              existingEventId,
+              {
+                title: input.title ?? cached?.title ?? '',
+                startDate: input.startDate,
+                endDate: input.endDate,
+              },
+            )
           } else {
             // Date was cleared — delete the event
-            await deleteCalendarEvent(providerToken, calendarId, existingEventId)
+            await deleteCalendarEvent(
+              providerToken,
+              calendarId,
+              existingEventId,
+            )
             googleEventId = null
           }
         } else if (input.startDate !== undefined) {
@@ -99,6 +112,7 @@ export function useItemMutations(spaceId: string) {
       return updateItem(input.id, {
         title: input.title,
         description: input.description,
+        quantity: input.quantity,
         startDate: input.startDate,
         endDate: input.endDate,
         ...(googleEventId !== undefined && { googleEventId }),

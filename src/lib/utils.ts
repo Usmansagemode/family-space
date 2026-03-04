@@ -36,7 +36,9 @@ export function extractHue(oklchColor: string): string {
 // reactively when the user toggles the theme.
 export function useIsDark(): boolean {
   const [isDark, setIsDark] = useState(
-    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+    () =>
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark'),
   )
   useEffect(() => {
     const observer = new MutationObserver(() => {

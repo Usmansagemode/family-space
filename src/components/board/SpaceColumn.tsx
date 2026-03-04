@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { User, ShoppingCart, MoreHorizontal, Plus, History, GripVertical } from 'lucide-react'
+import {
+  User,
+  ShoppingCart,
+  MoreHorizontal,
+  Plus,
+  History,
+  GripVertical,
+} from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -33,7 +40,8 @@ export function SpaceColumn({ space, familyId }: Props) {
 
   const { data: items, isLoading } = useItems(space.id)
   const { create: createItem } = useItemMutations(space.id)
-  const { update: updateSpace, remove: removeSpace } = useSpaceMutations(familyId)
+  const { update: updateSpace, remove: removeSpace } =
+    useSpaceMutations(familyId)
 
   const activeItems = (items ?? []).filter((i) => !i.completed)
   const completedCount = (items ?? []).filter((i) => i.completed).length
@@ -145,6 +153,7 @@ export function SpaceColumn({ space, familyId }: Props) {
                   item={item}
                   spaceColor={space.color}
                   spaceName={space.name}
+                  spaceType={space.type}
                 />
               ))
             )}
@@ -170,6 +179,7 @@ export function SpaceColumn({ space, familyId }: Props) {
         onOpenChange={setAddItemOpen}
         spaceId={space.id}
         spaceName={space.name}
+        spaceType={space.type}
         onCreate={(input) => {
           createItem.mutate(input, { onSuccess: () => setAddItemOpen(false) })
         }}
@@ -188,7 +198,11 @@ export function SpaceColumn({ space, familyId }: Props) {
         onOpenChange={setEditSpaceOpen}
         editSpace={space}
         onCreate={() => {}}
-        onUpdate={(input) => updateSpace.mutate(input, { onSuccess: () => setEditSpaceOpen(false) })}
+        onUpdate={(input) =>
+          updateSpace.mutate(input, {
+            onSuccess: () => setEditSpaceOpen(false),
+          })
+        }
         isPending={updateSpace.isPending}
       />
     </>

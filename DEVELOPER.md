@@ -22,13 +22,14 @@ This document covers everything needed to go from zero to a running local develo
 
 ## 1. Prerequisites
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node.js | 20+ | Use [nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) |
-| npm | 10+ | Comes with Node |
-| Git | any | — |
+| Tool    | Version | Notes                                                                            |
+| ------- | ------- | -------------------------------------------------------------------------------- |
+| Node.js | 20+     | Use [nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) |
+| npm     | 10+     | Comes with Node                                                                  |
+| Git     | any     | —                                                                                |
 
 You will also need accounts on:
+
 - [Supabase](https://supabase.com) (free tier is fine)
 - [Google Cloud Console](https://console.cloud.google.com)
 
@@ -110,8 +111,9 @@ create table items (
   space_id        uuid references spaces(id) on delete cascade not null,
   title           text not null,
   description     text,
-  start_date      timestamptz,
-  end_date        timestamptz,
+  quantity        text,          -- store spaces only (e.g. "2", "500g", "1 dozen")
+  start_date      timestamptz,   -- person spaces only
+  end_date        timestamptz,   -- person spaces only
   completed       boolean not null default false,
   completed_at    timestamptz,
   google_event_id text,
@@ -158,6 +160,15 @@ create policy "Item owner full access"
 ```
 
 > **Note**: These policies are single-owner. Once multi-user / invite is implemented, the policies will need to be updated to allow all family members access.
+
+#### Migrations
+
+If you have an existing database, run these after the initial schema:
+
+```sql
+-- Add quantity column (store items)
+alter table items add column quantity text;
+```
 
 ---
 
@@ -256,6 +267,7 @@ This is optional. The app works without it — items simply won't sync to Google
 On the same Settings page, scroll down to **Integrate calendar** and find the **Embed code** section.
 
 The embed URL looks like:
+
 ```
 https://calendar.google.com/calendar/embed?src=abc123%40group.calendar.google.com&ctz=America%2FNew_York
 ```
@@ -356,22 +368,25 @@ src/
 ## 9. Key patterns & conventions
 
 ### Demo mode
+
 If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are not set, `isDemoMode = true`. Every data function in `src/lib/supabase/` has an in-memory fallback branch. Use this for UI development without a Supabase connection.
 
 ### Data fetching
+
 All server state lives in TanStack Query. Query keys follow this convention:
 
 ```ts
-['family', familyId]           // single family by ID
-['family', 'user', userId]     // family belonging to a user
-['spaces', familyId]           // spaces for a family
-['items', spaceId]             // items for a space
+;['family', familyId][('family', 'user', userId)][('spaces', familyId)][ // single family by ID // family belonging to a user // spaces for a family
+  ('items', spaceId)
+] // items for a space
 ```
 
 ### Mutations
+
 Mutations are grouped in `useXxxMutations` hooks. Each returns `{ create, update, remove, ... }`. Every mutation shows a `toast.error` on failure. Invalidate related query keys in `onSuccess`.
 
 ### Sheet closing pattern
+
 Sheets do **not** close themselves on submit. The parent component closes the sheet in the mutation's `onSuccess` callback:
 
 ```ts
@@ -381,12 +396,15 @@ create.mutate(input, { onSuccess: () => setOpen(false) })
 This keeps the sheet (and its loader) visible until the server confirms success.
 
 ### Space colours
+
 Colours are OKLCH strings (e.g. `oklch(0.88 0.10 230)`). The `extractHue()` utility pulls the hue component out for per-space checkbox and card theming. The palette is defined in `src/lib/config.ts`.
 
 ### Date sentinel
+
 When a user picks a date with no time, the date is stored at noon local time (`T12:00:00`). `hasExplicitTime(date)` returns `false` when hours === 12 and minutes === 0. This keeps dates and datetimes in the same column in Supabase.
 
 ### Code style
+
 - **Prettier**: `semi: false`, `singleQuote: true`, `trailingComma: 'all'`
 - **TypeScript**: strict mode, `noUnusedLocals`, `noUnusedParameters`
 - **Components**: named exports, props typed inline
@@ -422,21 +440,26 @@ And add it in Supabase under **Authentication → URL Configuration → Redirect
 ## 11. Troubleshooting
 
 ### "Invalid login" / OAuth error after sign-in
+
 - Check that the redirect URI in Google Cloud Console exactly matches the Supabase callback URL (including no trailing slash).
 - Check that your email is in the **Test users** list in Google Cloud Console.
 - Check that the Google provider is enabled in Supabase **Authentication → Providers**.
 
 ### Calendar events not appearing in Google Calendar
+
 - Confirm the Calendar ID in Settings matches the one in Google Calendar → Settings → Integrate calendar.
 - Check the browser console for a 401 or 403 error from the Calendar API. This usually means the OAuth token has expired — sign out and sign back in.
 - Make sure the `https://www.googleapis.com/auth/calendar.events` scope is listed in the Supabase Google provider scopes field.
 
 ### Items load but spaces are empty / vice versa
+
 - Check the RLS policies are applied (section 4.3). A missing policy silently returns empty arrays.
 - In the Supabase dashboard, go to **Table Editor** and verify rows exist in the `spaces` and `items` tables.
 
 ### App shows demo data after adding `.env`
+
 - Vite reads `.env` at startup. Restart the dev server after adding or changing `.env`.
 
 ### TypeScript errors on `zod`
+
 This project uses Zod v4. The API changed slightly from v3. Refer to the [Zod v4 migration guide](https://zod.dev) if you see type errors on schema methods.

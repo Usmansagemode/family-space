@@ -222,7 +222,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
               onChange={(e) => setEmbedUrl(e.target.value)}
             />
             {embedUrl.trim() &&
-              !embedUrl.trim().startsWith('https://calendar.google.com/calendar/embed') && (
+              !embedUrl
+                .trim()
+                .startsWith('https://calendar.google.com/calendar/embed') && (
                 <p className="text-xs text-destructive">
                   Should start with https://calendar.google.com/calendar/embed
                 </p>

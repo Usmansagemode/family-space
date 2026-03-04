@@ -123,9 +123,7 @@ export async function updateSpace(
 ): Promise<Space> {
   if (isDemoMode) {
     await delay()
-    demoSpaces = demoSpaces.map((s) =>
-      s.id === id ? { ...s, ...input } : s,
-    )
+    demoSpaces = demoSpaces.map((s) => (s.id === id ? { ...s, ...input } : s))
     const updated = demoSpaces.find((s) => s.id === id)
     if (!updated) throw new Error('Space not found')
     return updated
@@ -153,9 +151,7 @@ export async function deleteSpace(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function reorderSpaces(
-  orderedIds: string[],
-): Promise<void> {
+export async function reorderSpaces(orderedIds: string[]): Promise<void> {
   if (isDemoMode) {
     await delay(100)
     demoSpaces = demoSpaces.map((s) => ({
@@ -166,10 +162,7 @@ export async function reorderSpaces(
   }
 
   const updates = orderedIds.map((id, index) =>
-    supabase!
-      .from('spaces')
-      .update({ sort_order: index })
-      .eq('id', id),
+    supabase!.from('spaces').update({ sort_order: index }).eq('id', id),
   )
   await Promise.all(updates)
 }

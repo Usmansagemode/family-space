@@ -45,7 +45,11 @@ export async function fetchFamily(id: string): Promise<Family> {
 
 export async function updateFamily(
   id: string,
-  input: { name?: string; googleCalendarId?: string; googleCalendarEmbedUrl?: string },
+  input: {
+    name?: string
+    googleCalendarId?: string
+    googleCalendarEmbedUrl?: string
+  },
 ): Promise<Family> {
   if (isDemoMode) {
     await delay()

@@ -4,9 +4,10 @@ import {
   closestCenter,
   PointerSensor,
   useSensor,
-  useSensors,
-  type DragEndEvent,
+  useSensors
+  
 } from '@dnd-kit/core'
+import type {DragEndEvent} from '@dnd-kit/core';
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -56,7 +57,11 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
   }
 
   return (
-    <BoardProvider familyId={familyId} providerToken={providerToken} calendarId={calendarId}>
+    <BoardProvider
+      familyId={familyId}
+      providerToken={providerToken}
+      calendarId={calendarId}
+    >
       <div className="flex h-full flex-col">
         <DndContext
           sensors={sensors}

@@ -8,6 +8,7 @@ UX gaps sprint completed: 2026-03-01
 ## Current status
 
 The core loop works end-to-end:
+
 - Create spaces (per person or store) with colours
 - Add items with optional dates and times
 - Check items off → they move to history
@@ -67,30 +68,39 @@ Active tab persisted to `localStorage` under key `fs-tab`. Initialised from stor
 
 ## Missing features (priority order)
 
-### 1. Multi-user / family invite  ← most important
+### 1. Multi-user / family invite ← most important
+
 Right now every user gets their own isolated family. A spouse or child cannot join the same board. This is the single most important missing feature. Options:
+
 - Invite by email (Supabase email invite)
 - Join by shareable code
 - Shared family ID in URL
 
 ### 2. Mobile / touch experience
+
 The horizontal column layout is hard to use on a phone. Families share phones. Options:
+
 - Stacked single-column view on small screens, switching to board on tablet+
 - Swipeable column cards (one column per screen)
 
 ### 3. Upcoming / agenda view
+
 No way to see "what is happening this week" across all spaces. Adding a date-sorted list view (either as a third tab or a panel) would make Family Space useful as a weekly planner.
 
 ### 4. Bi-directional Google Calendar sync
+
 Events created directly in Google Calendar do not appear in Family Space. Users will expect this and be confused when GCal edits do not reflect here.
 
 ### 5. Store spaces — quantity field
+
 For grocery spaces, a "quantity" or "amount" field makes more sense than a date. The form treats all spaces identically. A per-space-type form would be more natural.
 
 ### 6. Push / email notifications
+
 Reminders for upcoming items with dates. Could be handled via a Supabase Edge Function + pg_cron and Web Push or email.
 
 ### 7. Shared shopping mode
+
 A focused "shopping mode" view for a store space: large text, swipe-to-complete, phone-friendly. Useful in-aisle.
 
 ---

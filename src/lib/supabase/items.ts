@@ -57,6 +57,7 @@ function rowToItem(row: {
   space_id: string
   title: string
   description: string | null
+  quantity: string | null
   start_date: string | null
   end_date: string | null
   completed: boolean
@@ -70,6 +71,7 @@ function rowToItem(row: {
     spaceId: row.space_id,
     title: row.title,
     description: row.description ?? undefined,
+    quantity: row.quantity ?? undefined,
     startDate: row.start_date ? new Date(row.start_date) : undefined,
     endDate: row.end_date ? new Date(row.end_date) : undefined,
     completed: row.completed,
@@ -102,6 +104,7 @@ export async function createItem(input: {
   spaceId: string
   title: string
   description?: string
+  quantity?: string
   startDate?: Date
   endDate?: Date
   googleEventId?: string
@@ -114,6 +117,7 @@ export async function createItem(input: {
       spaceId: input.spaceId,
       title: input.title,
       description: input.description,
+      quantity: input.quantity,
       startDate: input.startDate,
       endDate: input.endDate,
       googleEventId: input.googleEventId,
@@ -131,6 +135,7 @@ export async function createItem(input: {
       space_id: input.spaceId,
       title: input.title,
       description: input.description ?? null,
+      quantity: input.quantity ?? null,
       start_date: input.startDate?.toISOString() ?? null,
       end_date: input.endDate?.toISOString() ?? null,
       google_event_id: input.googleEventId ?? null,
@@ -147,6 +152,7 @@ export async function updateItem(
   input: Partial<{
     title: string
     description: string
+    quantity: string | null
     startDate: Date
     endDate: Date
     googleEventId: string | null
@@ -154,11 +160,12 @@ export async function updateItem(
 ): Promise<Item> {
   if (isDemoMode) {
     await delay()
-    const { googleEventId: newEventId, ...fields } = input
+    const { googleEventId: newEventId, quantity: newQty, ...fields } = input
     demoItems = demoItems.map((i) => {
       if (i.id !== id) return i
       const next: Item = { ...i, ...fields, updatedAt: new Date() }
       if (newEventId !== undefined) next.googleEventId = newEventId ?? undefined
+      if (newQty !== undefined) next.quantity = newQty ?? undefined
       return next
     })
     const updated = demoItems.find((i) => i.id === id)
@@ -166,12 +173,19 @@ export async function updateItem(
     return updated
   }
 
-  const dbInput: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  const dbInput: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
   if (input.title !== undefined) dbInput['title'] = input.title
-  if (input.description !== undefined) dbInput['description'] = input.description
-  if (input.startDate !== undefined) dbInput['start_date'] = input.startDate.toISOString()
-  if (input.endDate !== undefined) dbInput['end_date'] = input.endDate.toISOString()
-  if (input.googleEventId !== undefined) dbInput['google_event_id'] = input.googleEventId
+  if (input.description !== undefined)
+    dbInput['description'] = input.description
+  if (input.quantity !== undefined) dbInput['quantity'] = input.quantity
+  if (input.startDate !== undefined)
+    dbInput['start_date'] = input.startDate.toISOString()
+  if (input.endDate !== undefined)
+    dbInput['end_date'] = input.endDate.toISOString()
+  if (input.googleEventId !== undefined)
+    dbInput['google_event_id'] = input.googleEventId
 
   const { data, error } = await supabase!
     .from('items')
@@ -189,7 +203,9 @@ export async function completeItem(id: string): Promise<Item> {
     await delay()
     const now = new Date()
     demoItems = demoItems.map((i) =>
-      i.id === id ? { ...i, completed: true, completedAt: now, updatedAt: now } : i,
+      i.id === id
+        ? { ...i, completed: true, completedAt: now, updatedAt: now }
+        : i,
     )
     const updated = demoItems.find((i) => i.id === id)
     if (!updated) throw new Error('Item not found')

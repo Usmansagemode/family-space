@@ -76,7 +76,9 @@ function FamilyContent({
 
   function handleTabChange(newTab: Tab) {
     setTab(newTab)
-    try { window.localStorage.setItem('fs-tab', newTab) } catch {}
+    try {
+      window.localStorage.setItem('fs-tab', newTab)
+    } catch {}
   }
 
   return (

@@ -57,7 +57,9 @@ export function Header() {
       <div className="flex items-center gap-2.5">
         <Home className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="flex flex-col">
-          <span className="text-sm font-bold leading-none tracking-tight">Family Space</span>
+          <span className="text-sm font-bold leading-none tracking-tight">
+            Family Space
+          </span>
           {familyNameLoading ? (
             <Skeleton className="mt-1 h-3 w-20" />
           ) : familyName ? (
@@ -75,68 +77,76 @@ export function Header() {
 
       {/* Avatar dropdown — only shown when authenticated */}
       {(isDemoMode || !!user) && (
-      <div className="ml-auto">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {user?.user_metadata?.avatar_url ? (
-                <img
-                  src={user.user_metadata.avatar_url as string}
-                  className="h-8 w-8 rounded-full"
-                  alt=""
-                />
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                </span>
+        <div className="ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-8 w-8 items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {user?.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url as string}
+                    className="h-8 w-8 rounded-full"
+                    alt=""
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                  </span>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-52">
+              {/* User info */}
+              {user && (
+                <>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium leading-none">
+                        {user.user_metadata?.name as string}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {user.email}
+                      </span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                </>
               )}
-            </button>
-          </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="end" className="w-52">
-            {/* User info */}
-            {user && (
-              <>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium leading-none">
-                      {user.user_metadata?.name as string}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {user.email}
-                    </span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-              </>
-            )}
+              {/* Dark mode toggle */}
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault()
+                  toggleTheme()
+                }}
+              >
+                {isDark ? <Sun /> : <Moon />}
+                {isDark ? 'Light mode' : 'Dark mode'}
+              </DropdownMenuItem>
 
-            {/* Dark mode toggle */}
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); toggleTheme() }}>
-              {isDark ? <Sun /> : <Moon />}
-              {isDark ? 'Light mode' : 'Dark mode'}
-            </DropdownMenuItem>
-
-            {/* Real mode only */}
-            {!isDemoMode && (
-              <>
-                <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-                  <Settings />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => void signOut()}>
-                  <LogOut />
-                  Sign out
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              {/* Real mode only */}
+              {!isDemoMode && (
+                <>
+                  <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+                    <Settings />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => void signOut()}
+                  >
+                    <LogOut />
+                    Sign out
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )}
 
       {!isDemoMode && !!user && (

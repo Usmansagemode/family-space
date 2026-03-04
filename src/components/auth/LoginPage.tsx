@@ -44,7 +44,7 @@ const FEATURES = [
   {
     icon: <CalendarDays className="h-5 w-5" />,
     title: 'Your calendar, automatically updated',
-    body: "Add a date (or a time) to any task and it syncs to your shared Google Calendar — no copy-pasting, no double entry. Everyone stays in the loop without extra effort.",
+    body: 'Add a date (or a time) to any task and it syncs to your shared Google Calendar — no copy-pasting, no double entry. Everyone stays in the loop without extra effort.',
     placeholder: 'Calendar sync screenshot',
   },
   {
@@ -74,7 +74,11 @@ export function LoginPage() {
           Family Space is a shared board for tasks, groceries, and appointments
           — organised by person and store, and synced to Google Calendar.
         </p>
-        <Button size="lg" onClick={signInWithGoogle} className="mt-8 gap-3 px-7 py-6 text-base">
+        <Button
+          size="lg"
+          onClick={signInWithGoogle}
+          className="mt-8 gap-3 px-7 py-6 text-base"
+        >
           {GOOGLE_SVG}
           Sign in with Google
         </Button>

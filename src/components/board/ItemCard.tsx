@@ -1,18 +1,27 @@
 import { useState } from 'react'
 import { CalendarIcon } from 'lucide-react'
 import { Checkbox } from '#/components/ui/checkbox'
-import { cn, formatDate, formatTime, hasExplicitTime, extractHue, useIsDark } from '#/lib/utils'
+import {
+  cn,
+  formatDate,
+  formatTime,
+  hasExplicitTime,
+  extractHue,
+  useIsDark,
+} from '#/lib/utils'
 import { AddItemSheet } from './AddItemSheet'
 import { useItemMutations } from '#/hooks/items/useItemMutations'
 import type { Item } from '#/entities/Item'
+import type { SpaceType } from '#/entities/Space'
 
 type Props = {
   item: Item
   spaceColor: string
   spaceName: string
+  spaceType: SpaceType
 }
 
-export function ItemCard({ item, spaceColor, spaceName }: Props) {
+export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
   const [editOpen, setEditOpen] = useState(false)
   const { complete, update, remove } = useItemMutations(item.spaceId)
   const hue = extractHue(spaceColor)
@@ -20,12 +29,18 @@ export function ItemCard({ item, spaceColor, spaceName }: Props) {
 
   // Card colors adapt properly to dark mode
   const bgColor = isDark ? `oklch(0.26 0.08 ${hue})` : spaceColor
-  const borderColor = isDark ? `oklch(0.34 0.10 ${hue})` : `oklch(0.78 0.13 ${hue})`
+  const borderColor = isDark
+    ? `oklch(0.34 0.10 ${hue})`
+    : `oklch(0.78 0.13 ${hue})`
 
   // Checkbox colours: vivid hue for both the unchecked border (--input)
   // and the checked fill (--primary)
-  const checkboxBorder = isDark ? `oklch(0.65 0.14 ${hue})` : `oklch(0.55 0.15 ${hue})`
-  const checkboxPrimary = isDark ? `oklch(0.68 0.18 ${hue})` : `oklch(0.52 0.18 ${hue})`
+  const checkboxBorder = isDark
+    ? `oklch(0.65 0.14 ${hue})`
+    : `oklch(0.55 0.15 ${hue})`
+  const checkboxPrimary = isDark
+    ? `oklch(0.68 0.18 ${hue})`
+    : `oklch(0.52 0.18 ${hue})`
 
   function handleCheck(checked: boolean | 'indeterminate') {
     if (checked === true) {
@@ -68,12 +83,18 @@ export function ItemCard({ item, spaceColor, spaceName }: Props) {
         >
           <p className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
             {item.title}
+            {item.quantity && (
+              <span className="ml-1.5 text-xs font-normal text-foreground/60">
+                × {item.quantity}
+              </span>
+            )}
           </p>
           {item.startDate && (
             <p className="mt-1 flex items-center gap-1 text-xs text-foreground/60">
               <CalendarIcon className="h-3 w-3" />
               {formatDate(item.startDate)}
-              {hasExplicitTime(item.startDate) && ` ${formatTime(item.startDate)}`}
+              {hasExplicitTime(item.startDate) &&
+                ` ${formatTime(item.startDate)}`}
               {item.endDate &&
                 ` – ${formatDate(item.endDate)}${hasExplicitTime(item.endDate) ? ` ${formatTime(item.endDate)}` : ''}`}
             </p>
@@ -91,13 +112,18 @@ export function ItemCard({ item, spaceColor, spaceName }: Props) {
         onOpenChange={setEditOpen}
         spaceId={item.spaceId}
         spaceName={spaceName}
+        spaceType={spaceType}
         editItem={item}
         onCreate={() => {}}
         onUpdate={(input) => {
           update.mutate(input, { onSuccess: () => setEditOpen(false) })
         }}
-        onComplete={(it) => complete.mutate(it, { onSuccess: () => setEditOpen(false) })}
-        onDelete={(it) => remove.mutate(it, { onSuccess: () => setEditOpen(false) })}
+        onComplete={(it) =>
+          complete.mutate(it, { onSuccess: () => setEditOpen(false) })
+        }
+        onDelete={(it) =>
+          remove.mutate(it, { onSuccess: () => setEditOpen(false) })
+        }
         isPending={update.isPending || complete.isPending || remove.isPending}
       />
     </>

@@ -15,11 +15,8 @@ export function useSpaceMutations(familyId: string) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key })
 
   const create = useMutation({
-    mutationFn: (input: {
-      name: string
-      color: string
-      type: SpaceType
-    }) => createSpace({ familyId, ...input }),
+    mutationFn: (input: { name: string; color: string; type: SpaceType }) =>
+      createSpace({ familyId, ...input }),
     onSuccess: () => {
       void invalidate()
       toast.success('Space created')

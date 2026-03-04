@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { CalendarIcon, Clock, Loader2 } from 'lucide-react'
+import { CalendarIcon, Clock, Loader2, Hash } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Sheet,
@@ -22,10 +22,12 @@ import {
 import { cn, hasExplicitTime } from '#/lib/utils'
 import { useItems } from '#/hooks/items/useItems'
 import type { Item } from '#/entities/Item'
+import type { SpaceType } from '#/entities/Space'
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().max(500).optional(),
+  quantity: z.string().max(50).optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -34,10 +36,12 @@ type Props = {
   onOpenChange: (open: boolean) => void
   spaceId: string
   spaceName: string
+  spaceType: SpaceType
   editItem?: Item
   onCreate: (input: {
     title: string
     description?: string
+    quantity?: string
     startDate?: Date
     endDate?: Date
   }) => void
@@ -45,6 +49,7 @@ type Props = {
     id: string
     title: string
     description?: string
+    quantity?: string | null
     startDate?: Date
     endDate?: Date
   }) => void
@@ -58,6 +63,7 @@ export function AddItemSheet({
   onOpenChange,
   spaceId,
   spaceName,
+  spaceType,
   editItem,
   onCreate,
   onUpdate,
@@ -65,8 +71,11 @@ export function AddItemSheet({
   onDelete,
   isPending,
 }: Props) {
+  const isStore = spaceType === 'store'
   const isEditing = !!editItem
-  const [startDate, setStartDate] = useState<Date | undefined>(editItem?.startDate)
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    editItem?.startDate,
+  )
   const [endDate, setEndDate] = useState<Date | undefined>(editItem?.endDate)
   const [startTimeStr, setStartTimeStr] = useState(
     editItem?.startDate && hasExplicitTime(editItem.startDate)
@@ -88,6 +97,7 @@ export function AddItemSheet({
       defaultValues: {
         title: editItem?.title ?? '',
         description: editItem?.description ?? '',
+        quantity: editItem?.quantity ?? '',
       },
     })
 
@@ -103,7 +113,10 @@ export function AddItemSheet({
     const seen = new Set<string>()
     return allItems
       .filter((i) => i.completed)
-      .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0))
+      .sort(
+        (a, b) =>
+          (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
+      )
       .filter((i) => {
         const key = i.title.toLowerCase()
         if (seen.has(key)) return false
@@ -123,6 +136,7 @@ export function AddItemSheet({
       reset({
         title: editItem?.title ?? '',
         description: editItem?.description ?? '',
+        quantity: editItem?.quantity ?? '',
       })
       setStartDate(editItem?.startDate)
       setEndDate(editItem?.endDate)
@@ -143,10 +157,24 @@ export function AddItemSheet({
 
   function onSubmit(data: FormData) {
     const description = data.description?.trim() || undefined
+    const quantity = isStore ? data.quantity?.trim() || undefined : undefined
     if (isEditing && editItem && onUpdate) {
-      onUpdate({ id: editItem.id, title: data.title, description, startDate, endDate })
+      onUpdate({
+        id: editItem.id,
+        title: data.title,
+        description,
+        quantity: isStore ? (quantity ?? null) : undefined,
+        startDate: isStore ? undefined : startDate,
+        endDate: isStore ? undefined : endDate,
+      })
     } else {
-      onCreate({ title: data.title, description, startDate, endDate })
+      onCreate({
+        title: data.title,
+        description,
+        quantity,
+        startDate: isStore ? undefined : startDate,
+        endDate: isStore ? undefined : endDate,
+      })
     }
     // Sheet stays open — parent closes it in mutation's onSuccess
   }
@@ -229,151 +257,169 @@ export function AddItemSheet({
             )}
           </div>
 
-          {/* Start date + time */}
-          <div className="flex flex-col gap-2">
-            <Label>Date (optional)</Label>
-            <div className="flex gap-2">
-              <Popover open={startOpen} onOpenChange={setStartOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      'flex-1 justify-start text-left font-normal',
-                      !startDate && 'text-muted-foreground',
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, 'MMM d, yyyy') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <input
-                    type="date"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const d = new Date(e.target.value + 'T12:00:00')
-                        if (startTimeStr) {
-                          const [h, m] = startTimeStr.split(':').map(Number)
-                          d.setHours(h, m, 0, 0)
+          {/* Quantity — store spaces only */}
+          {isStore && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="item-qty">Quantity (optional)</Label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="item-qty"
+                  placeholder="e.g. 2, 500g, 1 dozen"
+                  className="pl-9"
+                  {...register('quantity')}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Start date + time — person spaces only */}
+          {!isStore && (
+            <div className="flex flex-col gap-2">
+              <Label>Date (optional)</Label>
+              <div className="flex gap-2">
+                <Popover open={startOpen} onOpenChange={setStartOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'flex-1 justify-start text-left font-normal',
+                        !startDate && 'text-muted-foreground',
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate
+                        ? format(startDate, 'MMM d, yyyy')
+                        : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <input
+                      type="date"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const d = new Date(e.target.value + 'T12:00:00')
+                          if (startTimeStr) {
+                            const [h, m] = startTimeStr.split(':').map(Number)
+                            d.setHours(h, m, 0, 0)
+                          }
+                          setStartDate(d)
+                        } else {
+                          setStartDate(undefined)
+                          setEndDate(undefined)
+                          setStartTimeStr('')
+                          setEndTimeStr('')
                         }
-                        setStartDate(d)
+                        setStartOpen(false)
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {startDate && (
+                  <input
+                    type="time"
+                    className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={startTimeStr}
+                    onChange={(e) => {
+                      const t = e.target.value
+                      setStartTimeStr(t)
+                      const updated = new Date(startDate)
+                      if (t) {
+                        const [h, m] = t.split(':').map(Number)
+                        updated.setHours(h, m, 0, 0)
                       } else {
-                        setStartDate(undefined)
-                        setEndDate(undefined)
-                        setStartTimeStr('')
-                        setEndTimeStr('')
+                        updated.setHours(12, 0, 0, 0)
                       }
-                      setStartOpen(false)
+                      setStartDate(updated)
                     }}
                   />
-                </PopoverContent>
-              </Popover>
-
-              {/* Start time — only shown once a date is picked */}
+                )}
+              </div>
               {startDate && (
-                <input
-                  type="time"
-                  className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={startTimeStr}
-                  onChange={(e) => {
-                    const t = e.target.value
-                    setStartTimeStr(t)
-                    const updated = new Date(startDate)
-                    if (t) {
-                      const [h, m] = t.split(':').map(Number)
-                      updated.setHours(h, m, 0, 0)
-                    } else {
-                      updated.setHours(12, 0, 0, 0)
-                    }
-                    setStartDate(updated)
+                <button
+                  type="button"
+                  className="self-start text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setStartDate(undefined)
+                    setEndDate(undefined)
+                    setStartTimeStr('')
+                    setEndTimeStr('')
                   }}
-                />
+                >
+                  Clear date
+                </button>
               )}
             </div>
-            {startDate && (
-              <button
-                type="button"
-                className="self-start text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setStartDate(undefined)
-                  setEndDate(undefined)
-                  setStartTimeStr('')
-                  setEndTimeStr('')
-                }}
-              >
-                Clear date
-              </button>
-            )}
-          </div>
+          )}
 
-          {/* End date + time — only shown if start date is set */}
-          {startDate && (
+          {/* End date + time — person spaces only, shown if start date is set */}
+          {!isStore && startDate && (
             <div className="flex flex-col gap-2">
               <Label>End date / time (optional)</Label>
               <div className="flex gap-2">
-              <Popover open={endOpen} onOpenChange={setEndOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      'flex-1 justify-start text-left font-normal',
-                      !endDate && 'text-muted-foreground',
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, 'MMM d, yyyy') : 'End date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <input
-                    type="date"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
-                    min={format(startDate, 'yyyy-MM-dd')}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const d = new Date(e.target.value + 'T12:00:00')
-                        if (endTimeStr) {
-                          const [h, m] = endTimeStr.split(':').map(Number)
-                          d.setHours(h, m, 0, 0)
+                <Popover open={endOpen} onOpenChange={setEndOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'flex-1 justify-start text-left font-normal',
+                        !endDate && 'text-muted-foreground',
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, 'MMM d, yyyy') : 'End date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <input
+                      type="date"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
+                      min={format(startDate, 'yyyy-MM-dd')}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const d = new Date(e.target.value + 'T12:00:00')
+                          if (endTimeStr) {
+                            const [h, m] = endTimeStr.split(':').map(Number)
+                            d.setHours(h, m, 0, 0)
+                          }
+                          setEndDate(d)
+                        } else {
+                          setEndDate(undefined)
+                          setEndTimeStr('')
                         }
-                        setEndDate(d)
+                        setEndOpen(false)
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {endDate && (
+                  <input
+                    type="time"
+                    className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={endTimeStr}
+                    onChange={(e) => {
+                      const t = e.target.value
+                      setEndTimeStr(t)
+                      const updated = new Date(endDate)
+                      if (t) {
+                        const [h, m] = t.split(':').map(Number)
+                        updated.setHours(h, m, 0, 0)
                       } else {
-                        setEndDate(undefined)
-                        setEndTimeStr('')
+                        updated.setHours(12, 0, 0, 0)
                       }
-                      setEndOpen(false)
+                      setEndDate(updated)
                     }}
                   />
-                </PopoverContent>
-              </Popover>
-
-              {/* End time — only shown once end date is picked */}
-              {endDate && (
-                <input
-                  type="time"
-                  className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={endTimeStr}
-                  onChange={(e) => {
-                    const t = e.target.value
-                    setEndTimeStr(t)
-                    const updated = new Date(endDate)
-                    if (t) {
-                      const [h, m] = t.split(':').map(Number)
-                      updated.setHours(h, m, 0, 0)
-                    } else {
-                      updated.setHours(12, 0, 0, 0)
-                    }
-                    setEndDate(updated)
-                  }}
-                />
-              )}
+                )}
+              </div>
             </div>
-          </div>
           )}
 
           {/* Notes */}

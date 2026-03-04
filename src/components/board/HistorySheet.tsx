@@ -20,7 +20,12 @@ type Props = {
   spaceName: string
 }
 
-export function HistorySheet({ open, onOpenChange, spaceId, spaceName }: Props) {
+export function HistorySheet({
+  open,
+  onOpenChange,
+  spaceId,
+  spaceName,
+}: Props) {
   const { data: items, isLoading } = useItems(spaceId)
   const { reAdd } = useItemMutations(spaceId)
 

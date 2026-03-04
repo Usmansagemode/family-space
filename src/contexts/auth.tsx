@@ -2,9 +2,10 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
-  type ReactNode,
+  useState
+  
 } from 'react'
+import type {ReactNode} from 'react';
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, isDemoMode } from '#/lib/supabase'
 

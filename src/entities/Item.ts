@@ -3,6 +3,7 @@ export type Item = {
   spaceId: string
   title: string
   description?: string
+  quantity?: string
   startDate?: Date
   endDate?: Date
   completed: boolean

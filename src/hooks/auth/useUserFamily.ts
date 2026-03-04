@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { findOrCreateFamily, type Family } from '#/lib/supabase/families'
+import { findOrCreateFamily  } from '#/lib/supabase/families'
+import type {Family} from '#/lib/supabase/families';
 
 export function useUserFamily(userId: string | undefined) {
   return useQuery<Family>({
