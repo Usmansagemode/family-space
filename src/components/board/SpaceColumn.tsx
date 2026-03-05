@@ -9,6 +9,7 @@ import {
   History,
   GripVertical,
 } from 'lucide-react'
+import { cn } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -31,9 +32,10 @@ import type { Space } from '#/entities/Space'
 type Props = {
   space: Space
   familyId: string
+  isDropTarget?: boolean
 }
 
-export function SpaceColumn({ space, familyId }: Props) {
+export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editSpaceOpen, setEditSpaceOpen] = useState(false)
@@ -43,7 +45,15 @@ export function SpaceColumn({ space, familyId }: Props) {
   const { update: updateSpace, remove: removeSpace } =
     useSpaceMutations(familyId)
 
-  const activeItems = (items ?? []).filter((i) => !i.completed)
+  const today = new Date()
+  const activeItems = (items ?? []).filter(
+    (i) =>
+      !i.completed ||
+      (i.completedAt &&
+        i.completedAt.getFullYear() === today.getFullYear() &&
+        i.completedAt.getMonth() === today.getMonth() &&
+        i.completedAt.getDate() === today.getDate()),
+  )
   const completedCount = (items ?? []).filter((i) => i.completed).length
 
   const {
@@ -53,7 +63,7 @@ export function SpaceColumn({ space, familyId }: Props) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: space.id })
+  } = useSortable({ id: space.id, data: { type: 'space' } })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -65,8 +75,17 @@ export function SpaceColumn({ space, familyId }: Props) {
     <>
       <div
         ref={setNodeRef}
-        style={{ ...style, borderTop: `3px solid ${space.color}` }}
-        className="flex h-full w-72 shrink-0 flex-col rounded-xl bg-card shadow-sm"
+        style={{
+          ...style,
+          borderTop: `3px solid ${space.color}`,
+          ...(isDropTarget && {
+            boxShadow: `0 0 0 2px ${space.color}`,
+          }),
+        }}
+        className={cn(
+          'flex h-full w-72 shrink-0 flex-col rounded-xl bg-card shadow-sm transition-shadow',
+          isDropTarget && 'bg-card/80',
+        )}
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 pt-3 pb-1">

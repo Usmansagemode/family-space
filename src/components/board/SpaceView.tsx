@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   useSensor,
-  useSensors
-  
+  useSensors,
 } from '@dnd-kit/core'
-import type {DragEndEvent} from '@dnd-kit/core';
+import type {
+  DragStartEvent,
+  DragOverEvent,
+  DragEndEvent,
+} from '@dnd-kit/core'
 import {
   SortableContext,
   horizontalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -20,9 +26,11 @@ import { SpaceColumn } from './SpaceColumn'
 import { AddSpaceSheet } from './AddSpaceSheet'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
-import { useQueryClient } from '@tanstack/react-query'
+import { moveItem } from '#/lib/supabase/items'
 import { BoardProvider } from '#/contexts/board'
+import { extractHue, useIsDark } from '#/lib/utils'
 import type { Space } from '#/entities/Space'
+import type { Item } from '#/entities/Item'
 
 type Props = {
   familyId: string
@@ -30,8 +38,15 @@ type Props = {
   calendarId: string | null
 }
 
+type ActiveDragItem = { item: Item; spaceColor: string }
+
 export function SpaceView({ familyId, providerToken, calendarId }: Props) {
   const [addSpaceOpen, setAddSpaceOpen] = useState(false)
+  const [activeDragItem, setActiveDragItem] = useState<ActiveDragItem | null>(
+    null,
+  )
+  const [overSpaceId, setOverSpaceId] = useState<string | null>(null)
+
   const { data: spaces, isLoading } = useSpaces(familyId)
   const { create, reorder } = useSpaceMutations(familyId)
   const queryClient = useQueryClient()
@@ -40,20 +55,93 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
 
+  const moveItemMutation = useMutation({
+    mutationFn: ({
+      item,
+      newSpaceId,
+    }: {
+      item: Item
+      newSpaceId: string
+    }) => moveItem(item.id, newSpaceId),
+    onError: (_err, { item, newSpaceId }) => {
+      // Revert optimistic update
+      queryClient.setQueryData<Item[]>(
+        ['items', newSpaceId],
+        (old) => old?.filter((i) => i.id !== item.id) ?? [],
+      )
+      queryClient.setQueryData<Item[]>(
+        ['items', item.spaceId],
+        (old) => [item, ...(old ?? [])],
+      )
+      toast.error('Failed to move item')
+    },
+    onSettled: (_data, _err, { item, newSpaceId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['items', item.spaceId],
+      })
+      void queryClient.invalidateQueries({ queryKey: ['items', newSpaceId] })
+    },
+  })
+
+  function handleDragStart(event: DragStartEvent) {
+    if (event.active.data.current?.type === 'item') {
+      setActiveDragItem({
+        item: event.active.data.current.item as Item,
+        spaceColor: event.active.data.current.spaceColor as string,
+      })
+    }
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    if (event.active.data.current?.type === 'item') {
+      setOverSpaceId((event.over?.id as string) ?? null)
+    }
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveDragItem(null)
+    setOverSpaceId(null)
+
     const { active, over } = event
-    if (!over || active.id === over.id || !spaces) return
+    if (!over) return
 
-    const oldIndex = spaces.findIndex((s) => s.id === active.id)
-    const newIndex = spaces.findIndex((s) => s.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
+    const activeType = active.data.current?.type
 
-    const reordered = arrayMove(spaces, oldIndex, newIndex)
+    if (activeType === 'space') {
+      if (active.id === over.id || !spaces) return
+      const oldIndex = spaces.findIndex((s) => s.id === active.id)
+      const newIndex = spaces.findIndex((s) => s.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+      const reordered = arrayMove(spaces, oldIndex, newIndex)
+      queryClient.setQueryData<Space[]>(['spaces', familyId], reordered)
+      reorder.mutate(reordered.map((s) => s.id))
+    } else if (activeType === 'item') {
+      const item = active.data.current?.item as Item
+      const newSpaceId = over.id as string
+      if (item.spaceId === newSpaceId) return
 
-    // Optimistic update
-    queryClient.setQueryData<Space[]>(['spaces', familyId], reordered)
+      const sourceSpace = spaces?.find((s) => s.id === item.spaceId)
+      const targetSpace = spaces?.find((s) => s.id === newSpaceId)
+      if (!sourceSpace || !targetSpace) return
+      if (sourceSpace.type !== targetSpace.type) return
 
-    reorder.mutate(reordered.map((s) => s.id))
+      // Optimistic: remove from old space, add to new space
+      queryClient.setQueryData<Item[]>(
+        ['items', item.spaceId],
+        (old) => old?.filter((i) => i.id !== item.id) ?? [],
+      )
+      queryClient.setQueryData<Item[]>(
+        ['items', newSpaceId],
+        (old) => [{ ...item, spaceId: newSpaceId }, ...(old ?? [])],
+      )
+
+      moveItemMutation.mutate({ item, newSpaceId })
+    }
+  }
+
+  function handleDragCancel() {
+    setActiveDragItem(null)
+    setOverSpaceId(null)
   }
 
   return (
@@ -66,7 +154,10 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <div className="flex h-full gap-4 overflow-x-auto p-4 pb-6">
             {isLoading ? (
@@ -91,6 +182,13 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
                     key={space.id}
                     space={space}
                     familyId={familyId}
+                    isDropTarget={
+                      activeDragItem !== null &&
+                      overSpaceId === space.id &&
+                      spaces?.find(
+                        (s) => s.id === activeDragItem.item.spaceId,
+                      )?.type === space.type
+                    }
                   />
                 ))}
               </SortableContext>
@@ -110,6 +208,15 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
               </div>
             )}
           </div>
+
+          <DragOverlay>
+            {activeDragItem ? (
+              <ItemDragOverlay
+                item={activeDragItem.item}
+                spaceColor={activeDragItem.spaceColor}
+              />
+            ) : null}
+          </DragOverlay>
         </DndContext>
 
         <AddSpaceSheet
@@ -122,5 +229,36 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         />
       </div>
     </BoardProvider>
+  )
+}
+
+function ItemDragOverlay({
+  item,
+  spaceColor,
+}: {
+  item: Item
+  spaceColor: string
+}) {
+  const hue = extractHue(spaceColor)
+  const isDark = useIsDark()
+  const bgColor = isDark ? `oklch(0.26 0.08 ${hue})` : spaceColor
+  const borderColor = isDark
+    ? `oklch(0.34 0.10 ${hue})`
+    : `oklch(0.78 0.13 ${hue})`
+
+  return (
+    <div
+      className="flex w-72 items-start gap-3 rounded-lg border px-3 py-2.5 shadow-xl rotate-1 cursor-grabbing"
+      style={{ background: bgColor, borderColor }}
+    >
+      <p className="text-sm font-medium leading-snug text-foreground">
+        {item.title}
+        {item.quantity && (
+          <span className="ml-1.5 text-xs font-normal text-foreground/60">
+            × {item.quantity}
+          </span>
+        )}
+      </p>
+    </div>
   )
 }

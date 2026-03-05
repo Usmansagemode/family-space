@@ -235,6 +235,28 @@ export async function deleteItem(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function moveItem(id: string, newSpaceId: string): Promise<Item> {
+  if (isDemoMode) {
+    await delay()
+    demoItems = demoItems.map((i) =>
+      i.id === id ? { ...i, spaceId: newSpaceId, updatedAt: new Date() } : i,
+    )
+    const updated = demoItems.find((i) => i.id === id)
+    if (!updated) throw new Error('Item not found')
+    return updated
+  }
+
+  const { data, error } = await supabase!
+    .from('items')
+    .update({ space_id: newSpaceId, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return rowToItem(data)
+}
+
 // Uncomplete an existing item rather than creating a new row.
 // This keeps one row per recurring item (Apples, Paper towels, etc.)
 // and prevents history from accumulating duplicates.
