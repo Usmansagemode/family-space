@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSpaces } from '#/lib/supabase/spaces'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -37,6 +39,7 @@ type Props = {
   spaceId: string
   spaceName: string
   spaceType: SpaceType
+  familyId?: string
   editItem?: Item
   onCreate: (input: {
     title: string
@@ -55,6 +58,7 @@ type Props = {
   }) => void
   onComplete?: (item: Item) => void
   onDelete?: (item: Item) => void
+  onMove?: (newSpaceId: string) => void
   isPending: boolean
 }
 
@@ -64,15 +68,29 @@ export function AddItemSheet({
   spaceId,
   spaceName,
   spaceType,
+  familyId,
   editItem,
   onCreate,
   onUpdate,
   onComplete,
   onDelete,
+  onMove,
   isPending,
 }: Props) {
   const isStore = spaceType === 'store'
   const isEditing = !!editItem
+  const [moveToSpaceId, setMoveToSpaceId] = useState('')
+
+  const { data: allSpaces } = useQuery({
+    queryKey: ['spaces', familyId],
+    queryFn: () => fetchSpaces(familyId!),
+    enabled: isEditing && !!familyId,
+    staleTime: 1000 * 60 * 5,
+  })
+  const otherSpaces = (allSpaces ?? []).filter(
+    (s) => s.type === spaceType && s.id !== spaceId,
+  )
+
   const [startDate, setStartDate] = useState<Date | undefined>(
     editItem?.startDate,
   )
@@ -90,6 +108,7 @@ export function AddItemSheet({
   const [startOpen, setStartOpen] = useState(false)
   const [endOpen, setEndOpen] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [lastAddedTitle, setLastAddedTitle] = useState<string | null>(null)
 
   const { register, handleSubmit, reset, formState, watch, setValue } =
     useForm<FormData>({
@@ -102,7 +121,9 @@ export function AddItemSheet({
     })
 
   const titleValue = watch('title')
-  const titleField = register('title')
+  const titleField = register('title', {
+    onChange: () => setLastAddedTitle(null),
+  })
 
   // Pull completed items from cache (already loaded by SpaceColumn)
   const { data: allItems } = useItems(spaceId)
@@ -150,6 +171,8 @@ export function AddItemSheet({
           ? format(editItem.endDate, 'HH:mm')
           : '',
       )
+      setMoveToSpaceId('')
+      setLastAddedTitle(null)
       // Show suggestions immediately when creating (not editing)
       setShowSuggestions(!editItem)
     }
@@ -167,16 +190,25 @@ export function AddItemSheet({
         startDate: isStore ? undefined : startDate,
         endDate: isStore ? undefined : endDate,
       })
+      // Sheet stays open — parent closes it in mutation's onSuccess
     } else {
+      const addedTitle = data.title
       onCreate({
-        title: data.title,
+        title: addedTitle,
         description,
         quantity,
         startDate: isStore ? undefined : startDate,
         endDate: isStore ? undefined : endDate,
       })
+      // Quick-add: reset form and stay open for the next item
+      reset({ title: '', description: '', quantity: '' })
+      setStartDate(undefined)
+      setEndDate(undefined)
+      setStartTimeStr('')
+      setEndTimeStr('')
+      setLastAddedTitle(addedTitle)
+      setShowSuggestions(true)
     }
-    // Sheet stays open — parent closes it in mutation's onSuccess
   }
 
   const handleComplete = useCallback(() => {
@@ -422,6 +454,38 @@ export function AddItemSheet({
             </div>
           )}
 
+          {/* Move to space — edit mode only, when other same-type spaces exist */}
+          {isEditing && onMove && otherSpaces.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="item-move">Move to space</Label>
+              <div className="flex gap-2">
+                <select
+                  id="item-move"
+                  value={moveToSpaceId}
+                  onChange={(e) => setMoveToSpaceId(e.target.value)}
+                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">— {spaceName} (current) —</option>
+                  {otherSpaces.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                {moveToSpaceId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onMove(moveToSpaceId)}
+                    disabled={isPending}
+                  >
+                    Move
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Notes */}
           <div className="flex flex-col gap-2">
             <Label htmlFor="item-desc">Notes (optional)</Label>
@@ -456,6 +520,17 @@ export function AddItemSheet({
                 Delete
               </Button>
             )}
+
+            {/* Inline confirmation for quick-add */}
+            {!isEditing && lastAddedTitle && (
+              <p className="text-center text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  "{lastAddedTitle}"
+                </span>{' '}
+                added
+              </p>
+            )}
+
             <div className="flex gap-3">
               <Button
                 type="button"
@@ -463,7 +538,7 @@ export function AddItemSheet({
                 className="flex-1"
                 onClick={() => onOpenChange(false)}
               >
-                Cancel
+                {isEditing ? 'Cancel' : 'Done'}
               </Button>
               <Button type="submit" className="flex-1" disabled={isPending}>
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

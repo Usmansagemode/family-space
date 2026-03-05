@@ -22,11 +22,12 @@ type Props = {
   spaceColor: string
   spaceName: string
   spaceType: SpaceType
+  familyId: string
 }
 
-export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
+export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: Props) {
   const [editOpen, setEditOpen] = useState(false)
-  const { complete, update, remove, reAdd } = useItemMutations(item.spaceId)
+  const { complete, update, remove, reAdd, move } = useItemMutations(item.spaceId)
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
 
@@ -174,6 +175,7 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
         spaceId={item.spaceId}
         spaceName={spaceName}
         spaceType={spaceType}
+        familyId={familyId}
         editItem={item}
         onCreate={() => {}}
         onUpdate={(input) => {
@@ -185,7 +187,13 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
         onDelete={(it) =>
           remove.mutate(it, { onSuccess: () => setEditOpen(false) })
         }
-        isPending={update.isPending || complete.isPending || remove.isPending}
+        onMove={(newSpaceId) => {
+          move.mutate(
+            { id: item.id, newSpaceId },
+            { onSuccess: () => setEditOpen(false) },
+          )
+        }}
+        isPending={update.isPending || complete.isPending || remove.isPending || move.isPending}
       />
     </>
   )

@@ -3,7 +3,7 @@ import { c as useSensors, d as useSensor, D as DndContext, e as closestCenter, f
 import { S as SortableContext, h as horizontalListSortingStrategy, a as arrayMove, u as useSortable, v as verticalListSortingStrategy } from "../_libs/dnd-kit__sortable.mjs";
 import { a as useQueryClient, b as useMutation, u as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { t as toast } from "../_libs/sonner.mjs";
-import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-yNuIKd0s.mjs";
+import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-B-ZnCBMb.mjs";
 import { C as CSS } from "../_libs/dnd-kit__utilities.mjs";
 import { u as useForm } from "../_libs/react-hook-form.mjs";
 import { a } from "../_libs/hookform__resolvers.mjs";
@@ -104,6 +104,49 @@ function Checkbox({
       )
     }
   );
+}
+function rowToSpace(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    name: row.name,
+    color: row.color,
+    type: row.type,
+    sortOrder: row.sort_order,
+    createdAt: new Date(row.created_at)
+  };
+}
+async function fetchSpaces(familyId) {
+  const { data, error } = await supabase.from("spaces").select("*").eq("family_id", familyId).order("sort_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(rowToSpace);
+}
+async function createSpace(input) {
+  const maxOrder = await fetchSpaces(input.familyId).then((spaces) => spaces.length).catch(() => 0);
+  const { data, error } = await supabase.from("spaces").insert({
+    family_id: input.familyId,
+    name: input.name,
+    color: input.color,
+    type: input.type,
+    sort_order: maxOrder
+  }).select().single();
+  if (error) throw error;
+  return rowToSpace(data);
+}
+async function updateSpace(id, input) {
+  const { data, error } = await supabase.from("spaces").update(input).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToSpace(data);
+}
+async function deleteSpace(id) {
+  const { error } = await supabase.from("spaces").delete().eq("id", id);
+  if (error) throw error;
+}
+async function reorderSpaces(orderedIds) {
+  const updates = orderedIds.map(
+    (id, index) => supabase.from("spaces").update({ sort_order: index }).eq("id", id)
+  );
+  await Promise.all(updates);
 }
 function Textarea({ className, ...props }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -250,15 +293,27 @@ function AddItemSheet({
   spaceId,
   spaceName,
   spaceType,
+  familyId,
   editItem,
   onCreate,
   onUpdate,
   onComplete,
   onDelete,
+  onMove,
   isPending
 }) {
   const isStore = spaceType === "store";
   const isEditing = !!editItem;
+  const [moveToSpaceId, setMoveToSpaceId] = reactExports.useState("");
+  const { data: allSpaces } = useQuery({
+    queryKey: ["spaces", familyId],
+    queryFn: () => fetchSpaces(familyId),
+    enabled: isEditing && !!familyId,
+    staleTime: 1e3 * 60 * 5
+  });
+  const otherSpaces = (allSpaces ?? []).filter(
+    (s) => s.type === spaceType && s.id !== spaceId
+  );
   const [startDate, setStartDate] = reactExports.useState(
     editItem?.startDate
   );
@@ -272,6 +327,7 @@ function AddItemSheet({
   const [startOpen, setStartOpen] = reactExports.useState(false);
   const [endOpen, setEndOpen] = reactExports.useState(false);
   const [showSuggestions, setShowSuggestions] = reactExports.useState(false);
+  const [lastAddedTitle, setLastAddedTitle] = reactExports.useState(null);
   const { register, handleSubmit, reset, formState, watch, setValue } = useForm({
     resolver: a(schema$1),
     defaultValues: {
@@ -281,7 +337,9 @@ function AddItemSheet({
     }
   });
   const titleValue = watch("title");
-  const titleField = register("title");
+  const titleField = register("title", {
+    onChange: () => setLastAddedTitle(null)
+  });
   const { data: allItems } = useItems(spaceId);
   const suggestions = reactExports.useMemo(() => {
     if (!allItems || isEditing) return [];
@@ -312,6 +370,8 @@ function AddItemSheet({
       setEndTimeStr(
         editItem?.endDate && hasExplicitTime(editItem.endDate) ? format(editItem.endDate, "HH:mm") : ""
       );
+      setMoveToSpaceId("");
+      setLastAddedTitle(null);
       setShowSuggestions(!editItem);
     }
   }, [open, editItem, reset]);
@@ -328,13 +388,21 @@ function AddItemSheet({
         endDate: isStore ? void 0 : endDate
       });
     } else {
+      const addedTitle = data.title;
       onCreate({
-        title: data.title,
+        title: addedTitle,
         description,
         quantity,
         startDate: isStore ? void 0 : startDate,
         endDate: isStore ? void 0 : endDate
       });
+      reset({ title: "", description: "", quantity: "" });
+      setStartDate(void 0);
+      setEndDate(void 0);
+      setStartTimeStr("");
+      setEndTimeStr("");
+      setLastAddedTitle(addedTitle);
+      setShowSuggestions(true);
     }
   }
   const handleComplete = reactExports.useCallback(() => {
@@ -557,6 +625,38 @@ function AddItemSheet({
               )
             ] })
           ] }),
+          isEditing && onMove && otherSpaces.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "item-move", children: "Move to space" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "select",
+                {
+                  id: "item-move",
+                  value: moveToSpaceId,
+                  onChange: (e) => setMoveToSpaceId(e.target.value),
+                  className: "flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: "", children: [
+                      "— ",
+                      spaceName,
+                      " (current) —"
+                    ] }),
+                    otherSpaces.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: s.id, children: s.name }, s.id))
+                  ]
+                }
+              ),
+              moveToSpaceId && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                Button,
+                {
+                  type: "button",
+                  variant: "outline",
+                  onClick: () => onMove(moveToSpaceId),
+                  disabled: isPending,
+                  children: "Move"
+                }
+              )
+            ] })
+          ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "item-desc", children: "Notes (optional)" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -592,6 +692,15 @@ function AddItemSheet({
                 children: "Delete"
               }
             ),
+            !isEditing && lastAddedTitle && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-center text-xs text-muted-foreground", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "font-medium text-foreground", children: [
+                '"',
+                lastAddedTitle,
+                '"'
+              ] }),
+              " ",
+              "added"
+            ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-3", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 Button,
@@ -600,7 +709,7 @@ function AddItemSheet({
                   variant: "outline",
                   className: "flex-1",
                   onClick: () => onOpenChange(false),
-                  children: "Cancel"
+                  children: isEditing ? "Cancel" : "Done"
                 }
               ),
               /* @__PURE__ */ jsxRuntimeExports.jsxs(Button, { type: "submit", className: "flex-1", disabled: isPending, children: [
@@ -838,11 +947,32 @@ function useItemMutations(spaceId) {
       void invalidate();
     }
   });
-  return { create, update, complete, remove, reAdd };
+  const move = useMutation({
+    mutationFn: ({ id, newSpaceId }) => moveItem(id, newSpaceId),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData(key);
+      queryClient.setQueryData(
+        key,
+        (old) => old?.filter((i) => i.id !== id) ?? []
+      );
+      return { prev };
+    },
+    onSuccess: (_data, { newSpaceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["items", newSpaceId] });
+      toast.success("Item moved");
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
+      toast.error("Failed to move item");
+    },
+    onSettled: () => void invalidate()
+  });
+  return { create, update, complete, remove, reAdd, move };
 }
-function ItemCard({ item, spaceColor, spaceName, spaceType }) {
+function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }) {
   const [editOpen, setEditOpen] = reactExports.useState(false);
-  const { complete, update, remove, reAdd } = useItemMutations(item.spaceId);
+  const { complete, update, remove, reAdd, move } = useItemMutations(item.spaceId);
   const hue = extractHue(spaceColor);
   const isDark = useIsDark();
   const dateStatus = spaceType === "person" && item.startDate && !item.completed ? getDateStatus(item.startDate) : null;
@@ -955,6 +1085,7 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
         spaceId: item.spaceId,
         spaceName,
         spaceType,
+        familyId,
         editItem: item,
         onCreate: () => {
         },
@@ -963,7 +1094,13 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
         },
         onComplete: (it) => complete.mutate(it, { onSuccess: () => setEditOpen(false) }),
         onDelete: (it) => remove.mutate(it, { onSuccess: () => setEditOpen(false) }),
-        isPending: update.isPending || complete.isPending || remove.isPending
+        onMove: (newSpaceId) => {
+          move.mutate(
+            { id: item.id, newSpaceId },
+            { onSuccess: () => setEditOpen(false) }
+          );
+        },
+        isPending: update.isPending || complete.isPending || remove.isPending || move.isPending
       }
     )
   ] });
@@ -1251,49 +1388,6 @@ function AddSpaceSheet({
     )
   ] }) });
 }
-function rowToSpace(row) {
-  return {
-    id: row.id,
-    familyId: row.family_id,
-    name: row.name,
-    color: row.color,
-    type: row.type,
-    sortOrder: row.sort_order,
-    createdAt: new Date(row.created_at)
-  };
-}
-async function fetchSpaces(familyId) {
-  const { data, error } = await supabase.from("spaces").select("*").eq("family_id", familyId).order("sort_order", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map(rowToSpace);
-}
-async function createSpace(input) {
-  const maxOrder = await fetchSpaces(input.familyId).then((spaces) => spaces.length).catch(() => 0);
-  const { data, error } = await supabase.from("spaces").insert({
-    family_id: input.familyId,
-    name: input.name,
-    color: input.color,
-    type: input.type,
-    sort_order: maxOrder
-  }).select().single();
-  if (error) throw error;
-  return rowToSpace(data);
-}
-async function updateSpace(id, input) {
-  const { data, error } = await supabase.from("spaces").update(input).eq("id", id).select().single();
-  if (error) throw error;
-  return rowToSpace(data);
-}
-async function deleteSpace(id) {
-  const { error } = await supabase.from("spaces").delete().eq("id", id);
-  if (error) throw error;
-}
-async function reorderSpaces(orderedIds) {
-  const updates = orderedIds.map(
-    (id, index) => supabase.from("spaces").update({ sort_order: index }).eq("id", id)
-  );
-  await Promise.all(updates);
-}
 function useSpaceMutations(familyId) {
   const queryClient = useQueryClient();
   const key = ["spaces", familyId];
@@ -1444,7 +1538,8 @@ function SpaceColumn({ space, familyId, isDropTarget }) {
                   item,
                   spaceColor: space.color,
                   spaceName: space.name,
-                  spaceType: space.type
+                  spaceType: space.type,
+                  familyId
                 },
                 item.id
               ))
@@ -1474,7 +1569,7 @@ function SpaceColumn({ space, familyId, isDropTarget }) {
         spaceName: space.name,
         spaceType: space.type,
         onCreate: (input) => {
-          createItem2.mutate(input, { onSuccess: () => setAddItemOpen(false) });
+          createItem2.mutate(input);
         },
         isPending: createItem2.isPending
       }

@@ -176,6 +176,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
                     spaceColor={space.color}
                     spaceName={space.name}
                     spaceType={space.type}
+                    familyId={familyId}
                   />
                 ))}
               </SortableContext>
@@ -204,7 +205,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         spaceName={space.name}
         spaceType={space.type}
         onCreate={(input) => {
-          createItem.mutate(input, { onSuccess: () => setAddItemOpen(false) })
+          createItem.mutate(input)
         }}
         isPending={createItem.isPending}
       />

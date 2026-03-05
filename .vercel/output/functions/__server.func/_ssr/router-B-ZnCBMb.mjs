@@ -910,7 +910,7 @@ function TanStackQueryProvider({
   const { queryClient } = getContext();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(QueryClientProvider, { client: queryClient, children });
 }
-const appCss = "/assets/styles-vDuH3JE6.css";
+const appCss = "/assets/styles-Dr2dl8py.css";
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=stored==='dark'?'dark':stored==='light'?'light':(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(mode);root.setAttribute('data-theme',mode);root.style.colorScheme=mode;}catch(e){}})();`;
 const Route$1 = createRootRouteWithContext()({
   head: () => ({
@@ -941,7 +941,7 @@ function RootDocument({ children }) {
     ] })
   ] });
 }
-const $$splitComponentImporter = () => import("./index-59lkwpk9.mjs");
+const $$splitComponentImporter = () => import("./index-yLrYgtA9.mjs");
 const Route = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });

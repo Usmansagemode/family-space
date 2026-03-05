@@ -6,6 +6,7 @@ import {
   completeItem,
   deleteItem,
   reAddItem,
+  moveItem,
 } from '#/lib/supabase/items'
 import {
   createCalendarEvent,
@@ -205,5 +206,27 @@ export function useItemMutations(spaceId: string) {
     },
   })
 
-  return { create, update, complete, remove, reAdd }
+  const move = useMutation({
+    mutationFn: ({ id, newSpaceId }: { id: string; newSpaceId: string }) =>
+      moveItem(id, newSpaceId),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const prev = queryClient.getQueryData<Item[]>(key)
+      queryClient.setQueryData<Item[]>(key, (old) =>
+        old?.filter((i) => i.id !== id) ?? [],
+      )
+      return { prev }
+    },
+    onSuccess: (_data, { newSpaceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['items', newSpaceId] })
+      toast.success('Item moved')
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev)
+      toast.error('Failed to move item')
+    },
+    onSettled: () => void invalidate(),
+  })
+
+  return { create, update, complete, remove, reAdd, move }
 }
