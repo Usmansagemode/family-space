@@ -83,8 +83,8 @@ function FamilyContent({
 
   return (
     <div className="flex h-full">
-      {/* Vertical tab sidebar */}
-      <div className="flex shrink-0 flex-col border-r border-border/40 py-3">
+      {/* Vertical tab sidebar — desktop only */}
+      <div className="hidden shrink-0 flex-col border-r border-border/40 py-3 sm:flex">
         <TabButton
           active={tab === 'board'}
           icon={<LayoutGrid className="h-4 w-4" />}
@@ -101,16 +101,37 @@ function FamilyContent({
         </TabButton>
       </div>
 
-      {/* Content — both mounted to preserve iframe state */}
-      <div className={cn('min-w-0 flex-1', tab !== 'board' && 'hidden')}>
-        <SpaceView
-          familyId={familyId}
-          providerToken={providerToken}
-          calendarId={calendarId}
-        />
-      </div>
-      <div className={cn('min-w-0 flex-1', tab !== 'calendar' && 'hidden')}>
-        <CalendarView embedUrl={embedUrl} />
+      {/* Content + mobile bottom nav */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Both mounted to preserve iframe state */}
+        <div className={cn('min-h-0 flex-1', tab !== 'board' && 'hidden')}>
+          <SpaceView
+            familyId={familyId}
+            providerToken={providerToken}
+            calendarId={calendarId}
+          />
+        </div>
+        <div className={cn('min-h-0 flex-1', tab !== 'calendar' && 'hidden')}>
+          <CalendarView embedUrl={embedUrl} />
+        </div>
+
+        {/* Bottom tab bar — mobile only */}
+        <div className="flex shrink-0 border-t border-border/40 bg-background/90 backdrop-blur-sm sm:hidden">
+          <MobileTabButton
+            active={tab === 'board'}
+            icon={<LayoutGrid className="h-5 w-5" />}
+            onClick={() => handleTabChange('board')}
+          >
+            Spaces
+          </MobileTabButton>
+          <MobileTabButton
+            active={tab === 'calendar'}
+            icon={<CalendarDays className="h-5 w-5" />}
+            onClick={() => handleTabChange('calendar')}
+          >
+            Calendar
+          </MobileTabButton>
+        </div>
       </div>
     </div>
   )
@@ -142,6 +163,32 @@ function TabButton({
       {active && (
         <span className="absolute right-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-foreground" />
       )}
+      {icon}
+      {children}
+    </button>
+  )
+}
+
+function MobileTabButton({
+  active,
+  icon,
+  onClick,
+  children,
+}: {
+  active: boolean
+  icon: React.ReactNode
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium tracking-wide transition-colors',
+        active ? 'text-foreground' : 'text-muted-foreground',
+      )}
+    >
       {icon}
       {children}
     </button>

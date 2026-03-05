@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
-import { ScrollArea } from '#/components/ui/scroll-area'
 import { Skeleton } from '#/components/ui/skeleton'
 import { ItemCard } from './ItemCard'
 import { AddItemSheet } from './AddItemSheet'
@@ -83,7 +82,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
           }),
         }}
         className={cn(
-          'flex h-full w-72 shrink-0 flex-col rounded-xl bg-card shadow-sm transition-shadow',
+          'flex w-full flex-col rounded-xl bg-card shadow-sm transition-shadow sm:h-full sm:w-72 sm:shrink-0',
           isDropTarget && 'bg-card/80',
         )}
       >
@@ -155,7 +154,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         </button>
 
         {/* Items list */}
-        <ScrollArea className="flex-1 px-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 max-sm:flex-none max-sm:overflow-visible">
           <div className="flex flex-col gap-2 pb-2">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
@@ -177,7 +176,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Add item button */}
         <div className="p-3 pt-0">

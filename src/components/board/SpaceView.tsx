@@ -159,12 +159,12 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="flex h-full gap-4 overflow-x-auto p-4 pb-6">
+          <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 pb-6 sm:flex-row sm:overflow-x-auto sm:overflow-y-hidden">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex h-full w-72 shrink-0 flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3"
+                  className="flex h-48 w-full flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:h-full sm:w-72 sm:shrink-0"
                 >
                   <Skeleton className="h-1 w-full rounded-t-xl" />
                   <Skeleton className="h-5 w-32" />
