@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSortable } from '@dnd-kit/sortable'
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
   User,
@@ -165,15 +165,20 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
                 Nothing here yet
               </p>
             ) : (
-              activeItems.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  item={item}
-                  spaceColor={space.color}
-                  spaceName={space.name}
-                  spaceType={space.type}
-                />
-              ))
+              <SortableContext
+                items={activeItems.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {activeItems.map((item) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    spaceColor={space.color}
+                    spaceName={space.name}
+                    spaceType={space.type}
+                  />
+                ))}
+              </SortableContext>
             )}
           </div>
         </div>

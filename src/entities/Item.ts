@@ -9,6 +9,7 @@ export type Item = {
   completed: boolean
   completedAt?: Date
   googleEventId?: string
+  sortOrder: number
   createdAt: Date
   updatedAt: Date
 }

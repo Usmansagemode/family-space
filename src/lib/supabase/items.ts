@@ -9,6 +9,7 @@ let demoItems: Item[] = [
     spaceId: 'demo-space-1',
     title: 'Olive oil (2 bottles)',
     completed: false,
+    sortOrder: 0,
     createdAt: new Date('2026-01-10'),
     updatedAt: new Date('2026-01-10'),
   },
@@ -17,6 +18,7 @@ let demoItems: Item[] = [
     spaceId: 'demo-space-1',
     title: 'Paper towels',
     completed: false,
+    sortOrder: 1,
     createdAt: new Date('2026-01-11'),
     updatedAt: new Date('2026-01-11'),
   },
@@ -26,6 +28,7 @@ let demoItems: Item[] = [
     title: 'Dentist appointment',
     startDate: new Date('2026-03-15T10:00:00'),
     completed: false,
+    sortOrder: 0,
     createdAt: new Date('2026-01-12'),
     updatedAt: new Date('2026-01-12'),
   },
@@ -35,6 +38,7 @@ let demoItems: Item[] = [
     title: 'Salmon (frozen)',
     completed: true,
     completedAt: new Date('2026-01-20'),
+    sortOrder: 2,
     createdAt: new Date('2026-01-08'),
     updatedAt: new Date('2026-01-20'),
   },
@@ -43,6 +47,7 @@ let demoItems: Item[] = [
     spaceId: 'demo-space-3',
     title: 'Almond butter',
     completed: false,
+    sortOrder: 0,
     createdAt: new Date('2026-01-14'),
     updatedAt: new Date('2026-01-14'),
   },
@@ -63,6 +68,7 @@ function rowToItem(row: {
   completed: boolean
   completed_at: string | null
   google_event_id: string | null
+  sort_order: number
   created_at: string
   updated_at: string
 }): Item {
@@ -77,6 +83,7 @@ function rowToItem(row: {
     completed: row.completed,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
     googleEventId: row.google_event_id ?? undefined,
+    sortOrder: row.sort_order,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   }
@@ -94,6 +101,7 @@ export async function fetchItems(spaceId: string): Promise<Item[]> {
     .from('items')
     .select('*')
     .eq('space_id', spaceId)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -122,6 +130,7 @@ export async function createItem(input: {
       endDate: input.endDate,
       googleEventId: input.googleEventId,
       completed: false,
+      sortOrder: 0,
       createdAt: now,
       updatedAt: now,
     }
@@ -139,6 +148,7 @@ export async function createItem(input: {
       start_date: input.startDate?.toISOString() ?? null,
       end_date: input.endDate?.toISOString() ?? null,
       google_event_id: input.googleEventId ?? null,
+      sort_order: 0,
     })
     .select()
     .single()
@@ -255,6 +265,30 @@ export async function moveItem(id: string, newSpaceId: string): Promise<Item> {
 
   if (error) throw error
   return rowToItem(data)
+}
+
+export async function reorderItems(
+  spaceId: string,
+  orderedIds: string[],
+): Promise<void> {
+  if (isDemoMode) {
+    await delay()
+    const others = demoItems.filter((i) => !orderedIds.includes(i.id))
+    const reordered = orderedIds
+      .map((id) => demoItems.find((i) => i.id === id))
+      .filter((i): i is Item => i !== undefined)
+      .map((i, index) => ({ ...i, sortOrder: index }))
+    demoItems = [...reordered, ...others]
+    return
+  }
+
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase!.from('items').update({ sort_order: index }).eq('id', id),
+    ),
+  )
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw failed.error
 }
 
 // Uncomplete an existing item rather than creating a new row.

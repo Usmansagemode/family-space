@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CalendarIcon, GripVertical } from 'lucide-react'
-import { useDraggable } from '@dnd-kit/core'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Checkbox } from '#/components/ui/checkbox'
 import {
   cn,
@@ -28,7 +29,14 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging,
+    transform,
+    transition,
+  } = useSortable({
     id: item.id,
     data: { type: 'item', item, spaceColor },
   })
@@ -63,7 +71,12 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
           'group relative flex items-center gap-3 rounded-lg border px-3 py-2.5 shadow-sm transition hover:shadow-md',
           isDragging && 'opacity-40',
         )}
-        style={{ background: bgColor, borderColor }}
+        style={{
+          background: bgColor,
+          borderColor,
+          transform: CSS.Transform.toString(transform),
+          transition,
+        }}
       >
         {/* Drag handle */}
         <button

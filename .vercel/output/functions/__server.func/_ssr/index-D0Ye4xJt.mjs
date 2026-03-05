@@ -1,17 +1,17 @@
 import { j as jsxRuntimeExports, r as reactExports } from "../_libs/react.mjs";
-import { c as useSensors, d as useSensor, D as DndContext, e as closestCenter, P as PointerSensor } from "../_libs/dnd-kit__core.mjs";
-import { S as SortableContext, h as horizontalListSortingStrategy, a as arrayMove, u as useSortable } from "../_libs/dnd-kit__sortable.mjs";
-import { p as useAuthContext, i as Skeleton, B as Button, q as useUserFamily, c as cn, D as DropdownMenu, l as DropdownMenuTrigger, m as DropdownMenuContent, n as DropdownMenuItem, o as DropdownMenuSeparator, k as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, s as supabase, e as extractHue, u as useIsDark, f as formatDate, h as hasExplicitTime, g as formatTime, j as formatDateFull } from "./router-B0WRG8Cw.mjs";
+import { c as useSensors, d as useSensor, D as DndContext, e as closestCenter, f as DragOverlay, P as PointerSensor } from "../_libs/dnd-kit__core.mjs";
+import { S as SortableContext, h as horizontalListSortingStrategy, a as arrayMove, u as useSortable, v as verticalListSortingStrategy } from "../_libs/dnd-kit__sortable.mjs";
+import { a as useQueryClient, b as useMutation, u as useQuery } from "../_libs/tanstack__react-query.mjs";
+import { t as toast } from "../_libs/sonner.mjs";
+import { p as useAuthContext, i as Skeleton, B as Button, q as useUserFamily, c as cn, s as supabase, D as DropdownMenu, l as DropdownMenuTrigger, m as DropdownMenuContent, n as DropdownMenuItem, o as DropdownMenuSeparator, e as extractHue, u as useIsDark, k as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, f as formatDate, h as hasExplicitTime, g as formatTime, j as formatDateFull } from "./router-CJWLng_X.mjs";
 import { C as CSS } from "../_libs/dnd-kit__utilities.mjs";
 import { u as useForm } from "../_libs/react-hook-form.mjs";
 import { a } from "../_libs/hookform__resolvers.mjs";
-import { a as useQueryClient, u as useQuery, b as useMutation } from "../_libs/tanstack__react-query.mjs";
-import { t as toast } from "../_libs/sonner.mjs";
 import { e as LayoutGrid, f as CalendarDays, g as Clock, h as Image, P as Plus, G as GripVertical, U as User, i as ShoppingCart, j as Ellipsis, k as History, b as LoaderCircle, l as Calendar, m as Hash, R as RotateCcw, n as Check } from "../_libs/lucide-react.mjs";
-import { R as Root, V as Viewport, C as Corner, S as ScrollAreaScrollbar, a as ScrollAreaThumb } from "../_libs/radix-ui__react-scroll-area.mjs";
 import { f as format } from "../_libs/date-fns.mjs";
 import { C as Checkbox$1, a as CheckboxIndicator } from "../_libs/radix-ui__react-checkbox.mjs";
 import { R as Root2, T as Trigger, P as Portal, C as Content2 } from "../_libs/radix-ui__react-popover.mjs";
+import { R as Root, V as Viewport, C as Corner, S as ScrollAreaScrollbar, a as ScrollAreaThumb } from "../_libs/radix-ui__react-scroll-area.mjs";
 import { o as object, s as string } from "../_libs/zod.mjs";
 import "../_libs/react-dom.mjs";
 import "util";
@@ -19,6 +19,7 @@ import "crypto";
 import "async_hooks";
 import "stream";
 import "../_libs/dnd-kit__accessibility.mjs";
+import "../_libs/tanstack__query-core.mjs";
 import "../_libs/tanstack__react-router.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/cookie-es.mjs";
@@ -31,7 +32,6 @@ import "node:stream";
 import "../_libs/isbot.mjs";
 import "../_libs/tiny-warning.mjs";
 import "../_libs/next-themes.mjs";
-import "../_libs/tanstack__query-core.mjs";
 import "../_libs/supabase__supabase-js.mjs";
 import "../_libs/supabase__postgrest-js.mjs";
 import "../_libs/supabase__realtime-js.mjs";
@@ -79,61 +79,8 @@ import "../_libs/use-sidecar.mjs";
 import "../_libs/use-callback-ref.mjs";
 import "../_libs/radix-ui__react-dialog.mjs";
 import "../_libs/radix-ui__react-label.mjs";
-import "../_libs/radix-ui__number.mjs";
 import "../_libs/radix-ui__react-use-previous.mjs";
-function ScrollArea({
-  className,
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    Root,
-    {
-      "data-slot": "scroll-area",
-      className: cn("relative", className),
-      ...props,
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          Viewport,
-          {
-            "data-slot": "scroll-area-viewport",
-            className: "focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1",
-            children
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(ScrollBar, {}),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Corner, {})
-      ]
-    }
-  );
-}
-function ScrollBar({
-  className,
-  orientation = "vertical",
-  ...props
-}) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    ScrollAreaScrollbar,
-    {
-      "data-slot": "scroll-area-scrollbar",
-      orientation,
-      className: cn(
-        "flex touch-none p-px transition-colors select-none",
-        orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent",
-        orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent",
-        className
-      ),
-      ...props,
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        ScrollAreaThumb,
-        {
-          "data-slot": "scroll-area-thumb",
-          className: "bg-border relative flex-1 rounded-full"
-        }
-      )
-    }
-  );
-}
+import "../_libs/radix-ui__number.mjs";
 function Checkbox({
   className,
   ...props
@@ -213,12 +160,13 @@ function rowToItem(row) {
     completed: row.completed,
     completedAt: row.completed_at ? new Date(row.completed_at) : void 0,
     googleEventId: row.google_event_id ?? void 0,
+    sortOrder: row.sort_order,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
 }
 async function fetchItems(spaceId) {
-  const { data, error } = await supabase.from("items").select("*").eq("space_id", spaceId).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("items").select("*").eq("space_id", spaceId).order("sort_order", { ascending: true }).order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(rowToItem);
 }
@@ -230,7 +178,8 @@ async function createItem(input) {
     quantity: input.quantity ?? null,
     start_date: input.startDate?.toISOString() ?? null,
     end_date: input.endDate?.toISOString() ?? null,
-    google_event_id: input.googleEventId ?? null
+    google_event_id: input.googleEventId ?? null,
+    sort_order: 0
   }).select().single();
   if (error) throw error;
   return rowToItem(data);
@@ -261,6 +210,18 @@ async function completeItem(id) {
 }
 async function deleteItem(id) {
   const { error } = await supabase.from("items").delete().eq("id", id);
+  if (error) throw error;
+}
+async function moveItem(id, newSpaceId) {
+  const { data, error } = await supabase.from("items").update({ space_id: newSpaceId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToItem(data);
+}
+async function reorderItems(spaceId, orderedIds) {
+  const { error } = await supabase.from("items").upsert(
+    orderedIds.map((id, index) => ({ id, sort_order: index })),
+    { onConflict: "id" }
+  );
   if (error) throw error;
 }
 async function reAddItem(original) {
@@ -879,33 +840,64 @@ function useItemMutations(spaceId) {
 }
 function ItemCard({ item, spaceColor, spaceName, spaceType }) {
   const [editOpen, setEditOpen] = reactExports.useState(false);
-  const { complete, update, remove } = useItemMutations(item.spaceId);
+  const { complete, update, remove, reAdd } = useItemMutations(item.spaceId);
   const hue = extractHue(spaceColor);
   const isDark = useIsDark();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging,
+    transform,
+    transition
+  } = useSortable({
+    id: item.id,
+    data: { type: "item", item, spaceColor }
+  });
   const bgColor = isDark ? `oklch(0.26 0.08 ${hue})` : spaceColor;
   const borderColor = isDark ? `oklch(0.34 0.10 ${hue})` : `oklch(0.78 0.13 ${hue})`;
-  const checkboxBorder = isDark ? `oklch(0.65 0.14 ${hue})` : `oklch(0.55 0.15 ${hue})`;
-  const checkboxPrimary = isDark ? `oklch(0.68 0.18 ${hue})` : `oklch(0.52 0.18 ${hue})`;
+  const checkboxBorder = isDark ? `oklch(0.55 0.12 ${hue})` : `oklch(0.60 0.14 ${hue})`;
+  const checkboxCheckedBg = isDark ? `oklch(0.22 0.12 ${hue})` : `oklch(0.48 0.20 ${hue})`;
   function handleCheck(checked) {
     if (checked === true) {
       complete.mutate(item);
+    } else if (checked === false) {
+      reAdd.mutate(item);
     }
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
+        ref: setNodeRef,
         className: cn(
-          "group relative flex items-start gap-3 rounded-lg border px-3 py-2.5 shadow-sm transition hover:shadow-md"
+          "group relative flex items-center gap-3 rounded-lg border px-3 py-2.5 shadow-sm transition hover:shadow-md",
+          isDragging && "opacity-40"
         ),
-        style: { background: bgColor, borderColor },
+        style: {
+          background: bgColor,
+          borderColor,
+          transform: CSS.Transform.toString(transform),
+          transition
+        },
         children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              className: "cursor-grab touch-none text-muted-foreground/30 hover:text-muted-foreground/70 active:cursor-grabbing",
+              ...attributes,
+              ...listeners,
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(GripVertical, { className: "h-3.5 w-3.5" })
+            }
+          ),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
             {
+              className: "flex",
               style: {
                 "--input": checkboxBorder,
-                "--primary": checkboxPrimary,
+                "--primary": checkboxCheckedBg,
                 "--primary-foreground": "oklch(1 0 0)"
               },
               children: /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -913,8 +905,8 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
                 {
                   checked: item.completed,
                   onCheckedChange: handleCheck,
-                  disabled: item.completed || complete.isPending,
-                  className: "mt-0.5 shrink-0",
+                  disabled: complete.isPending || reAdd.isPending,
+                  className: "size-5 shrink-0 cursor-pointer rounded-full border-0 bg-white shadow-sm transition-all hover:shadow-[0_0_8px_2px_color-mix(in_oklch,var(--primary)_40%,transparent)] dark:bg-white/90",
                   onClick: (e) => e.stopPropagation()
                 }
               )
@@ -924,7 +916,7 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
             "button",
             {
               type: "button",
-              className: "min-w-0 flex-1 text-left",
+              className: "min-w-0 flex-1 cursor-pointer text-left",
               onClick: () => setEditOpen(true),
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "line-clamp-2 text-sm font-medium leading-snug text-foreground", children: [
@@ -967,6 +959,59 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
       }
     )
   ] });
+}
+function ScrollArea({
+  className,
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    Root,
+    {
+      "data-slot": "scroll-area",
+      className: cn("relative", className),
+      ...props,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Viewport,
+          {
+            "data-slot": "scroll-area-viewport",
+            className: "focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1",
+            children
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(ScrollBar, {}),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Corner, {})
+      ]
+    }
+  );
+}
+function ScrollBar({
+  className,
+  orientation = "vertical",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    ScrollAreaScrollbar,
+    {
+      "data-slot": "scroll-area-scrollbar",
+      orientation,
+      className: cn(
+        "flex touch-none p-px transition-colors select-none",
+        orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent",
+        orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent",
+        className
+      ),
+      ...props,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ScrollAreaThumb,
+        {
+          "data-slot": "scroll-area-thumb",
+          className: "bg-border relative flex-1 rounded-full"
+        }
+      )
+    }
+  );
 }
 function HistorySheet({
   open,
@@ -1249,14 +1294,17 @@ function useSpaceMutations(familyId) {
   });
   return { create, update, remove, reorder };
 }
-function SpaceColumn({ space, familyId }) {
+function SpaceColumn({ space, familyId, isDropTarget }) {
   const [addItemOpen, setAddItemOpen] = reactExports.useState(false);
   const [historyOpen, setHistoryOpen] = reactExports.useState(false);
   const [editSpaceOpen, setEditSpaceOpen] = reactExports.useState(false);
   const { data: items, isLoading } = useItems(space.id);
   const { create: createItem2 } = useItemMutations(space.id);
   const { update: updateSpace2, remove: removeSpace } = useSpaceMutations(familyId);
-  const activeItems = (items ?? []).filter((i) => !i.completed);
+  const today = /* @__PURE__ */ new Date();
+  const activeItems = (items ?? []).filter(
+    (i) => !i.completed || i.completedAt && i.completedAt.getFullYear() === today.getFullYear() && i.completedAt.getMonth() === today.getMonth() && i.completedAt.getDate() === today.getDate()
+  );
   const completedCount = (items ?? []).filter((i) => i.completed).length;
   const {
     attributes,
@@ -1265,7 +1313,7 @@ function SpaceColumn({ space, familyId }) {
     transform,
     transition,
     isDragging
-  } = useSortable({ id: space.id });
+  } = useSortable({ id: space.id, data: { type: "space" } });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -1276,8 +1324,17 @@ function SpaceColumn({ space, familyId }) {
       "div",
       {
         ref: setNodeRef,
-        style: { ...style, borderTop: `3px solid ${space.color}` },
-        className: "flex h-full w-72 shrink-0 flex-col rounded-xl bg-card shadow-sm",
+        style: {
+          ...style,
+          borderTop: `3px solid ${space.color}`,
+          ...isDropTarget && {
+            boxShadow: `0 0 0 2px ${space.color}`
+          }
+        },
+        className: cn(
+          "flex w-full flex-col rounded-xl bg-card shadow-sm transition-shadow sm:h-full sm:w-72 sm:shrink-0",
+          isDropTarget && "bg-card/80"
+        ),
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-3 pt-3 pb-1", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -1328,16 +1385,23 @@ function SpaceColumn({ space, familyId }) {
               ]
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(ScrollArea, { className: "flex-1 px-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-2 pb-2", children: isLoading ? Array.from({ length: 3 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-14 w-full rounded-lg" }, i)) : activeItems.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-6 text-center text-xs text-muted-foreground", children: "Nothing here yet" }) : activeItems.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            ItemCard,
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "min-h-0 flex-1 overflow-y-auto px-3 max-sm:flex-none max-sm:overflow-visible", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-2 pb-2", children: isLoading ? Array.from({ length: 3 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-14 w-full rounded-lg" }, i)) : activeItems.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-6 text-center text-xs text-muted-foreground", children: "Nothing here yet" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+            SortableContext,
             {
-              item,
-              spaceColor: space.color,
-              spaceName: space.name,
-              spaceType: space.type
-            },
-            item.id
-          )) }) }),
+              items: activeItems.map((i) => i.id),
+              strategy: verticalListSortingStrategy,
+              children: activeItems.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                ItemCard,
+                {
+                  item,
+                  spaceColor: space.color,
+                  spaceName: space.name,
+                  spaceType: space.type
+                },
+                item.id
+              ))
+            }
+          ) }) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-3 pt-0", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
             Button,
             {
@@ -1401,21 +1465,126 @@ function useSpaces(familyId) {
 }
 function SpaceView({ familyId, providerToken, calendarId }) {
   const [addSpaceOpen, setAddSpaceOpen] = reactExports.useState(false);
+  const [activeDragItem, setActiveDragItem] = reactExports.useState(
+    null
+  );
+  const [overSpaceId, setOverSpaceId] = reactExports.useState(null);
   const { data: spaces, isLoading } = useSpaces(familyId);
   const { create, reorder } = useSpaceMutations(familyId);
   const queryClient = useQueryClient();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+  const moveItemMutation = useMutation({
+    mutationFn: ({
+      item,
+      newSpaceId
+    }) => moveItem(item.id, newSpaceId),
+    onError: (_err, { item, newSpaceId }) => {
+      queryClient.setQueryData(
+        ["items", newSpaceId],
+        (old) => old?.filter((i) => i.id !== item.id) ?? []
+      );
+      queryClient.setQueryData(
+        ["items", item.spaceId],
+        (old) => [item, ...old ?? []]
+      );
+      toast.error("Failed to move item");
+    },
+    onSettled: (_data, _err, { item, newSpaceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["items", item.spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ["items", newSpaceId] });
+    }
+  });
+  const reorderItemsMutation = useMutation({
+    mutationFn: ({
+      spaceId,
+      orderedIds
+    }) => reorderItems(spaceId, orderedIds),
+    onError: (_err, { spaceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ["items", spaceId] });
+      toast.error("Failed to reorder items");
+    }
+  });
+  function handleDragStart(event) {
+    if (event.active.data.current?.type === "item") {
+      setActiveDragItem({
+        item: event.active.data.current.item,
+        spaceColor: event.active.data.current.spaceColor
+      });
+    }
+  }
+  function handleDragOver(event) {
+    if (event.active.data.current?.type === "item") {
+      const overType = event.over?.data.current?.type;
+      if (overType === "space") {
+        setOverSpaceId(event.over.id);
+      } else if (overType === "item") {
+        setOverSpaceId(
+          event.over?.data.current?.item?.spaceId ?? null
+        );
+      } else {
+        setOverSpaceId(null);
+      }
+    }
+  }
   function handleDragEnd(event) {
+    setActiveDragItem(null);
+    setOverSpaceId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id || !spaces) return;
-    const oldIndex = spaces.findIndex((s) => s.id === active.id);
-    const newIndex = spaces.findIndex((s) => s.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(spaces, oldIndex, newIndex);
-    queryClient.setQueryData(["spaces", familyId], reordered);
-    reorder.mutate(reordered.map((s) => s.id));
+    if (!over) return;
+    const activeType = active.data.current?.type;
+    if (activeType === "space") {
+      if (active.id === over.id || !spaces) return;
+      const oldIndex = spaces.findIndex((s) => s.id === active.id);
+      const newIndex = spaces.findIndex((s) => s.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const reordered = arrayMove(spaces, oldIndex, newIndex);
+      queryClient.setQueryData(["spaces", familyId], reordered);
+      reorder.mutate(reordered.map((s) => s.id));
+    } else if (activeType === "item") {
+      const draggedItem = active.data.current?.item;
+      const overType = over.data.current?.type;
+      let targetSpaceId;
+      if (overType === "space") {
+        targetSpaceId = over.id;
+      } else if (overType === "item") {
+        targetSpaceId = (over.data.current?.item).spaceId;
+      } else {
+        return;
+      }
+      const sourceSpace = spaces?.find((s) => s.id === draggedItem.spaceId);
+      const targetSpace = spaces?.find((s) => s.id === targetSpaceId);
+      if (!sourceSpace || !targetSpace) return;
+      if (draggedItem.spaceId === targetSpaceId && overType === "item") {
+        const overItem = over.data.current?.item;
+        const allItems = queryClient.getQueryData(["items", draggedItem.spaceId]) ?? [];
+        const oldIdx = allItems.findIndex((i) => i.id === draggedItem.id);
+        const newIdx = allItems.findIndex((i) => i.id === overItem.id);
+        if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return;
+        const reordered = arrayMove(allItems, oldIdx, newIdx);
+        queryClient.setQueryData(["items", draggedItem.spaceId], reordered);
+        reorderItemsMutation.mutate({
+          spaceId: draggedItem.spaceId,
+          orderedIds: reordered.map((i) => i.id)
+        });
+      } else if (draggedItem.spaceId !== targetSpaceId) {
+        if (sourceSpace.type !== targetSpace.type) return;
+        queryClient.setQueryData(
+          ["items", draggedItem.spaceId],
+          (old) => old?.filter((i) => i.id !== draggedItem.id) ?? []
+        );
+        queryClient.setQueryData(
+          ["items", targetSpaceId],
+          (old) => [{ ...draggedItem, spaceId: targetSpaceId }, ...old ?? []]
+        );
+        moveItemMutation.mutate({ item: draggedItem, newSpaceId: targetSpaceId });
+      }
+    }
+  }
+  function handleDragCancel() {
+    setActiveDragItem(null);
+    setOverSpaceId(null);
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     BoardProvider,
@@ -1424,53 +1593,68 @@ function SpaceView({ familyId, providerToken, calendarId }) {
       providerToken,
       calendarId,
       children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full flex-col", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
           DndContext,
           {
             sensors,
             collisionDetection: closestCenter,
+            onDragStart: handleDragStart,
+            onDragOver: handleDragOver,
             onDragEnd: handleDragEnd,
-            children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full gap-4 overflow-x-auto p-4 pb-6", children: [
-              isLoading ? Array.from({ length: 3 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
+            onDragCancel: handleDragCancel,
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full flex-col gap-4 overflow-y-auto p-4 pb-6 sm:flex-row sm:overflow-x-auto sm:overflow-y-hidden", children: [
+                isLoading ? Array.from({ length: 3 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "div",
+                  {
+                    className: "flex h-48 w-full flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:h-full sm:w-72 sm:shrink-0",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-1 w-full rounded-t-xl" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-5 w-32" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-14 w-full rounded-lg" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-14 w-full rounded-lg" })
+                    ]
+                  },
+                  i
+                )) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  SortableContext,
+                  {
+                    items: (spaces ?? []).map((s) => s.id),
+                    strategy: horizontalListSortingStrategy,
+                    children: (spaces ?? []).map((space) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      SpaceColumn,
+                      {
+                        space,
+                        familyId,
+                        isDropTarget: activeDragItem !== null && overSpaceId === space.id && spaces?.find(
+                          (s) => s.id === activeDragItem.item.spaceId
+                        )?.type === space.type
+                      },
+                      space.id
+                    ))
+                  }
+                ),
+                !isLoading && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 items-start pt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  Button,
+                  {
+                    variant: "outline",
+                    className: "gap-2 whitespace-nowrap",
+                    onClick: () => setAddSpaceOpen(true),
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4" }),
+                      "Add Space"
+                    ]
+                  }
+                ) })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(DragOverlay, { children: activeDragItem ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                ItemDragOverlay,
                 {
-                  className: "flex h-full w-72 shrink-0 flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3",
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-1 w-full rounded-t-xl" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-5 w-32" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-14 w-full rounded-lg" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Skeleton, { className: "h-14 w-full rounded-lg" })
-                  ]
-                },
-                i
-              )) : /* @__PURE__ */ jsxRuntimeExports.jsx(
-                SortableContext,
-                {
-                  items: (spaces ?? []).map((s) => s.id),
-                  strategy: horizontalListSortingStrategy,
-                  children: (spaces ?? []).map((space) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    SpaceColumn,
-                    {
-                      space,
-                      familyId
-                    },
-                    space.id
-                  ))
+                  item: activeDragItem.item,
+                  spaceColor: activeDragItem.spaceColor
                 }
-              ),
-              !isLoading && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 items-start pt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                Button,
-                {
-                  variant: "outline",
-                  className: "gap-2 whitespace-nowrap",
-                  onClick: () => setAddSpaceOpen(true),
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { className: "h-4 w-4" }),
-                    "Add Space"
-                  ]
-                }
-              ) })
-            ] })
+              ) : null })
+            ]
           }
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -1484,6 +1668,29 @@ function SpaceView({ familyId, providerToken, calendarId }) {
             isPending: create.isPending
           }
         )
+      ] })
+    }
+  );
+}
+function ItemDragOverlay({
+  item,
+  spaceColor
+}) {
+  const hue = extractHue(spaceColor);
+  const isDark = useIsDark();
+  const bgColor = isDark ? `oklch(0.26 0.08 ${hue})` : spaceColor;
+  const borderColor = isDark ? `oklch(0.34 0.10 ${hue})` : `oklch(0.78 0.13 ${hue})`;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      className: "flex w-72 items-start gap-3 rounded-lg border px-3 py-2.5 shadow-xl rotate-1 cursor-grabbing",
+      style: { background: bgColor, borderColor },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm font-medium leading-snug text-foreground", children: [
+        item.title,
+        item.quantity && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "ml-1.5 text-xs font-normal text-foreground/60", children: [
+          "× ",
+          item.quantity
+        ] })
       ] })
     }
   );
@@ -1672,12 +1879,18 @@ function FamilyContent({
     }
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 flex-col border-r border-border/40 py-3", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "hidden shrink-0 flex-col border-r border-border/40 py-3 sm:flex", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabButton, { active: tab === "board", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(LayoutGrid, { className: "h-4 w-4" }), onClick: () => handleTabChange("board"), children: "Spaces" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabButton, { active: tab === "calendar", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarDays, { className: "h-4 w-4" }), onClick: () => handleTabChange("calendar"), children: "Calendar" })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("min-w-0 flex-1", tab !== "board" && "hidden"), children: /* @__PURE__ */ jsxRuntimeExports.jsx(SpaceView, { familyId, providerToken, calendarId }) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("min-w-0 flex-1", tab !== "calendar" && "hidden"), children: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarView, { embedUrl }) })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 flex-1 flex-col", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("min-h-0 flex-1", tab !== "board" && "hidden"), children: /* @__PURE__ */ jsxRuntimeExports.jsx(SpaceView, { familyId, providerToken, calendarId }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("min-h-0 flex-1", tab !== "calendar" && "hidden"), children: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarView, { embedUrl }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 border-t border-border/40 bg-background/90 backdrop-blur-sm sm:hidden", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(MobileTabButton, { active: tab === "board", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(LayoutGrid, { className: "h-5 w-5" }), onClick: () => handleTabChange("board"), children: "Spaces" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(MobileTabButton, { active: tab === "calendar", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarDays, { className: "h-5 w-5" }), onClick: () => handleTabChange("calendar"), children: "Calendar" })
+      ] })
+    ] })
   ] });
 }
 function TabButton({
@@ -1688,6 +1901,17 @@ function TabButton({
 }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick, className: cn("relative flex flex-col items-center gap-1.5 px-3 py-3 text-[10px] font-medium tracking-wide transition-colors", active ? "text-foreground" : "text-muted-foreground hover:text-foreground"), children: [
     active && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute right-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-foreground" }),
+    icon,
+    children
+  ] });
+}
+function MobileTabButton({
+  active,
+  icon,
+  onClick,
+  children
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick, className: cn("flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium tracking-wide transition-colors", active ? "text-foreground" : "text-muted-foreground"), children: [
     icon,
     children
   ] });

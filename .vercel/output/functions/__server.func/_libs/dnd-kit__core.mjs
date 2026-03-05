@@ -1,6 +1,6 @@
 import { r as reactExports, a as React } from "./react.mjs";
 import { r as reactDomExports } from "./react-dom.mjs";
-import { u as useLatestValue, a as useUniqueId, g as getEventCoordinates, b as getWindow, c as add, d as useIsomorphicLayoutEffect, e as getOwnerDocument, i as isKeyboardEvent, s as subtract, f as useLazyMemo, h as isHTMLElement, j as useNodeRef, k as canUseDOM, l as useInterval, m as usePrevious, n as findFirstFocusableNode, o as useEvent, p as isWindow, q as isNode, r as isDocument, t as isSVGElement } from "./dnd-kit__utilities.mjs";
+import { u as useLatestValue, a as useUniqueId, g as getEventCoordinates, b as getWindow, c as add, d as useIsomorphicLayoutEffect, e as getOwnerDocument, i as isKeyboardEvent, s as subtract, f as useLazyMemo, h as isHTMLElement, j as useNodeRef, k as canUseDOM, l as useInterval, m as usePrevious, n as findFirstFocusableNode, o as useEvent, C as CSS, p as isWindow, q as isNode, r as isDocument, t as isSVGElement } from "./dnd-kit__utilities.mjs";
 import { u as useAnnouncement, H as HiddenText, L as LiveRegion } from "./dnd-kit__accessibility.mjs";
 const DndMonitorContext = /* @__PURE__ */ reactExports.createContext(null);
 function useDndMonitor(listener) {
@@ -187,6 +187,17 @@ const defaultCoordinates = /* @__PURE__ */ Object.freeze({
 });
 function distanceBetween(p1, p2) {
   return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+}
+function getRelativeTransformOrigin(event, rect) {
+  const eventCoordinates = getEventCoordinates(event);
+  if (!eventCoordinates) {
+    return "0 0";
+  }
+  const transformOrigin = {
+    x: (eventCoordinates.x - rect.left) / rect.width * 100,
+    y: (eventCoordinates.y - rect.top) / rect.height * 100
+  };
+  return transformOrigin.x + "% " + transformOrigin.y + "%";
 }
 function sortCollisionsAsc(_ref, _ref2) {
   let {
@@ -700,12 +711,12 @@ class Rect {
     this.width = rect.width;
     this.height = rect.height;
     for (const [axis, keys, getScrollOffset] of properties) {
-      for (const key of keys) {
-        Object.defineProperty(this, key, {
+      for (const key2 of keys) {
+        Object.defineProperty(this, key2, {
           get: () => {
             const currentOffsets = getScrollOffset(scrollableAncestors);
             const scrollOffsetsDeltla = scrollOffsets[axis] - currentOffsets;
-            return this.rect[key] + scrollOffsetsDeltla;
+            return this.rect[key2] + scrollOffsetsDeltla;
           },
           enumerable: true
         });
@@ -2137,11 +2148,11 @@ function reducer(state, action) {
     case Action.SetDroppableDisabled: {
       const {
         id,
-        key,
+        key: key2,
         disabled
       } = action;
       const element = state.droppable.containers.get(id);
-      if (!element || key !== element.key) {
+      if (!element || key2 !== element.key) {
         return state;
       }
       const containers = new DroppableContainersMap(state.droppable.containers);
@@ -2160,10 +2171,10 @@ function reducer(state, action) {
     case Action.UnregisterDroppable: {
       const {
         id,
-        key
+        key: key2
       } = action;
       const element = state.droppable.containers.get(id);
-      if (!element || key !== element.key) {
+      if (!element || key2 !== element.key) {
         return state;
       }
       const containers = new DroppableContainersMap(state.droppable.containers);
@@ -2828,7 +2839,7 @@ function useDraggable(_ref) {
     disabled = false,
     attributes
   } = _ref;
-  const key = useUniqueId(ID_PREFIX);
+  const key2 = useUniqueId(ID_PREFIX);
   const {
     activators,
     activatorEvent,
@@ -2853,14 +2864,14 @@ function useDraggable(_ref) {
     () => {
       draggableNodes.set(id, {
         id,
-        key,
+        key: key2,
         node,
         activatorNode,
         data: dataRef
       });
       return () => {
         const node2 = draggableNodes.get(id);
-        if (node2 && node2.key === key) {
+        if (node2 && node2.key === key2) {
           draggableNodes.delete(id);
         }
       };
@@ -2904,7 +2915,7 @@ function useDroppable(_ref) {
     id,
     resizeObserverConfig
   } = _ref;
-  const key = useUniqueId(ID_PREFIX$1);
+  const key2 = useUniqueId(ID_PREFIX$1);
   const {
     active,
     dispatch,
@@ -2975,7 +2986,7 @@ function useDroppable(_ref) {
         type: Action.RegisterDroppable,
         element: {
           id,
-          key,
+          key: key2,
           disabled,
           node: nodeRef,
           rect,
@@ -2984,7 +2995,7 @@ function useDroppable(_ref) {
       });
       return () => dispatch({
         type: Action.UnregisterDroppable,
-        key,
+        key: key2,
         id
       });
     },
@@ -2996,12 +3007,12 @@ function useDroppable(_ref) {
       dispatch({
         type: Action.SetDroppableDisabled,
         id,
-        key,
+        key: key2,
         disabled
       });
       previous.current.disabled = disabled;
     }
-  }, [id, key, disabled, dispatch]);
+  }, [id, key2, disabled, dispatch]);
   return {
     active,
     rect,
@@ -3011,6 +3022,356 @@ function useDroppable(_ref) {
     setNodeRef
   };
 }
+function AnimationManager(_ref) {
+  let {
+    animation,
+    children
+  } = _ref;
+  const [clonedChildren, setClonedChildren] = reactExports.useState(null);
+  const [element, setElement] = reactExports.useState(null);
+  const previousChildren = usePrevious(children);
+  if (!children && !clonedChildren && previousChildren) {
+    setClonedChildren(previousChildren);
+  }
+  useIsomorphicLayoutEffect(() => {
+    if (!element) {
+      return;
+    }
+    const key2 = clonedChildren == null ? void 0 : clonedChildren.key;
+    const id = clonedChildren == null ? void 0 : clonedChildren.props.id;
+    if (key2 == null || id == null) {
+      setClonedChildren(null);
+      return;
+    }
+    Promise.resolve(animation(id, element)).then(() => {
+      setClonedChildren(null);
+    });
+  }, [animation, clonedChildren, element]);
+  return React.createElement(React.Fragment, null, children, clonedChildren ? reactExports.cloneElement(clonedChildren, {
+    ref: setElement
+  }) : null);
+}
+const defaultTransform = {
+  x: 0,
+  y: 0,
+  scaleX: 1,
+  scaleY: 1
+};
+function NullifiedContextProvider(_ref) {
+  let {
+    children
+  } = _ref;
+  return React.createElement(InternalContext.Provider, {
+    value: defaultInternalContext
+  }, React.createElement(ActiveDraggableContext.Provider, {
+    value: defaultTransform
+  }, children));
+}
+const baseStyles = {
+  position: "fixed",
+  touchAction: "none"
+};
+const defaultTransition = (activatorEvent) => {
+  const isKeyboardActivator = isKeyboardEvent(activatorEvent);
+  return isKeyboardActivator ? "transform 250ms ease" : void 0;
+};
+const PositionedOverlay = /* @__PURE__ */ reactExports.forwardRef((_ref, ref) => {
+  let {
+    as,
+    activatorEvent,
+    adjustScale: adjustScale2,
+    children,
+    className,
+    rect,
+    style,
+    transform,
+    transition = defaultTransition
+  } = _ref;
+  if (!rect) {
+    return null;
+  }
+  const scaleAdjustedTransform = adjustScale2 ? transform : {
+    ...transform,
+    scaleX: 1,
+    scaleY: 1
+  };
+  const styles = {
+    ...baseStyles,
+    width: rect.width,
+    height: rect.height,
+    top: rect.top,
+    left: rect.left,
+    transform: CSS.Transform.toString(scaleAdjustedTransform),
+    transformOrigin: adjustScale2 && activatorEvent ? getRelativeTransformOrigin(activatorEvent, rect) : void 0,
+    transition: typeof transition === "function" ? transition(activatorEvent) : transition,
+    ...style
+  };
+  return React.createElement(as, {
+    className,
+    style: styles,
+    ref
+  }, children);
+});
+const defaultDropAnimationSideEffects = (options) => (_ref) => {
+  let {
+    active,
+    dragOverlay
+  } = _ref;
+  const originalStyles = {};
+  const {
+    styles,
+    className
+  } = options;
+  if (styles != null && styles.active) {
+    for (const [key2, value] of Object.entries(styles.active)) {
+      if (value === void 0) {
+        continue;
+      }
+      originalStyles[key2] = active.node.style.getPropertyValue(key2);
+      active.node.style.setProperty(key2, value);
+    }
+  }
+  if (styles != null && styles.dragOverlay) {
+    for (const [key2, value] of Object.entries(styles.dragOverlay)) {
+      if (value === void 0) {
+        continue;
+      }
+      dragOverlay.node.style.setProperty(key2, value);
+    }
+  }
+  if (className != null && className.active) {
+    active.node.classList.add(className.active);
+  }
+  if (className != null && className.dragOverlay) {
+    dragOverlay.node.classList.add(className.dragOverlay);
+  }
+  return function cleanup() {
+    for (const [key2, value] of Object.entries(originalStyles)) {
+      active.node.style.setProperty(key2, value);
+    }
+    if (className != null && className.active) {
+      active.node.classList.remove(className.active);
+    }
+  };
+};
+const defaultKeyframeResolver = (_ref2) => {
+  let {
+    transform: {
+      initial,
+      final
+    }
+  } = _ref2;
+  return [{
+    transform: CSS.Transform.toString(initial)
+  }, {
+    transform: CSS.Transform.toString(final)
+  }];
+};
+const defaultDropAnimationConfiguration = {
+  duration: 250,
+  easing: "ease",
+  keyframes: defaultKeyframeResolver,
+  sideEffects: /* @__PURE__ */ defaultDropAnimationSideEffects({
+    styles: {
+      active: {
+        opacity: "0"
+      }
+    }
+  })
+};
+function useDropAnimation(_ref3) {
+  let {
+    config,
+    draggableNodes,
+    droppableContainers,
+    measuringConfiguration
+  } = _ref3;
+  return useEvent((id, node) => {
+    if (config === null) {
+      return;
+    }
+    const activeDraggable = draggableNodes.get(id);
+    if (!activeDraggable) {
+      return;
+    }
+    const activeNode = activeDraggable.node.current;
+    if (!activeNode) {
+      return;
+    }
+    const measurableNode = getMeasurableNode(node);
+    if (!measurableNode) {
+      return;
+    }
+    const {
+      transform
+    } = getWindow(node).getComputedStyle(node);
+    const parsedTransform = parseTransform(transform);
+    if (!parsedTransform) {
+      return;
+    }
+    const animation = typeof config === "function" ? config : createDefaultDropAnimation(config);
+    scrollIntoViewIfNeeded(activeNode, measuringConfiguration.draggable.measure);
+    return animation({
+      active: {
+        id,
+        data: activeDraggable.data,
+        node: activeNode,
+        rect: measuringConfiguration.draggable.measure(activeNode)
+      },
+      draggableNodes,
+      dragOverlay: {
+        node,
+        rect: measuringConfiguration.dragOverlay.measure(measurableNode)
+      },
+      droppableContainers,
+      measuringConfiguration,
+      transform: parsedTransform
+    });
+  });
+}
+function createDefaultDropAnimation(options) {
+  const {
+    duration,
+    easing,
+    sideEffects,
+    keyframes
+  } = {
+    ...defaultDropAnimationConfiguration,
+    ...options
+  };
+  return (_ref4) => {
+    let {
+      active,
+      dragOverlay,
+      transform,
+      ...rest
+    } = _ref4;
+    if (!duration) {
+      return;
+    }
+    const delta = {
+      x: dragOverlay.rect.left - active.rect.left,
+      y: dragOverlay.rect.top - active.rect.top
+    };
+    const scale = {
+      scaleX: transform.scaleX !== 1 ? active.rect.width * transform.scaleX / dragOverlay.rect.width : 1,
+      scaleY: transform.scaleY !== 1 ? active.rect.height * transform.scaleY / dragOverlay.rect.height : 1
+    };
+    const finalTransform = {
+      x: transform.x - delta.x,
+      y: transform.y - delta.y,
+      ...scale
+    };
+    const animationKeyframes = keyframes({
+      ...rest,
+      active,
+      dragOverlay,
+      transform: {
+        initial: transform,
+        final: finalTransform
+      }
+    });
+    const [firstKeyframe] = animationKeyframes;
+    const lastKeyframe = animationKeyframes[animationKeyframes.length - 1];
+    if (JSON.stringify(firstKeyframe) === JSON.stringify(lastKeyframe)) {
+      return;
+    }
+    const cleanup = sideEffects == null ? void 0 : sideEffects({
+      active,
+      dragOverlay,
+      ...rest
+    });
+    const animation = dragOverlay.node.animate(animationKeyframes, {
+      duration,
+      easing,
+      fill: "forwards"
+    });
+    return new Promise((resolve) => {
+      animation.onfinish = () => {
+        cleanup == null ? void 0 : cleanup();
+        resolve();
+      };
+    });
+  };
+}
+let key = 0;
+function useKey(id) {
+  return reactExports.useMemo(() => {
+    if (id == null) {
+      return;
+    }
+    key++;
+    return key;
+  }, [id]);
+}
+const DragOverlay = /* @__PURE__ */ React.memo((_ref) => {
+  let {
+    adjustScale: adjustScale2 = false,
+    children,
+    dropAnimation: dropAnimationConfig,
+    style,
+    transition,
+    modifiers,
+    wrapperElement = "div",
+    className,
+    zIndex = 999
+  } = _ref;
+  const {
+    activatorEvent,
+    active,
+    activeNodeRect,
+    containerNodeRect,
+    draggableNodes,
+    droppableContainers,
+    dragOverlay,
+    over,
+    measuringConfiguration,
+    scrollableAncestors,
+    scrollableAncestorRects,
+    windowRect
+  } = useDndContext();
+  const transform = reactExports.useContext(ActiveDraggableContext);
+  const key2 = useKey(active == null ? void 0 : active.id);
+  const modifiedTransform = applyModifiers(modifiers, {
+    activatorEvent,
+    active,
+    activeNodeRect,
+    containerNodeRect,
+    draggingNodeRect: dragOverlay.rect,
+    over,
+    overlayNodeRect: dragOverlay.rect,
+    scrollableAncestors,
+    scrollableAncestorRects,
+    transform,
+    windowRect
+  });
+  const initialRect = useInitialValue(activeNodeRect);
+  const dropAnimation = useDropAnimation({
+    config: dropAnimationConfig,
+    draggableNodes,
+    droppableContainers,
+    measuringConfiguration
+  });
+  const ref = initialRect ? dragOverlay.setRef : void 0;
+  return React.createElement(NullifiedContextProvider, null, React.createElement(AnimationManager, {
+    animation: dropAnimation
+  }, active && key2 ? React.createElement(PositionedOverlay, {
+    key: key2,
+    id: active.id,
+    ref,
+    as: wrapperElement,
+    activatorEvent,
+    adjustScale: adjustScale2,
+    className,
+    transition,
+    rect: initialRect,
+    style: {
+      zIndex,
+      ...style
+    },
+    transform: modifiedTransform
+  }, children) : null));
+});
 export {
   DndContext as D,
   KeyboardCode as K,
@@ -3020,6 +3381,7 @@ export {
   useSensors as c,
   useSensor as d,
   closestCenter as e,
+  DragOverlay as f,
   getClientRect as g,
   useDndContext as u
 };

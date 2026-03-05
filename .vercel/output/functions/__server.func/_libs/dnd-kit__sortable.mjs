@@ -122,6 +122,67 @@ const rectSortingStrategy = (_ref) => {
     scaleY: newRect.height / oldRect.height
   };
 };
+const defaultScale$1 = {
+  scaleX: 1,
+  scaleY: 1
+};
+const verticalListSortingStrategy = (_ref) => {
+  var _rects$activeIndex;
+  let {
+    activeIndex,
+    activeNodeRect: fallbackActiveRect,
+    index,
+    rects,
+    overIndex
+  } = _ref;
+  const activeNodeRect = (_rects$activeIndex = rects[activeIndex]) != null ? _rects$activeIndex : fallbackActiveRect;
+  if (!activeNodeRect) {
+    return null;
+  }
+  if (index === activeIndex) {
+    const overIndexRect = rects[overIndex];
+    if (!overIndexRect) {
+      return null;
+    }
+    return {
+      x: 0,
+      y: activeIndex < overIndex ? overIndexRect.top + overIndexRect.height - (activeNodeRect.top + activeNodeRect.height) : overIndexRect.top - activeNodeRect.top,
+      ...defaultScale$1
+    };
+  }
+  const itemGap = getItemGap$1(rects, index, activeIndex);
+  if (index > activeIndex && index <= overIndex) {
+    return {
+      x: 0,
+      y: -activeNodeRect.height - itemGap,
+      ...defaultScale$1
+    };
+  }
+  if (index < activeIndex && index >= overIndex) {
+    return {
+      x: 0,
+      y: activeNodeRect.height + itemGap,
+      ...defaultScale$1
+    };
+  }
+  return {
+    x: 0,
+    y: 0,
+    ...defaultScale$1
+  };
+};
+function getItemGap$1(clientRects, index, activeIndex) {
+  const currentRect = clientRects[index];
+  const previousRect = clientRects[index - 1];
+  const nextRect = clientRects[index + 1];
+  if (!currentRect) {
+    return 0;
+  }
+  if (activeIndex < index) {
+    return previousRect ? currentRect.top - (previousRect.top + previousRect.height) : nextRect ? nextRect.top - (currentRect.top + currentRect.height) : 0;
+  }
+  return nextRect ? nextRect.top - (currentRect.top + currentRect.height) : previousRect ? currentRect.top - (previousRect.top + previousRect.height) : 0;
+}
 const ID_PREFIX = "Sortable";
 const Context = /* @__PURE__ */ React.createContext({
   activeIndex: -1,
@@ -473,5 +534,6 @@ export {
   SortableContext as S,
   arrayMove as a,
   horizontalListSortingStrategy as h,
-  useSortable as u
+  useSortable as u,
+  verticalListSortingStrategy as v
 };

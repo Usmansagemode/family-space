@@ -26,7 +26,7 @@ import { SpaceColumn } from './SpaceColumn'
 import { AddSpaceSheet } from './AddSpaceSheet'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
-import { moveItem } from '#/lib/supabase/items'
+import { moveItem, reorderItems } from '#/lib/supabase/items'
 import { BoardProvider } from '#/contexts/board'
 import { extractHue, useIsDark } from '#/lib/utils'
 import type { Space } from '#/entities/Space'
@@ -64,7 +64,6 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
       newSpaceId: string
     }) => moveItem(item.id, newSpaceId),
     onError: (_err, { item, newSpaceId }) => {
-      // Revert optimistic update
       queryClient.setQueryData<Item[]>(
         ['items', newSpaceId],
         (old) => old?.filter((i) => i.id !== item.id) ?? [],
@@ -76,10 +75,22 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
       toast.error('Failed to move item')
     },
     onSettled: (_data, _err, { item, newSpaceId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: ['items', item.spaceId],
-      })
+      void queryClient.invalidateQueries({ queryKey: ['items', item.spaceId] })
       void queryClient.invalidateQueries({ queryKey: ['items', newSpaceId] })
+    },
+  })
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: ({
+      spaceId,
+      orderedIds,
+    }: {
+      spaceId: string
+      orderedIds: string[]
+    }) => reorderItems(spaceId, orderedIds),
+    onError: (_err, { spaceId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['items', spaceId] })
+      toast.error('Failed to reorder items')
     },
   })
 
@@ -94,7 +105,16 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
 
   function handleDragOver(event: DragOverEvent) {
     if (event.active.data.current?.type === 'item') {
-      setOverSpaceId((event.over?.id as string) ?? null)
+      const overType = event.over?.data.current?.type
+      if (overType === 'space') {
+        setOverSpaceId(event.over!.id as string)
+      } else if (overType === 'item') {
+        setOverSpaceId(
+          (event.over?.data.current?.item as Item | undefined)?.spaceId ?? null,
+        )
+      } else {
+        setOverSpaceId(null)
+      }
     }
   }
 
@@ -116,26 +136,50 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
       queryClient.setQueryData<Space[]>(['spaces', familyId], reordered)
       reorder.mutate(reordered.map((s) => s.id))
     } else if (activeType === 'item') {
-      const item = active.data.current?.item as Item
-      const newSpaceId = over.id as string
-      if (item.spaceId === newSpaceId) return
+      const draggedItem = active.data.current?.item as Item
+      const overType = over.data.current?.type
 
-      const sourceSpace = spaces?.find((s) => s.id === item.spaceId)
-      const targetSpace = spaces?.find((s) => s.id === newSpaceId)
+      // Determine target space ID
+      let targetSpaceId: string
+      if (overType === 'space') {
+        targetSpaceId = over.id as string
+      } else if (overType === 'item') {
+        targetSpaceId = (over.data.current?.item as Item).spaceId
+      } else {
+        return
+      }
+
+      const sourceSpace = spaces?.find((s) => s.id === draggedItem.spaceId)
+      const targetSpace = spaces?.find((s) => s.id === targetSpaceId)
       if (!sourceSpace || !targetSpace) return
-      if (sourceSpace.type !== targetSpace.type) return
 
-      // Optimistic: remove from old space, add to new space
-      queryClient.setQueryData<Item[]>(
-        ['items', item.spaceId],
-        (old) => old?.filter((i) => i.id !== item.id) ?? [],
-      )
-      queryClient.setQueryData<Item[]>(
-        ['items', newSpaceId],
-        (old) => [{ ...item, spaceId: newSpaceId }, ...(old ?? [])],
-      )
-
-      moveItemMutation.mutate({ item, newSpaceId })
+      if (draggedItem.spaceId === targetSpaceId && overType === 'item') {
+        // Same column — reorder
+        const overItem = over.data.current?.item as Item
+        const allItems =
+          queryClient.getQueryData<Item[]>(['items', draggedItem.spaceId]) ?? []
+        const oldIdx = allItems.findIndex((i) => i.id === draggedItem.id)
+        const newIdx = allItems.findIndex((i) => i.id === overItem.id)
+        if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return
+        const reordered = arrayMove(allItems, oldIdx, newIdx)
+        queryClient.setQueryData<Item[]>(['items', draggedItem.spaceId], reordered)
+        reorderItemsMutation.mutate({
+          spaceId: draggedItem.spaceId,
+          orderedIds: reordered.map((i) => i.id),
+        })
+      } else if (draggedItem.spaceId !== targetSpaceId) {
+        // Cross-space move
+        if (sourceSpace.type !== targetSpace.type) return
+        queryClient.setQueryData<Item[]>(
+          ['items', draggedItem.spaceId],
+          (old) => old?.filter((i) => i.id !== draggedItem.id) ?? [],
+        )
+        queryClient.setQueryData<Item[]>(
+          ['items', targetSpaceId],
+          (old) => [{ ...draggedItem, spaceId: targetSpaceId }, ...(old ?? [])],
+        )
+        moveItemMutation.mutate({ item: draggedItem, newSpaceId: targetSpaceId })
+      }
     }
   }
 
