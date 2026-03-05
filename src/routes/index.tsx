@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { LayoutGrid, CalendarDays } from 'lucide-react'
+import { LayoutGrid, CalendarDays, Search } from 'lucide-react'
 import { SpaceView } from '#/components/board/SpaceView'
 import { CalendarView } from '#/components/CalendarView'
 import { LoginPage } from '#/components/auth/LoginPage'
+import { SearchDialog } from '#/components/SearchDialog'
 import { Skeleton } from '#/components/ui/skeleton'
 import { cn } from '#/lib/utils'
 import { useAuthContext } from '#/contexts/auth'
@@ -66,6 +67,7 @@ function FamilyContent({
   calendarId: string | null
   embedUrl?: string
 }) {
+  const [searchOpen, setSearchOpen] = useState(false)
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const stored = window.localStorage.getItem('fs-tab')
@@ -99,6 +101,13 @@ function FamilyContent({
         >
           Calendar
         </TabButton>
+        <TabButton
+          active={false}
+          icon={<Search className="h-4 w-4" />}
+          onClick={() => setSearchOpen(true)}
+        >
+          Search
+        </TabButton>
       </div>
 
       {/* Content + mobile bottom nav */}
@@ -131,8 +140,22 @@ function FamilyContent({
           >
             Calendar
           </MobileTabButton>
+          <MobileTabButton
+            active={false}
+            icon={<Search className="h-5 w-5" />}
+            onClick={() => setSearchOpen(true)}
+          >
+            Search
+          </MobileTabButton>
         </div>
       </div>
+      <SearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        familyId={familyId}
+        providerToken={providerToken}
+        calendarId={calendarId ?? null}
+      />
     </div>
   )
 }

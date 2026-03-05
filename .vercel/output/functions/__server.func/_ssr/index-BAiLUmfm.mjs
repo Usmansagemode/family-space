@@ -3,15 +3,16 @@ import { c as useSensors, d as useSensor, D as DndContext, e as closestCenter, f
 import { S as SortableContext, h as horizontalListSortingStrategy, a as arrayMove, u as useSortable, v as verticalListSortingStrategy } from "../_libs/dnd-kit__sortable.mjs";
 import { a as useQueryClient, b as useMutation, u as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { t as toast } from "../_libs/sonner.mjs";
-import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-B-ZnCBMb.mjs";
+import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-BTIFZPuj.mjs";
 import { C as CSS } from "../_libs/dnd-kit__utilities.mjs";
 import { u as useForm } from "../_libs/react-hook-form.mjs";
 import { a } from "../_libs/hookform__resolvers.mjs";
-import { e as LayoutGrid, f as CalendarDays, g as Clock, h as Image, P as Plus, G as GripVertical, U as User, i as ShoppingCart, j as Ellipsis, k as History, b as LoaderCircle, l as Calendar, m as Hash, X, R as RotateCcw, n as Trash2, o as Check } from "../_libs/lucide-react.mjs";
+import { e as LayoutGrid, f as CalendarDays, g as Clock, h as Image, i as Search, P as Plus, X, G as GripVertical, U as User, j as ShoppingCart, k as Ellipsis, l as History, b as LoaderCircle, m as Calendar, n as Hash, R as RotateCcw, o as Trash2, p as Check } from "../_libs/lucide-react.mjs";
+import { R as Root, C as Content, a as Close, T as Title, P as Portal, O as Overlay } from "../_libs/radix-ui__react-dialog.mjs";
 import { f as format } from "../_libs/date-fns.mjs";
 import { C as Checkbox$1, a as CheckboxIndicator } from "../_libs/radix-ui__react-checkbox.mjs";
-import { R as Root2, T as Trigger, P as Portal, C as Content2 } from "../_libs/radix-ui__react-popover.mjs";
-import { R as Root, V as Viewport, C as Corner, S as ScrollAreaScrollbar, a as ScrollAreaThumb } from "../_libs/radix-ui__react-scroll-area.mjs";
+import { R as Root2, T as Trigger, P as Portal$1, C as Content2 } from "../_libs/radix-ui__react-popover.mjs";
+import { R as Root$1, V as Viewport, C as Corner, S as ScrollAreaScrollbar, a as ScrollAreaThumb } from "../_libs/radix-ui__react-scroll-area.mjs";
 import { o as object, s as string } from "../_libs/zod.mjs";
 import "../_libs/react-dom.mjs";
 import "util";
@@ -77,7 +78,6 @@ import "../_libs/react-style-singleton.mjs";
 import "../_libs/get-nonce.mjs";
 import "../_libs/use-sidecar.mjs";
 import "../_libs/use-callback-ref.mjs";
-import "../_libs/radix-ui__react-dialog.mjs";
 import "../_libs/radix-ui__react-label.mjs";
 import "../_libs/radix-ui__react-use-previous.mjs";
 import "../_libs/radix-ui__number.mjs";
@@ -177,7 +177,7 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(Portal, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Portal$1, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(
     Content2,
     {
       "data-slot": "popover-content",
@@ -259,6 +259,12 @@ async function moveItem(id, newSpaceId) {
   const { data, error } = await supabase.from("items").update({ space_id: newSpaceId, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().single();
   if (error) throw error;
   return rowToItem(data);
+}
+async function searchItems(spaceIds, query) {
+  if (spaceIds.length === 0) return [];
+  const { data, error } = await supabase.from("items").select("*").in("space_id", spaceIds).eq("completed", false).ilike("title", `%${query}%`).order("title").limit(20);
+  if (error) throw error;
+  return (data ?? []).map(rowToItem);
 }
 async function reorderItems(spaceId, orderedIds) {
   const results = await Promise.all(
@@ -1111,7 +1117,7 @@ function ScrollArea({
   ...props
 }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    Root,
+    Root$1,
     {
       "data-slot": "scroll-area",
       className: cn("relative", className),
@@ -1974,6 +1980,274 @@ function LoginPage() {
     ] }) })
   ] });
 }
+function Dialog({
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Root, { "data-slot": "dialog", ...props });
+}
+function DialogPortal({
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Portal, { "data-slot": "dialog-portal", ...props });
+}
+function DialogOverlay({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Overlay,
+    {
+      "data-slot": "dialog-overlay",
+      className: cn(
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        className
+      ),
+      ...props
+    }
+  );
+}
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(DialogPortal, { "data-slot": "dialog-portal", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(DialogOverlay, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      Content,
+      {
+        "data-slot": "dialog-content",
+        className: cn(
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
+          className
+        ),
+        ...props,
+        children: [
+          children,
+          showCloseButton && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            Close,
+            {
+              "data-slot": "dialog-close",
+              className: "ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(X, {}),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Close" })
+              ]
+            }
+          )
+        ]
+      }
+    )
+  ] });
+}
+function DialogTitle({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Title,
+    {
+      "data-slot": "dialog-title",
+      className: cn("text-lg leading-none font-semibold", className),
+      ...props
+    }
+  );
+}
+function useSearchItems(familyId, query) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: ["search", familyId, query],
+    queryFn: async () => {
+      const spaces = queryClient.getQueryData(["spaces", familyId]) ?? [];
+      const spaceIds = spaces.map((s) => s.id);
+      const items = await searchItems(spaceIds, query);
+      return items.map((item) => ({
+        item,
+        space: spaces.find((s) => s.id === item.spaceId)
+      })).filter((r) => r.space);
+    },
+    enabled: query.trim().length >= 1,
+    staleTime: 0
+  });
+}
+function SearchDialog({
+  open,
+  onOpenChange,
+  familyId,
+  providerToken,
+  calendarId
+}) {
+  const [query, setQuery] = reactExports.useState("");
+  const [debouncedQuery, setDebouncedQuery] = reactExports.useState("");
+  const [selected, setSelected] = reactExports.useState(null);
+  const inputRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+  reactExports.useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setDebouncedQuery("");
+    }
+  }, [open]);
+  reactExports.useEffect(() => {
+    function handleKey(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        onOpenChange(true);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onOpenChange]);
+  const { data: results, isLoading } = useSearchItems(familyId, debouncedQuery);
+  const grouped = [];
+  for (const r of results ?? []) {
+    const existing = grouped.find((g) => g.space.id === r.space.id);
+    if (existing) {
+      existing.items.push(r.item);
+    } else {
+      grouped.push({ space: r.space, items: [r.item] });
+    }
+  }
+  function handleSelect(result) {
+    setSelected(result);
+    onOpenChange(false);
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Dialog, { open, onOpenChange, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      DialogContent,
+      {
+        className: "gap-0 overflow-hidden p-0 sm:max-w-lg",
+        showCloseButton: false,
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(DialogTitle, { className: "sr-only", children: "Search items" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 border-b border-border px-4 py-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Search, { className: "h-4 w-4 shrink-0 text-muted-foreground" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                ref: inputRef,
+                type: "text",
+                placeholder: "Search items…",
+                autoFocus: true,
+                value: query,
+                onChange: (e) => setQuery(e.target.value),
+                className: "flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              }
+            ),
+            query ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  setQuery("");
+                  inputRef.current?.focus();
+                },
+                className: "text-muted-foreground hover:text-foreground",
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { className: "h-4 w-4" })
+              }
+            ) : /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline", children: "esc" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-h-96 overflow-y-auto", children: !debouncedQuery.trim() ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-10 text-center text-sm text-muted-foreground", children: "Start typing to search across all spaces" }) : isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-10 text-center text-sm text-muted-foreground", children: "Searching…" }) : grouped.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "py-10 text-center text-sm text-muted-foreground", children: [
+            'No results for "',
+            debouncedQuery,
+            '"'
+          ] }) : grouped.map(({ space, items }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 px-4 py-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  className: "h-2 w-2 shrink-0 rounded-full",
+                  style: { background: space.color }
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-medium text-muted-foreground", children: space.name })
+            ] }),
+            items.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                type: "button",
+                className: "flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-accent",
+                onClick: () => handleSelect({ item, space }),
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "h-1.5 w-1.5 shrink-0 rounded-full",
+                      style: { background: space.color }
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex-1 truncate text-sm", children: [
+                    item.title,
+                    item.quantity && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "ml-1.5 text-xs text-muted-foreground", children: [
+                      "× ",
+                      item.quantity
+                    ] })
+                  ] })
+                ]
+              },
+              item.id
+            ))
+          ] }, space.id)) })
+        ]
+      }
+    ) }),
+    selected && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      BoardProvider,
+      {
+        familyId,
+        providerToken,
+        calendarId,
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SelectedItemSheet,
+          {
+            result: selected,
+            familyId,
+            onClose: () => setSelected(null)
+          }
+        )
+      }
+    )
+  ] });
+}
+function SelectedItemSheet({
+  result,
+  familyId,
+  onClose
+}) {
+  const { item, space } = result;
+  const { update, complete, remove, move } = useItemMutations(item.spaceId);
+  const [open, setOpen] = reactExports.useState(true);
+  function handleOpenChange(o) {
+    setOpen(o);
+    if (!o) onClose();
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    AddItemSheet,
+    {
+      open,
+      onOpenChange: handleOpenChange,
+      spaceId: space.id,
+      spaceName: space.name,
+      spaceType: space.type,
+      familyId,
+      editItem: item,
+      onCreate: () => {
+      },
+      onUpdate: (input) => update.mutate(input, { onSuccess: () => handleOpenChange(false) }),
+      onComplete: (it) => complete.mutate(it, { onSuccess: () => handleOpenChange(false) }),
+      onDelete: (it) => remove.mutate(it, { onSuccess: () => handleOpenChange(false) }),
+      onMove: (newSpaceId) => move.mutate(
+        { id: item.id, newSpaceId },
+        { onSuccess: () => handleOpenChange(false) }
+      ),
+      isPending: update.isPending || complete.isPending || remove.isPending || move.isPending
+    }
+  );
+}
 function BoardPage() {
   return /* @__PURE__ */ jsxRuntimeExports.jsx(AuthGate, {});
 }
@@ -2006,6 +2280,7 @@ function FamilyContent({
   calendarId,
   embedUrl
 }) {
+  const [searchOpen, setSearchOpen] = reactExports.useState(false);
   const [tab, setTab] = reactExports.useState(() => {
     try {
       const stored = window.localStorage.getItem("fs-tab");
@@ -2024,16 +2299,19 @@ function FamilyContent({
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-full", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "hidden shrink-0 flex-col border-r border-border/40 py-3 sm:flex", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabButton, { active: tab === "board", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(LayoutGrid, { className: "h-4 w-4" }), onClick: () => handleTabChange("board"), children: "Spaces" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(TabButton, { active: tab === "calendar", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarDays, { className: "h-4 w-4" }), onClick: () => handleTabChange("calendar"), children: "Calendar" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TabButton, { active: tab === "calendar", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarDays, { className: "h-4 w-4" }), onClick: () => handleTabChange("calendar"), children: "Calendar" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TabButton, { active: false, icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Search, { className: "h-4 w-4" }), onClick: () => setSearchOpen(true), children: "Search" })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 flex-1 flex-col", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("min-h-0 flex-1", tab !== "board" && "hidden"), children: /* @__PURE__ */ jsxRuntimeExports.jsx(SpaceView, { familyId, providerToken, calendarId }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("min-h-0 flex-1", tab !== "calendar" && "hidden"), children: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarView, { embedUrl }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 border-t border-border/40 bg-background/90 backdrop-blur-sm sm:hidden", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(MobileTabButton, { active: tab === "board", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(LayoutGrid, { className: "h-5 w-5" }), onClick: () => handleTabChange("board"), children: "Spaces" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(MobileTabButton, { active: tab === "calendar", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarDays, { className: "h-5 w-5" }), onClick: () => handleTabChange("calendar"), children: "Calendar" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx(MobileTabButton, { active: tab === "calendar", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CalendarDays, { className: "h-5 w-5" }), onClick: () => handleTabChange("calendar"), children: "Calendar" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(MobileTabButton, { active: false, icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Search, { className: "h-5 w-5" }), onClick: () => setSearchOpen(true), children: "Search" })
       ] })
-    ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(SearchDialog, { open: searchOpen, onOpenChange: setSearchOpen, familyId, providerToken, calendarId: calendarId ?? null })
   ] });
 }
 function TabButton({

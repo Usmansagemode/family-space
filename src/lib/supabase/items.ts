@@ -267,6 +267,36 @@ export async function moveItem(id: string, newSpaceId: string): Promise<Item> {
   return rowToItem(data)
 }
 
+export async function searchItems(
+  spaceIds: string[],
+  query: string,
+): Promise<Item[]> {
+  if (isDemoMode) {
+    await delay(150)
+    const q = query.toLowerCase()
+    return demoItems.filter(
+      (i) =>
+        spaceIds.includes(i.spaceId) &&
+        !i.completed &&
+        i.title.toLowerCase().includes(q),
+    )
+  }
+
+  if (spaceIds.length === 0) return []
+
+  const { data, error } = await supabase!
+    .from('items')
+    .select('*')
+    .in('space_id', spaceIds)
+    .eq('completed', false)
+    .ilike('title', `%${query}%`)
+    .order('title')
+    .limit(20)
+
+  if (error) throw error
+  return (data ?? []).map(rowToItem)
+}
+
 export async function reorderItems(
   spaceId: string,
   orderedIds: string[],
