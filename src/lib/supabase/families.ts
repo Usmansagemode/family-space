@@ -80,6 +80,24 @@ export async function updateFamily(
   return mapFamily(data)
 }
 
+export async function findFamily(userId: string): Promise<Family | null> {
+  if (isDemoMode) {
+    await delay()
+    return { id: DEMO_FAMILY_ID, name: 'Our Family', createdAt: new Date() }
+  }
+
+  const { data: membership } = await supabase!
+    .from('user_families')
+    .select('family_id, families(*)')
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (!membership?.families) return null
+  return mapFamily(membership.families as Parameters<typeof mapFamily>[0])
+}
+
 export async function findOrCreateFamily(userId: string): Promise<Family> {
   if (isDemoMode) {
     await delay()

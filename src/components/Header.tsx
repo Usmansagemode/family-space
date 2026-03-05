@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Sun, Moon, Settings, LogOut, User, Home } from 'lucide-react'
-import { useUserFamily } from '#/hooks/auth/useUserFamily'
+import {
+  fetchFamily,
+  findFamily,
+} from '#/lib/supabase/families'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -13,7 +16,6 @@ import {
 import { Badge } from '#/components/ui/badge'
 import { Skeleton } from '#/components/ui/skeleton'
 import { isDemoMode } from '#/lib/supabase'
-import { fetchFamily } from '#/lib/supabase/families'
 import { useAuthContext } from '#/contexts/auth'
 import { useIsDark } from '#/lib/utils'
 import { SettingsSheet } from './SettingsSheet'
@@ -38,9 +40,12 @@ export function Header() {
     staleTime: Infinity,
   })
 
-  const { data: userFamily, isLoading: userFamilyLoading } = useUserFamily(
-    !isDemoMode ? user?.id : undefined,
-  )
+  const { data: userFamily, isLoading: userFamilyLoading } = useQuery({
+    queryKey: ['family', 'user', user?.id],
+    queryFn: () => findFamily(user!.id),
+    enabled: !isDemoMode && !!user,
+    staleTime: Infinity,
+  })
 
   const familyName = isDemoMode ? demoFamily?.name : userFamily?.name
   const familyNameLoading = isDemoMode ? demoLoading : userFamilyLoading
