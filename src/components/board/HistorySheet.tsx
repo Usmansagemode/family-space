@@ -28,7 +28,8 @@ export function HistorySheet({
   spaceName,
 }: Props) {
   const { data: items, isLoading } = useItems(spaceId)
-  const { reAdd } = useItemMutations(spaceId)
+  const { reAdd, remove } = useItemMutations(spaceId)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   // Sort newest first, then deduplicate by title (case-insensitive).
   // The DB should already have one row per item (reAddItem uncompletes rather
@@ -87,16 +88,56 @@ export function HistorySheet({
                       </p>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => handleReAdd(item)}
-                    disabled={reAdd.isPending}
-                  >
-                    <RotateCcw className="mr-1.5 h-3 w-3" />
-                    Re-add
-                  </Button>
+
+                  {confirmDeleteId === item.id ? (
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">
+                        Delete?
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          remove.mutate(item, {
+                            onSettled: () => setConfirmDeleteId(null),
+                          })
+                        }}
+                        disabled={remove.isPending}
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => handleReAdd(item)}
+                        disabled={reAdd.isPending}
+                      >
+                        <RotateCcw className="mr-1.5 h-3 w-3" />
+                        Re-add
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-muted-foreground/50 hover:text-destructive"
+                        onClick={() => setConfirmDeleteId(item.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))
             )}

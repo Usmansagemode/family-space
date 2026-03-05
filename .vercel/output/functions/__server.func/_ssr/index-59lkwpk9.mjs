@@ -3,11 +3,11 @@ import { c as useSensors, d as useSensor, D as DndContext, e as closestCenter, f
 import { S as SortableContext, h as horizontalListSortingStrategy, a as arrayMove, u as useSortable, v as verticalListSortingStrategy } from "../_libs/dnd-kit__sortable.mjs";
 import { a as useQueryClient, b as useMutation, u as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { t as toast } from "../_libs/sonner.mjs";
-import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-CtRvw0hY.mjs";
+import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-yNuIKd0s.mjs";
 import { C as CSS } from "../_libs/dnd-kit__utilities.mjs";
 import { u as useForm } from "../_libs/react-hook-form.mjs";
 import { a } from "../_libs/hookform__resolvers.mjs";
-import { e as LayoutGrid, f as CalendarDays, g as Clock, h as Image, P as Plus, G as GripVertical, U as User, i as ShoppingCart, j as Ellipsis, k as History, b as LoaderCircle, l as Calendar, m as Hash, R as RotateCcw, n as Check } from "../_libs/lucide-react.mjs";
+import { e as LayoutGrid, f as CalendarDays, g as Clock, h as Image, P as Plus, G as GripVertical, U as User, i as ShoppingCart, j as Ellipsis, k as History, b as LoaderCircle, l as Calendar, m as Hash, X, R as RotateCcw, n as Trash2, o as Check } from "../_libs/lucide-react.mjs";
 import { f as format } from "../_libs/date-fns.mjs";
 import { C as Checkbox$1, a as CheckboxIndicator } from "../_libs/radix-ui__react-checkbox.mjs";
 import { R as Root2, T as Trigger, P as Portal, C as Content2 } from "../_libs/radix-ui__react-popover.mjs";
@@ -1028,7 +1028,8 @@ function HistorySheet({
   spaceName
 }) {
   const { data: items, isLoading } = useItems(spaceId);
-  const { reAdd } = useItemMutations(spaceId);
+  const { reAdd, remove } = useItemMutations(spaceId);
+  const [confirmDeleteId, setConfirmDeleteId] = reactExports.useState(null);
   const seen = /* @__PURE__ */ new Set();
   const completed = (items ?? []).filter((i) => i.completed).sort(
     (a2, b) => (b.completedAt?.getTime() ?? 0) - (a2.completedAt?.getTime() ?? 0)
@@ -1058,20 +1059,59 @@ function HistorySheet({
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "truncate text-sm line-through text-muted-foreground", children: item.title }),
             item.completedAt && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground/70", children: formatDateFull(item.completedAt) })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            Button,
-            {
-              size: "sm",
-              variant: "outline",
-              className: "shrink-0",
-              onClick: () => handleReAdd(item),
-              disabled: reAdd.isPending,
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(RotateCcw, { className: "mr-1.5 h-3 w-3" }),
-                "Re-add"
-              ]
-            }
-          )
+          confirmDeleteId === item.id ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 items-center gap-1.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-muted-foreground", children: "Delete?" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Button,
+              {
+                size: "sm",
+                variant: "destructive",
+                className: "h-7 px-2 text-xs",
+                onClick: () => {
+                  remove.mutate(item, {
+                    onSettled: () => setConfirmDeleteId(null)
+                  });
+                },
+                disabled: remove.isPending,
+                children: "Yes"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Button,
+              {
+                size: "sm",
+                variant: "ghost",
+                className: "h-7 w-7 p-0",
+                onClick: () => setConfirmDeleteId(null),
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { className: "h-3.5 w-3.5" })
+              }
+            )
+          ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex shrink-0 items-center gap-1.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              Button,
+              {
+                size: "sm",
+                variant: "outline",
+                className: "shrink-0",
+                onClick: () => handleReAdd(item),
+                disabled: reAdd.isPending,
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(RotateCcw, { className: "mr-1.5 h-3 w-3" }),
+                  "Re-add"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Button,
+              {
+                size: "sm",
+                variant: "ghost",
+                className: "h-8 w-8 p-0 text-muted-foreground/50 hover:text-destructive",
+                onClick: () => setConfirmDeleteId(item.id),
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx(Trash2, { className: "h-3.5 w-3.5" })
+              }
+            )
+          ] })
         ]
       },
       item.id
