@@ -1,4 +1,5 @@
-import { RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { RotateCcw, Trash2, X } from 'lucide-react'
 import {
   Sheet,
   SheetContent,

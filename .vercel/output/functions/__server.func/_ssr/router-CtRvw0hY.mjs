@@ -174,6 +174,22 @@ function extractHue(oklchColor) {
   const match = oklchColor.match(/oklch\([\d.]+\s+[\d.]+\s+([\d.]+)\)/);
   return match?.[1] ?? "0";
 }
+function getDateStatus(date) {
+  const now = /* @__PURE__ */ new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateDay = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+  const diffDays = Math.round(
+    (dateDay.getTime() - today.getTime()) / (1e3 * 60 * 60 * 24)
+  );
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "today";
+  if (diffDays <= 2) return "soon";
+  return "future";
+}
 function useIsDark() {
   const [isDark, setIsDark] = reactExports.useState(
     () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
@@ -894,7 +910,7 @@ function TanStackQueryProvider({
   const { queryClient } = getContext();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(QueryClientProvider, { client: queryClient, children });
 }
-const appCss = "/assets/styles-B4INGHG2.css";
+const appCss = "/assets/styles-DseJ4j2l.css";
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=stored==='dark'?'dark':stored==='light'?'light':(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(mode);root.setAttribute('data-theme',mode);root.style.colorScheme=mode;}catch(e){}})();`;
 const Route$1 = createRootRouteWithContext()({
   head: () => ({
@@ -925,7 +941,7 @@ function RootDocument({ children }) {
     ] })
   ] });
 }
-const $$splitComponentImporter = () => import("./index-D0Ye4xJt.mjs");
+const $$splitComponentImporter = () => import("./index-9T4Lb5DV.mjs");
 const Route = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
 });
@@ -964,18 +980,19 @@ export {
   SheetTitle as d,
   extractHue as e,
   formatDate as f,
-  formatTime as g,
+  getDateStatus as g,
   hasExplicitTime as h,
-  Skeleton as i,
-  formatDateFull as j,
-  SPACE_COLORS as k,
-  DropdownMenuTrigger as l,
-  DropdownMenuContent as m,
-  DropdownMenuItem as n,
-  DropdownMenuSeparator as o,
-  useAuthContext as p,
-  useUserFamily as q,
-  router as r,
+  formatTime as i,
+  Skeleton as j,
+  formatDateFull as k,
+  SPACE_COLORS as l,
+  DropdownMenuTrigger as m,
+  DropdownMenuContent as n,
+  DropdownMenuItem as o,
+  DropdownMenuSeparator as p,
+  useAuthContext as q,
+  useUserFamily as r,
   supabase as s,
+  router as t,
   useIsDark as u
 };

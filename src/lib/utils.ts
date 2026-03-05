@@ -32,6 +32,25 @@ export function extractHue(oklchColor: string): string {
   return match?.[1] ?? '0'
 }
 
+export type DateStatus = 'overdue' | 'today' | 'soon' | 'future' | null
+
+export function getDateStatus(date: Date): DateStatus {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dateDay = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  )
+  const diffDays = Math.round(
+    (dateDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  )
+  if (diffDays < 0) return 'overdue'
+  if (diffDays === 0) return 'today'
+  if (diffDays <= 2) return 'soon'
+  return 'future'
+}
+
 // Returns true when the <html> element has the 'dark' class, and updates
 // reactively when the user toggles the theme.
 export function useIsDark(): boolean {

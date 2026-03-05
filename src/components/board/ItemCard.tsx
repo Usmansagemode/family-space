@@ -10,6 +10,7 @@ import {
   hasExplicitTime,
   extractHue,
   useIsDark,
+  getDateStatus,
 } from '#/lib/utils'
 import { AddItemSheet } from './AddItemSheet'
 import { useItemMutations } from '#/hooks/items/useItemMutations'
@@ -28,6 +29,11 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
   const { complete, update, remove, reAdd } = useItemMutations(item.spaceId)
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
+
+  const dateStatus =
+    spaceType === 'person' && item.startDate && !item.completed
+      ? getDateStatus(item.startDate)
+      : null
 
   const {
     attributes,
@@ -73,7 +79,12 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
         )}
         style={{
           background: bgColor,
-          borderColor,
+          borderColor:
+            dateStatus === 'overdue'
+              ? 'oklch(0.55 0.20 25)'
+              : dateStatus === 'today'
+                ? 'oklch(0.65 0.16 75)'
+                : borderColor,
           transform: CSS.Transform.toString(transform),
           transition,
         }}
@@ -123,13 +134,30 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType }: Props) {
             )}
           </p>
           {item.startDate && (
-            <p className="mt-1 flex items-center gap-1 text-xs text-foreground/60">
-              <CalendarIcon className="h-3 w-3" />
-              {formatDate(item.startDate)}
-              {hasExplicitTime(item.startDate) &&
-                ` ${formatTime(item.startDate)}`}
-              {item.endDate &&
-                ` – ${formatDate(item.endDate)}${hasExplicitTime(item.endDate) ? ` ${formatTime(item.endDate)}` : ''}`}
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-foreground/60">
+              <CalendarIcon className="h-3 w-3 shrink-0" />
+              <span>
+                {formatDate(item.startDate)}
+                {hasExplicitTime(item.startDate) &&
+                  ` ${formatTime(item.startDate)}`}
+                {item.endDate &&
+                  ` – ${formatDate(item.endDate)}${hasExplicitTime(item.endDate) ? ` ${formatTime(item.endDate)}` : ''}`}
+              </span>
+              {dateStatus === 'overdue' && (
+                <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-red-600 dark:text-red-400">
+                  Overdue
+                </span>
+              )}
+              {dateStatus === 'today' && (
+                <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-600 dark:text-amber-400">
+                  Today
+                </span>
+              )}
+              {dateStatus === 'soon' && (
+                <span className="rounded-full bg-yellow-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-yellow-600 dark:text-yellow-400">
+                  Soon
+                </span>
+              )}
             </p>
           )}
           {item.description && (

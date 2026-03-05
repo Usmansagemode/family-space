@@ -3,7 +3,7 @@ import { c as useSensors, d as useSensor, D as DndContext, e as closestCenter, f
 import { S as SortableContext, h as horizontalListSortingStrategy, a as arrayMove, u as useSortable, v as verticalListSortingStrategy } from "../_libs/dnd-kit__sortable.mjs";
 import { a as useQueryClient, b as useMutation, u as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { t as toast } from "../_libs/sonner.mjs";
-import { p as useAuthContext, i as Skeleton, B as Button, q as useUserFamily, c as cn, s as supabase, D as DropdownMenu, l as DropdownMenuTrigger, m as DropdownMenuContent, n as DropdownMenuItem, o as DropdownMenuSeparator, e as extractHue, u as useIsDark, k as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, f as formatDate, h as hasExplicitTime, g as formatTime, j as formatDateFull } from "./router-CJWLng_X.mjs";
+import { q as useAuthContext, j as Skeleton, B as Button, r as useUserFamily, c as cn, s as supabase, D as DropdownMenu, m as DropdownMenuTrigger, n as DropdownMenuContent, o as DropdownMenuItem, p as DropdownMenuSeparator, e as extractHue, u as useIsDark, l as SPACE_COLORS, S as Sheet, a as SheetContent, b as SheetHeader, d as SheetTitle, L as Label, I as Input, g as getDateStatus, f as formatDate, h as hasExplicitTime, i as formatTime, k as formatDateFull } from "./router-CtRvw0hY.mjs";
 import { C as CSS } from "../_libs/dnd-kit__utilities.mjs";
 import { u as useForm } from "../_libs/react-hook-form.mjs";
 import { a } from "../_libs/hookform__resolvers.mjs";
@@ -218,11 +218,13 @@ async function moveItem(id, newSpaceId) {
   return rowToItem(data);
 }
 async function reorderItems(spaceId, orderedIds) {
-  const { error } = await supabase.from("items").upsert(
-    orderedIds.map((id, index) => ({ id, sort_order: index })),
-    { onConflict: "id" }
+  const results = await Promise.all(
+    orderedIds.map(
+      (id, index) => supabase.from("items").update({ sort_order: index }).eq("id", id)
+    )
   );
-  if (error) throw error;
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 async function reAddItem(original) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
@@ -843,6 +845,7 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
   const { complete, update, remove, reAdd } = useItemMutations(item.spaceId);
   const hue = extractHue(spaceColor);
   const isDark = useIsDark();
+  const dateStatus = spaceType === "person" && item.startDate && !item.completed ? getDateStatus(item.startDate) : null;
   const {
     attributes,
     listeners,
@@ -876,7 +879,7 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
         ),
         style: {
           background: bgColor,
-          borderColor,
+          borderColor: dateStatus === "overdue" ? "oklch(0.55 0.20 25)" : dateStatus === "today" ? "oklch(0.65 0.16 75)" : borderColor,
           transform: CSS.Transform.toString(transform),
           transition
         },
@@ -926,11 +929,16 @@ function ItemCard({ item, spaceColor, spaceName, spaceType }) {
                     item.quantity
                   ] })
                 ] }),
-                item.startDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1 flex items-center gap-1 text-xs text-foreground/60", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(Calendar, { className: "h-3 w-3" }),
-                  formatDate(item.startDate),
-                  hasExplicitTime(item.startDate) && ` ${formatTime(item.startDate)}`,
-                  item.endDate && ` – ${formatDate(item.endDate)}${hasExplicitTime(item.endDate) ? ` ${formatTime(item.endDate)}` : ""}`
+                item.startDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1 flex items-center gap-1.5 text-xs text-foreground/60", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Calendar, { className: "h-3 w-3 shrink-0" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                    formatDate(item.startDate),
+                    hasExplicitTime(item.startDate) && ` ${formatTime(item.startDate)}`,
+                    item.endDate && ` – ${formatDate(item.endDate)}${hasExplicitTime(item.endDate) ? ` ${formatTime(item.endDate)}` : ""}`
+                  ] }),
+                  dateStatus === "overdue" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-red-600 dark:text-red-400", children: "Overdue" }),
+                  dateStatus === "today" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-600 dark:text-amber-400", children: "Today" }),
+                  dateStatus === "soon" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "rounded-full bg-yellow-500/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-yellow-600 dark:text-yellow-400", children: "Soon" })
                 ] }),
                 item.description && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 line-clamp-1 text-xs text-foreground/60", children: item.description })
               ]
