@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, ExternalLink, Copy, Check, UserPlus } from 'lucide-react'
+import { createInvite } from '#/lib/supabase/invites'
 import {
   Sheet,
   SheetContent,
@@ -144,6 +145,8 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
   const [calendarId, setCalendarId] = useState('')
   const [embedUrl, setEmbedUrl] = useState('')
   const [howToOpen, setHowToOpen] = useState(false)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -151,6 +154,8 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
       setCalendarId(family?.googleCalendarId ?? '')
       setEmbedUrl(family?.googleCalendarEmbedUrl ?? '')
       setHowToOpen(false)
+      setInviteLink(null)
+      setCopied(false)
     }
   }, [
     open,
@@ -158,6 +163,22 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
     family?.googleCalendarId,
     family?.googleCalendarEmbedUrl,
   ])
+
+  const invite = useMutation({
+    mutationFn: () => createInvite(family!.id),
+    onSuccess: (token: string) => {
+      setInviteLink(`${window.location.origin}/invite?token=${token}`)
+    },
+    onError: () => toast.error('Failed to create invite link'),
+  })
+
+  function handleCopy() {
+    if (!inviteLink) return
+    void navigator.clipboard.writeText(inviteLink).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const save = useMutation({
     mutationFn: () =>
@@ -233,6 +254,47 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
               Google Calendar → Settings → your calendar → Integrate calendar →
               copy the <strong>src=</strong> URL from the Embed code.
             </p>
+          </div>
+
+          {/* Invite member */}
+          <div className="flex flex-col gap-2">
+            <Label>Invite a family member</Label>
+            <p className="text-xs text-muted-foreground">
+              Generate a one-time link and share it however you like.
+            </p>
+            {inviteLink ? (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
+                <span className="flex-1 truncate text-xs text-muted-foreground">
+                  {inviteLink}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start gap-2"
+                onClick={() => invite.mutate()}
+                disabled={invite.isPending || !family}
+              >
+                {invite.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UserPlus className="h-4 w-4" />
+                )}
+                Create invite link
+              </Button>
+            )}
           </div>
 
           {/* How-to — subtle help link */}

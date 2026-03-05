@@ -8,7 +8,7 @@ import { c as createClient } from "../_libs/supabase__supabase-js.mjs";
 import { c as clsx } from "../_libs/clsx.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
 import { c as cva } from "../_libs/class-variance-authority.mjs";
-import { H as House, U as User, S as Sun, M as Moon, a as Settings, L as LogOut, b as LoaderCircle, O as OctagonX, T as TriangleAlert, I as Info, C as CircleCheck, c as ChevronDown, d as ChevronRight, X, E as ExternalLink } from "../_libs/lucide-react.mjs";
+import { H as House, U as User, S as Sun, M as Moon, a as Settings, L as LogOut, b as LoaderCircle, O as OctagonX, T as TriangleAlert, I as Info, C as CircleCheck, c as Check, d as Copy, e as UserPlus, f as ChevronDown, g as ChevronRight, X, E as ExternalLink } from "../_libs/lucide-react.mjs";
 import { f as format } from "../_libs/date-fns.mjs";
 import { R as Root2, T as Trigger, P as Portal2, C as Content2, L as Label2, S as Separator2, I as Item2 } from "../_libs/radix-ui__react-dropdown-menu.mjs";
 import { R as Root, C as Content, a as Close, T as Title, D as Description, P as Portal, O as Overlay } from "../_libs/radix-ui__react-dialog.mjs";
@@ -141,10 +141,11 @@ async function updateFamily(id, input) {
   return mapFamily(data);
 }
 async function findOrCreateFamily(userId) {
-  const { data: existing } = await supabase.from("families").select("*").eq("owner_user_id", userId).maybeSingle();
-  if (existing) return mapFamily(existing);
-  const { data: created, error } = await supabase.from("families").insert({ name: "Our Family", owner_user_id: userId }).select().single();
+  const { data: membership } = await supabase.from("user_families").select("family_id, families(*)").eq("user_id", userId).order("joined_at", { ascending: true }).limit(1).maybeSingle();
+  if (membership?.families) return mapFamily(membership.families);
+  const { data: created, error } = await supabase.from("families").insert({ name: "Our Family" }).select().single();
   if (error) throw error;
+  await supabase.from("user_families").insert({ user_id: userId, family_id: created.id, role: "owner" });
   return mapFamily(created);
 }
 function useUserFamily(userId) {
@@ -348,6 +349,28 @@ function useAuthContext() {
   const ctx = reactExports.useContext(AuthContext);
   if (!ctx) throw new Error("useAuthContext must be used within AuthProvider");
   return ctx;
+}
+async function createInvite(familyId) {
+  const { data, error } = await supabase.from("invites").insert({ family_id: familyId }).select("token").single();
+  if (error) throw error;
+  return data.token;
+}
+async function getInviteByToken(token) {
+  const { data, error } = await supabase.from("invites").select("family_id, accepted_at, families(name)").eq("token", token).maybeSingle();
+  if (error || !data) return null;
+  if (data.accepted_at) return null;
+  return {
+    familyId: data.family_id,
+    familyName: data.families?.name ?? "Family"
+  };
+}
+async function acceptInvite(token, userId, familyId) {
+  const { error: memberError } = await supabase.from("user_families").upsert(
+    { user_id: userId, family_id: familyId, role: "member" },
+    { onConflict: "user_id,family_id" }
+  );
+  if (memberError) throw memberError;
+  await supabase.from("invites").update({ accepted_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("token", token);
 }
 function Sheet({ ...props }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsx(Root, { "data-slot": "sheet", ...props });
@@ -670,12 +693,16 @@ function SettingsSheet({ open, onOpenChange }) {
   const [calendarId, setCalendarId] = reactExports.useState("");
   const [embedUrl, setEmbedUrl] = reactExports.useState("");
   const [howToOpen, setHowToOpen] = reactExports.useState(false);
+  const [inviteLink, setInviteLink] = reactExports.useState(null);
+  const [copied, setCopied] = reactExports.useState(false);
   reactExports.useEffect(() => {
     if (open) {
       setFamilyName(family?.name ?? "");
       setCalendarId(family?.googleCalendarId ?? "");
       setEmbedUrl(family?.googleCalendarEmbedUrl ?? "");
       setHowToOpen(false);
+      setInviteLink(null);
+      setCopied(false);
     }
   }, [
     open,
@@ -683,6 +710,20 @@ function SettingsSheet({ open, onOpenChange }) {
     family?.googleCalendarId,
     family?.googleCalendarEmbedUrl
   ]);
+  const invite = useMutation({
+    mutationFn: () => createInvite(family.id),
+    onSuccess: (token) => {
+      setInviteLink(`${window.location.origin}/invite?token=${token}`);
+    },
+    onError: () => toast.error("Failed to create invite link")
+  });
+  function handleCopy() {
+    if (!inviteLink) return;
+    void navigator.clipboard.writeText(inviteLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2e3);
+    });
+  }
   const save = useMutation({
     mutationFn: () => updateFamily(family.id, {
       name: familyName.trim() || "Our Family",
@@ -749,6 +790,35 @@ function SettingsSheet({ open, onOpenChange }) {
           /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: "src=" }),
           " URL from the Embed code."
         ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: "Invite a family member" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: "Generate a one-time link and share it however you like." }),
+        inviteLink ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "flex-1 truncate text-xs text-muted-foreground", children: inviteLink }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: handleCopy,
+              className: "shrink-0 text-muted-foreground transition hover:text-foreground",
+              children: copied ? /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { className: "h-3.5 w-3.5 text-green-500" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { className: "h-3.5 w-3.5" })
+            }
+          )
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          Button,
+          {
+            type: "button",
+            variant: "outline",
+            className: "self-start gap-2",
+            onClick: () => invite.mutate(),
+            disabled: invite.isPending || !family,
+            children: [
+              invite.isPending ? /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderCircle, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(UserPlus, { className: "h-4 w-4" }),
+              "Create invite link"
+            ]
+          }
+        )
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -910,9 +980,9 @@ function TanStackQueryProvider({
   const { queryClient } = getContext();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(QueryClientProvider, { client: queryClient, children });
 }
-const appCss = "/assets/styles-DPUHWMOP.css";
+const appCss = "/assets/styles-BBtKPDJN.css";
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=stored==='dark'?'dark':stored==='light'?'light':(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(mode);root.setAttribute('data-theme',mode);root.style.colorScheme=mode;}catch(e){}})();`;
-const Route$1 = createRootRouteWithContext()({
+const Route$2 = createRootRouteWithContext()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -941,19 +1011,32 @@ function RootDocument({ children }) {
     ] })
   ] });
 }
-const $$splitComponentImporter = () => import("./index-BAiLUmfm.mjs");
+const $$splitComponentImporter$1 = () => import("./invite-C2JQA0ll.mjs");
+const Route$1 = createFileRoute("/invite")({
+  validateSearch: (search) => ({
+    token: typeof search.token === "string" ? search.token : ""
+  }),
+  component: lazyRouteComponent($$splitComponentImporter$1, "component")
+});
+const $$splitComponentImporter = () => import("./index-zwyW5T70.mjs");
 const Route = createFileRoute("/")({
   component: lazyRouteComponent($$splitComponentImporter, "component")
+});
+const InviteRoute = Route$1.update({
+  id: "/invite",
+  path: "/invite",
+  getParentRoute: () => Route$2
 });
 const IndexRoute = Route.update({
   id: "/",
   path: "/",
-  getParentRoute: () => Route$1
+  getParentRoute: () => Route$2
 });
 const rootRouteChildren = {
-  IndexRoute
+  IndexRoute,
+  InviteRoute
 };
-const routeTree = Route$1._addFileChildren(rootRouteChildren)._addFileTypes();
+const routeTree = Route$2._addFileChildren(rootRouteChildren)._addFileTypes();
 function getRouter() {
   const router2 = createRouter({
     routeTree,
@@ -973,26 +1056,29 @@ export {
   DropdownMenu as D,
   Input as I,
   Label as L,
+  Route$1 as R,
   Sheet as S,
-  SheetContent as a,
-  SheetHeader as b,
+  acceptInvite as a,
+  SheetContent as b,
   cn as c,
-  SheetTitle as d,
-  extractHue as e,
-  formatDate as f,
-  getDateStatus as g,
+  SheetHeader as d,
+  SheetTitle as e,
+  extractHue as f,
+  getInviteByToken as g,
   hasExplicitTime as h,
-  formatTime as i,
-  Skeleton as j,
-  formatDateFull as k,
-  SPACE_COLORS as l,
-  DropdownMenuTrigger as m,
-  DropdownMenuContent as n,
-  DropdownMenuItem as o,
-  DropdownMenuSeparator as p,
-  useAuthContext as q,
-  useUserFamily as r,
+  useIsDark as i,
+  getDateStatus as j,
+  formatDate as k,
+  formatTime as l,
+  Skeleton as m,
+  formatDateFull as n,
+  SPACE_COLORS as o,
+  DropdownMenuTrigger as p,
+  DropdownMenuContent as q,
+  DropdownMenuItem as r,
   supabase as s,
-  router as t,
-  useIsDark as u
+  DropdownMenuSeparator as t,
+  useAuthContext as u,
+  useUserFamily as v,
+  router as w
 };
