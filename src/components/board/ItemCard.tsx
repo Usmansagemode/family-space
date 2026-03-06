@@ -49,18 +49,18 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
   })
 
   // Card colors adapt properly to dark mode
-  const bgColor = isDark ? `oklch(0.26 0.08 ${hue})` : spaceColor
+  const bgColor = isDark ? `oklch(0.25 0.05 ${hue})` : spaceColor
   const borderColor = isDark
-    ? `oklch(0.34 0.10 ${hue})`
-    : `oklch(0.78 0.13 ${hue})`
+    ? `oklch(0.32 0.07 ${hue})`
+    : `oklch(0.82 0.08 ${hue})`
 
   // Checkbox: white bg when unchecked, darker space tone when checked, white tick
   const checkboxBorder = isDark
-    ? `oklch(0.55 0.12 ${hue})`
-    : `oklch(0.60 0.14 ${hue})`
+    ? `oklch(0.50 0.10 ${hue})`
+    : `oklch(0.62 0.11 ${hue})`
   const checkboxCheckedBg = isDark
-    ? `oklch(0.22 0.12 ${hue})`
-    : `oklch(0.48 0.20 ${hue})`
+    ? `oklch(0.22 0.10 ${hue})`
+    : `oklch(0.50 0.17 ${hue})`
 
   function handleCheck(checked: boolean | 'indeterminate') {
     if (checked === true) {

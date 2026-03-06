@@ -79,30 +79,55 @@ Paste both into your `.env` file.
 
 ### 4.3 Run the database schema
 
-Go to **SQL Editor** in the Supabase dashboard and run the following SQL in order.
+Go to **SQL Editor** in the Supabase dashboard and run the following blocks in order.
 
 #### Tables
 
 ```sql
 -- Families
 create table families (
-  id              uuid primary key default gen_random_uuid(),
-  name            text not null default 'Our Family',
-  owner_user_id   uuid references auth.users(id) on delete cascade,
+  id                        uuid primary key default gen_random_uuid(),
+  name                      text not null default 'Our Family',
   google_calendar_id        text,
   google_calendar_embed_url text,
-  created_at      timestamptz default now()
+  created_at                timestamptz default now()
+);
+
+-- User profiles (mirrors auth.users into the public schema so it can be joined)
+create table profiles (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  name       text,
+  email      text,
+  avatar_url text
+);
+
+-- Family membership (many-to-many, supports invites and multi-member families)
+create table user_families (
+  user_id   uuid references profiles(id) on delete cascade,
+  family_id uuid references families(id) on delete cascade,
+  role      text not null default 'member', -- 'owner' | 'member'
+  joined_at timestamptz default now(),
+  primary key (user_id, family_id)
+);
+
+-- One-time invite tokens
+create table invites (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid references families(id) on delete cascade not null,
+  token       uuid not null default gen_random_uuid() unique,
+  accepted_at timestamptz,
+  created_at  timestamptz default now()
 );
 
 -- Spaces (columns on the board)
 create table spaces (
-  id          uuid primary key default gen_random_uuid(),
-  family_id   uuid references families(id) on delete cascade not null,
-  name        text not null,
-  color       text not null,
-  type        text not null default 'store', -- 'person' | 'store'
-  sort_order  integer not null default 0,
-  created_at  timestamptz default now()
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid references families(id) on delete cascade not null,
+  name       text not null,
+  color      text not null,
+  type       text not null default 'store', -- 'person' | 'store'
+  sort_order integer not null default 0,
+  created_at timestamptz default now()
 );
 
 -- Items (tasks / grocery entries)
@@ -111,9 +136,10 @@ create table items (
   space_id        uuid references spaces(id) on delete cascade not null,
   title           text not null,
   description     text,
-  quantity        text,          -- store spaces only (e.g. "2", "500g", "1 dozen")
-  start_date      timestamptz,   -- person spaces only
-  end_date        timestamptz,   -- person spaces only
+  quantity        text,        -- store spaces only (e.g. "2", "500g", "1 dozen")
+  sort_order      integer not null default 0,
+  start_date      timestamptz, -- person spaces only
+  end_date        timestamptz, -- person spaces only
   completed       boolean not null default false,
   completed_at    timestamptz,
   google_event_id text,
@@ -122,52 +148,117 @@ create table items (
 );
 ```
 
+#### Profile trigger
+
+This auto-creates a profile row whenever a new user signs in for the first time.
+
+```sql
+create or replace function handle_new_user()
+returns trigger as $$
+begin
+  insert into profiles (id, email, name, avatar_url)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'avatar_url'
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure handle_new_user();
+```
+
 #### Row Level Security
 
 ```sql
--- Enable RLS on all tables
-alter table families enable row level security;
-alter table spaces   enable row level security;
-alter table items    enable row level security;
+-- Enable RLS
+alter table families    enable row level security;
+alter table profiles    enable row level security;
+alter table user_families enable row level security;
+alter table invites     enable row level security;
+alter table spaces      enable row level security;
+alter table items       enable row level security;
 
--- Families: owner can do everything
-create policy "Family owner full access"
-  on families for all
-  using  (auth.uid() = owner_user_id)
-  with check (auth.uid() = owner_user_id);
+-- Helper function: returns the family IDs the current user belongs to.
+-- Must be security definer to avoid infinite recursion in RLS policies
+-- that reference user_families.
+create or replace function get_my_family_ids()
+returns setof uuid
+language sql
+security definer
+stable
+as $$
+  select family_id from user_families where user_id = auth.uid()
+$$;
 
--- Spaces: accessible to the family owner
-create policy "Space owner full access"
+-- Profiles: users can read all profiles, update only their own
+create policy "Profiles are readable by authenticated users"
+  on profiles for select to authenticated using (true);
+
+create policy "Users can update own profile"
+  on profiles for update using (auth.uid() = id);
+
+-- user_families: any family member can see all members of their family
+create policy "Family members can view all members"
+  on user_families for select
+  using (family_id in (select get_my_family_ids()));
+
+create policy "Users can insert own membership"
+  on user_families for insert
+  with check (auth.uid() = user_id);
+
+create policy "Owners can delete members"
+  on user_families for delete
+  using (family_id in (select get_my_family_ids()));
+
+-- Families: readable and writable by any member
+create policy "Family members can read family"
+  on families for select
+  using (id in (select get_my_family_ids()));
+
+create policy "Family members can update family"
+  on families for update
+  using (id in (select get_my_family_ids()));
+
+create policy "Authenticated users can create families"
+  on families for insert to authenticated
+  with check (true);
+
+-- Invites: family members can create; anyone can read (needed for invite acceptance)
+create policy "Family members can create invites"
+  on invites for insert
+  with check (family_id in (select get_my_family_ids()));
+
+create policy "Anyone can read invites by token"
+  on invites for select using (true);
+
+create policy "Anyone can accept an invite"
+  on invites for update using (true);
+
+-- Spaces: full access for family members
+create policy "Family members full access to spaces"
   on spaces for all
-  using  (exists (select 1 from families where families.id = spaces.family_id and families.owner_user_id = auth.uid()))
-  with check (exists (select 1 from families where families.id = spaces.family_id and families.owner_user_id = auth.uid()));
+  using  (family_id in (select get_my_family_ids()))
+  with check (family_id in (select get_my_family_ids()));
 
--- Items: accessible to the family owner (via space → family)
-create policy "Item owner full access"
+-- Items: full access for family members (via space → family)
+create policy "Family members full access to items"
   on items for all
-  using  (exists (
+  using (exists (
     select 1 from spaces
-    join families on families.id = spaces.family_id
     where spaces.id = items.space_id
-    and families.owner_user_id = auth.uid()
+    and spaces.family_id in (select get_my_family_ids())
   ))
   with check (exists (
     select 1 from spaces
-    join families on families.id = spaces.family_id
     where spaces.id = items.space_id
-    and families.owner_user_id = auth.uid()
+    and spaces.family_id in (select get_my_family_ids())
   ));
-```
-
-> **Note**: These policies are single-owner. Once multi-user / invite is implemented, the policies will need to be updated to allow all family members access.
-
-#### Migrations
-
-If you have an existing database, run these after the initial schema:
-
-```sql
--- Add quantity column (store items)
-alter table items add column quantity text;
 ```
 
 ---
@@ -462,6 +553,20 @@ And add it in Supabase under **Authentication → URL Configuration → Redirect
 - Confirm the Calendar ID in Settings matches the one in Google Calendar → Settings → Integrate calendar.
 - Check the browser console for a 401 or 403 error from the Calendar API. This usually means the OAuth token has expired — sign out and sign back in.
 - Make sure the `https://www.googleapis.com/auth/calendar.events` scope is listed in the Supabase Google provider scopes field.
+
+### Family members not showing / only one member appears
+
+- The `profiles` table must exist and be populated. If you added users before creating the trigger, backfill them:
+  ```sql
+  insert into profiles (id, email, name, avatar_url)
+  select id, email,
+    raw_user_meta_data->>'full_name',
+    raw_user_meta_data->>'avatar_url'
+  from auth.users
+  on conflict (id) do nothing;
+  ```
+- Check the `get_my_family_ids()` function exists — without it the `user_families` RLS policy will cause infinite recursion and crash the app.
+- Check the RLS policy on `user_families` uses `get_my_family_ids()`, **not** a direct `select from user_families` subquery (that causes infinite recursion).
 
 ### Items load but spaces are empty / vice versa
 

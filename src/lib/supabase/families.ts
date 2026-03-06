@@ -1,6 +1,14 @@
 import { isDemoMode, supabase } from '#/lib/supabase'
 import { DEMO_FAMILY_ID } from '#/lib/config'
 
+export type FamilyMember = {
+  userId: string
+  role: 'owner' | 'member'
+  name: string | null
+  email: string | null
+  avatarUrl: string | null
+}
+
 export type Family = {
   id: string
   name: string
@@ -96,6 +104,64 @@ export async function findFamily(userId: string): Promise<Family | null> {
 
   if (!membership?.families) return null
   return mapFamily(membership.families as Parameters<typeof mapFamily>[0])
+}
+
+export async function fetchFamilyMembers(
+  familyId: string,
+): Promise<FamilyMember[]> {
+  if (isDemoMode) {
+    await delay()
+    return [
+      {
+        userId: 'demo-user',
+        role: 'owner',
+        name: 'You',
+        email: 'you@example.com',
+        avatarUrl: null,
+      },
+    ]
+  }
+
+  const { data, error } = await supabase!
+    .from('user_families')
+    .select('user_id, role, profiles(name, email, avatar_url)')
+    .eq('family_id', familyId)
+    .order('joined_at', { ascending: true })
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => {
+    const profile = row.profiles as {
+      name: string | null
+      email: string | null
+      avatar_url: string | null
+    } | null
+    return {
+      userId: row.user_id as string,
+      role: row.role as 'owner' | 'member',
+      name: profile?.name ?? null,
+      email: profile?.email ?? null,
+      avatarUrl: profile?.avatar_url ?? null,
+    }
+  })
+}
+
+export async function removeFamilyMember(
+  familyId: string,
+  userId: string,
+): Promise<void> {
+  if (isDemoMode) {
+    await delay()
+    return
+  }
+
+  const { error } = await supabase!
+    .from('user_families')
+    .delete()
+    .eq('family_id', familyId)
+    .eq('user_id', userId)
+
+  if (error) throw error
 }
 
 export async function findOrCreateFamily(userId: string): Promise<Family> {

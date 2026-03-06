@@ -82,7 +82,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
           }),
         }}
         className={cn(
-          'flex w-full flex-col rounded-xl bg-card shadow-sm transition-shadow sm:h-full sm:w-72 sm:shrink-0',
+          'flex w-full flex-col rounded-xl bg-card shadow-sm ring-1 ring-border transition-shadow dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:h-full sm:w-72 sm:shrink-0',
           isDropTarget && 'bg-card/80',
         )}
       >

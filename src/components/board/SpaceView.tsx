@@ -285,10 +285,10 @@ function ItemDragOverlay({
 }) {
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
-  const bgColor = isDark ? `oklch(0.26 0.08 ${hue})` : spaceColor
+  const bgColor = isDark ? `oklch(0.25 0.05 ${hue})` : spaceColor
   const borderColor = isDark
-    ? `oklch(0.34 0.10 ${hue})`
-    : `oklch(0.78 0.13 ${hue})`
+    ? `oklch(0.32 0.07 ${hue})`
+    : `oklch(0.82 0.08 ${hue})`
 
   return (
     <div

@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Sun, Moon, Settings, LogOut, User, Home } from 'lucide-react'
-import {
-  fetchFamily,
-  findFamily,
-} from '#/lib/supabase/families'
+import { fetchFamily } from '#/lib/supabase/families'
+import type { Family } from '#/lib/supabase/families'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -40,12 +38,17 @@ export function Header() {
     staleTime: Infinity,
   })
 
-  const { data: userFamily, isLoading: userFamilyLoading } = useQuery({
+  // Don't fetch here — just subscribe to the cache the board page populates.
+  // This avoids a race where Header caches null (no membership yet) with
+  // staleTime:Infinity, which would prevent findOrCreateFamily from ever running.
+  const userFamily = useQuery<Family>({
     queryKey: ['family', 'user', user?.id],
-    queryFn: () => findFamily(user!.id),
-    enabled: !isDemoMode && !!user,
-    staleTime: Infinity,
-  })
+    queryFn: () => { throw new Error('unreachable') },
+    enabled: false,
+  }).data
+
+  // Show skeleton while user is logged in but family hasn't been fetched yet
+  const userFamilyLoading = !isDemoMode && !!user && userFamily === undefined
 
   const familyName = isDemoMode ? demoFamily?.name : userFamily?.name
   const familyNameLoading = isDemoMode ? demoLoading : userFamilyLoading
@@ -57,7 +60,7 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-sm">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-[var(--header-bg)] px-4 backdrop-blur-md">
       {/* Title */}
       <div className="flex items-center gap-2.5">
         <Home className="h-4 w-4 shrink-0 text-muted-foreground" />
