@@ -155,13 +155,14 @@ export async function removeFamilyMember(
     return
   }
 
-  const { error } = await supabase!
+  const { error, count } = await supabase!
     .from('user_families')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('family_id', familyId)
     .eq('user_id', userId)
 
   if (error) throw error
+  if (count === 0) throw new Error('Delete blocked — check RLS policy on user_families')
 }
 
 export async function findOrCreateFamily(userId: string): Promise<Family> {

@@ -54,7 +54,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <TanStackQueryProvider>
             <div className="flex h-screen flex-col overflow-hidden">
               <Header />
-              <main className="min-h-0 flex-1">{children}</main>
+              <main className="min-h-0 flex-1 overflow-auto">{children}</main>
             </div>
             <Toaster richColors position="bottom-right" />
             <TanStackDevtools
