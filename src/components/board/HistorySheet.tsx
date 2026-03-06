@@ -79,7 +79,7 @@ export function HistorySheet({
                   className="flex items-center gap-3 border-b border-border py-3 last:border-0"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm line-through text-muted-foreground">
+                    <p className="truncate text-sm text-muted-foreground">
                       {item.title}
                     </p>
                     {item.completedAt && (

@@ -167,7 +167,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         </div>
 
         {/* Items list */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 max-sm:flex-none max-sm:overflow-visible">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 max-sm:flex-none max-sm:max-h-[60vh]">
           <div className="flex flex-col gap-2 pt-3 pb-2">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
