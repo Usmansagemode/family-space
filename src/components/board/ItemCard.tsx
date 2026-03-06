@@ -48,19 +48,25 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
     data: { type: 'item', item, spaceColor },
   })
 
-  // Card colors adapt properly to dark mode
-  const bgColor = isDark ? `oklch(0.25 0.05 ${hue})` : spaceColor
-  const borderColor = isDark
-    ? `oklch(0.32 0.07 ${hue})`
-    : `oklch(0.82 0.08 ${hue})`
+  // Vibrant accent for the left stripe — more visible than the raw pastel
+  const accentColor = isDark
+    ? `oklch(0.62 0.16 ${hue})`
+    : `oklch(0.68 0.14 ${hue})`
 
-  // Checkbox: white bg when unchecked, darker space tone when checked, white tick
+  const stripeColor =
+    dateStatus === 'overdue'
+      ? 'oklch(0.55 0.22 25)'
+      : dateStatus === 'today'
+        ? 'oklch(0.60 0.18 75)'
+        : accentColor
+
+  // Checkbox colors against the card (bg-card) background
   const checkboxBorder = isDark
-    ? `oklch(0.50 0.10 ${hue})`
-    : `oklch(0.62 0.11 ${hue})`
+    ? `oklch(0.48 0.10 ${hue})`
+    : `oklch(0.60 0.12 ${hue})`
   const checkboxCheckedBg = isDark
-    ? `oklch(0.22 0.10 ${hue})`
-    : `oklch(0.50 0.17 ${hue})`
+    ? `oklch(0.40 0.14 ${hue})`
+    : `oklch(0.52 0.18 ${hue})`
 
   function handleCheck(checked: boolean | 'indeterminate') {
     if (checked === true) {
@@ -75,17 +81,12 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
       <div
         ref={setNodeRef}
         className={cn(
-          'group relative flex items-center gap-3 rounded-lg border px-3 py-2.5 shadow-sm transition hover:shadow-md',
+          'group relative flex items-center gap-3 rounded-lg border border-l-4 bg-card px-3 py-2.5 shadow-sm transition hover:shadow-md',
           isDragging && 'opacity-40',
+          item.completed && 'opacity-60',
         )}
         style={{
-          background: bgColor,
-          borderColor:
-            dateStatus === 'overdue'
-              ? 'oklch(0.55 0.20 25)'
-              : dateStatus === 'today'
-                ? 'oklch(0.65 0.16 75)'
-                : borderColor,
+          borderLeftColor: stripeColor,
           transform: CSS.Transform.toString(transform),
           transition,
         }}
@@ -126,10 +127,17 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
           className="min-w-0 flex-1 cursor-pointer text-left"
           onClick={() => setEditOpen(true)}
         >
-          <p className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
+          <p
+            className={cn(
+              'line-clamp-2 text-sm font-medium leading-snug',
+              item.completed
+                ? 'text-muted-foreground line-through'
+                : 'text-foreground',
+            )}
+          >
             {item.title}
             {item.quantity && (
-              <span className="ml-1.5 text-xs font-normal text-foreground/60">
+              <span className="ml-1.5 text-xs font-normal opacity-60">
                 × {item.quantity}
               </span>
             )}

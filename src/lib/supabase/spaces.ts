@@ -161,8 +161,11 @@ export async function reorderSpaces(orderedIds: string[]): Promise<void> {
     return
   }
 
-  const updates = orderedIds.map((id, index) =>
-    supabase!.from('spaces').update({ sort_order: index }).eq('id', id),
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase!.from('spaces').update({ sort_order: index }).eq('id', id),
+    ),
   )
-  await Promise.all(updates)
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw failed.error
 }

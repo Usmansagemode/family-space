@@ -9,7 +9,7 @@ import {
   History,
   GripVertical,
 } from 'lucide-react'
-import { cn } from '#/lib/utils'
+import { cn, extractHue, useIsDark } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -44,6 +44,12 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
   const { update: updateSpace, remove: removeSpace } =
     useSpaceMutations(familyId)
 
+  const hue = extractHue(space.color)
+  const isDark = useIsDark()
+  const accentColor = isDark
+    ? `oklch(0.62 0.16 ${hue})`
+    : `oklch(0.68 0.14 ${hue})`
+
   const today = new Date()
   const activeItems = (items ?? []).filter(
     (i) =>
@@ -53,6 +59,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         i.completedAt.getMonth() === today.getMonth() &&
         i.completedAt.getDate() === today.getDate()),
   )
+  const pendingCount = (items ?? []).filter((i) => !i.completed).length
   const completedCount = (items ?? []).filter((i) => i.completed).length
 
   const {
@@ -76,9 +83,9 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         ref={setNodeRef}
         style={{
           ...style,
-          borderTop: `3px solid ${space.color}`,
+          borderTop: `3px solid ${accentColor}`,
           ...(isDropTarget && {
-            boxShadow: `0 0 0 2px ${space.color}`,
+            boxShadow: `0 0 0 2px ${accentColor}`,
           }),
         }}
         className={cn(
@@ -115,6 +122,13 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">
             {space.name}
           </span>
+
+          {/* Pending count badge */}
+          {!isLoading && pendingCount > 0 && (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+              {pendingCount}
+            </span>
+          )}
 
           {/* Dropdown */}
           <DropdownMenu>
@@ -161,9 +175,30 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
                 <Skeleton key={i} className="h-14 w-full rounded-lg" />
               ))
             ) : activeItems.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">
-                Nothing here yet
-              </p>
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full"
+                  style={{ background: space.color }}
+                >
+                  {space.type === 'person' ? (
+                    <User className="h-5 w-5" style={{ color: accentColor }} />
+                  ) : (
+                    <ShoppingCart className="h-5 w-5" style={{ color: accentColor }} />
+                  )}
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {space.type === 'person' ? 'No tasks yet' : 'Nothing on the list'}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground/60 transition hover:text-foreground"
+                    onClick={() => setAddItemOpen(true)}
+                  >
+                    Add the first item →
+                  </button>
+                </div>
+              </div>
             ) : (
               <SortableContext
                 items={activeItems.map((i) => i.id)}

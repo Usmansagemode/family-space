@@ -150,7 +150,7 @@ create table items (
 
 #### Profile trigger
 
-This auto-creates a profile row whenever a new user signs in for the first time.
+This auto-creates a profile row whenever a new user signs up for the first time.
 
 ```sql
 create or replace function handle_new_user()
@@ -211,6 +211,11 @@ create policy "Family members can view all members"
 create policy "Users can insert own membership"
   on user_families for insert
   with check (auth.uid() = user_id);
+
+-- Needed for acceptInvite upsert (onConflict update path)
+create policy "Users can update own membership"
+  on user_families for update
+  using (auth.uid() = user_id);
 
 create policy "Owners can delete members"
   on user_families for delete

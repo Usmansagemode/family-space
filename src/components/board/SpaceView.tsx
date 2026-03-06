@@ -285,15 +285,14 @@ function ItemDragOverlay({
 }) {
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
-  const bgColor = isDark ? `oklch(0.25 0.05 ${hue})` : spaceColor
-  const borderColor = isDark
-    ? `oklch(0.32 0.07 ${hue})`
-    : `oklch(0.82 0.08 ${hue})`
+  const accentColor = isDark
+    ? `oklch(0.62 0.16 ${hue})`
+    : `oklch(0.68 0.14 ${hue})`
 
   return (
     <div
-      className="flex w-72 items-start gap-3 rounded-lg border px-3 py-2.5 shadow-xl rotate-1 cursor-grabbing"
-      style={{ background: bgColor, borderColor }}
+      className="flex w-72 items-start gap-3 rounded-lg border border-l-4 bg-card px-3 py-2.5 shadow-xl rotate-1 cursor-grabbing"
+      style={{ borderLeftColor: accentColor }}
     >
       <p className="text-sm font-medium leading-snug text-foreground">
         {item.title}
