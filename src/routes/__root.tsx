@@ -29,7 +29,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Family Space' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'icon', href: '/family-space-logo.jpg', type: 'image/jpeg' },
+    ],
   }),
   shellComponent: RootDocument,
 })

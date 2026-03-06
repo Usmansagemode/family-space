@@ -203,7 +203,7 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 pb-6 sm:flex-row sm:overflow-x-auto sm:overflow-y-hidden">
+          <div className="flex h-full flex-col gap-4 overflow-y-auto bg-muted/30 p-4 pb-6 sm:flex-row sm:overflow-x-auto sm:overflow-y-hidden">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div
@@ -285,15 +285,17 @@ function ItemDragOverlay({
 }) {
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
-  const accentColor = isDark
-    ? `oklch(0.62 0.16 ${hue})`
-    : `oklch(0.68 0.14 ${hue})`
+  const cardBg = isDark ? `oklch(0.22 0.07 ${hue})` : spaceColor
+  const cardBorder = isDark
+    ? `oklch(0.30 0.09 ${hue})`
+    : `oklch(0.82 0.09 ${hue})`
 
   return (
     <div
-      className="flex w-72 items-start gap-3 rounded-lg border border-l-4 bg-card px-3 py-2.5 shadow-xl rotate-1 cursor-grabbing"
-      style={{ borderLeftColor: accentColor }}
+      className="flex w-72 items-center gap-3 rounded-xl border px-3.5 py-3 shadow-xl rotate-1 cursor-grabbing"
+      style={{ background: cardBg, borderColor: cardBorder }}
     >
+      <div className="flex size-[18px] shrink-0 rounded-full bg-white" />
       <p className="text-sm font-medium leading-snug text-foreground">
         {item.title}
         {item.quantity && (

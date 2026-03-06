@@ -83,93 +83,92 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         ref={setNodeRef}
         style={{
           ...style,
-          borderTop: `3px solid ${accentColor}`,
           ...(isDropTarget && {
             boxShadow: `0 0 0 2px ${accentColor}`,
           }),
         }}
         className={cn(
-          'flex w-full flex-col rounded-xl bg-card shadow-sm ring-1 ring-border transition-shadow dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:h-full sm:w-72 sm:shrink-0',
+          'group/column flex w-full flex-col overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border transition-shadow dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:h-full sm:w-72 sm:shrink-0',
           isDropTarget && 'bg-card/80',
         )}
       >
-        {/* Header */}
-        <div className="flex items-center gap-2 px-3 pt-3 pb-1">
-          {/* Drag handle */}
-          <button
-            type="button"
-            className="cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-
-          {/* Color dot */}
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ background: space.color }}
-          />
-
-          {/* Space icon */}
-          {space.type === 'person' ? (
-            <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          ) : (
-            <ShoppingCart className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          )}
-
-          {/* Name */}
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {space.name}
-          </span>
-
-          {/* Pending count badge */}
-          {!isLoading && pendingCount > 0 && (
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-              {pendingCount}
-            </span>
-          )}
-
-          {/* Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditSpaceOpen(true)}>
-                Edit space
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => removeSpace.mutate(space.id)}
-              >
-                Delete space
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* History link */}
-        <button
-          type="button"
-          onClick={() => setHistoryOpen(true)}
-          className="mx-3 mb-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/70 transition hover:bg-muted hover:text-muted-foreground"
+        {/* Colored header — takes on the space's pastel in light, deep tint in dark */}
+        <div
+          style={{
+            background: isDark ? `oklch(0.22 0.05 ${hue})` : space.color,
+          }}
         >
-          <History className="h-3 w-3" />
-          History
-          {completedCount > 0 && (
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px]">
-              {completedCount}
+          <div className="flex items-center gap-1.5 px-3 py-2.5">
+            {/* Drag handle — hidden until hover */}
+            <button
+              type="button"
+              className="cursor-grab touch-none opacity-0 transition-opacity group-hover/column:opacity-40 hover:!opacity-80 active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+
+            {/* Space icon */}
+            {space.type === 'person' ? (
+              <User className="h-3.5 w-3.5 shrink-0 opacity-60" />
+            ) : (
+              <ShoppingCart className="h-3.5 w-3.5 shrink-0 opacity-60" />
+            )}
+
+            {/* Name */}
+            <span className="min-w-0 flex-1 truncate text-sm font-bold">
+              {space.name}
             </span>
-          )}
-        </button>
+
+            {/* Pending count badge */}
+            {!isLoading && pendingCount > 0 && (
+              <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:bg-white/10">
+                {pendingCount}
+              </span>
+            )}
+
+            {/* History — compact icon button with optional count */}
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md opacity-50 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+              title="History"
+            >
+              <History className="h-3.5 w-3.5" />
+              {completedCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-black/20 px-1 text-[9px] font-bold leading-none dark:bg-white/20">
+                  {completedCount}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditSpaceOpen(true)}>
+                  Edit space
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => removeSpace.mutate(space.id)}
+                >
+                  Delete space
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
 
         {/* Items list */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 max-sm:flex-none max-sm:overflow-visible">
-          <div className="flex flex-col gap-2 pb-2">
+          <div className="flex flex-col gap-2 pt-3 pb-2">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full rounded-lg" />
@@ -177,13 +176,13 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
             ) : activeItems.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
                 <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl"
                   style={{ background: space.color }}
                 >
                   {space.type === 'person' ? (
-                    <User className="h-5 w-5" style={{ color: accentColor }} />
+                    <User className="h-4 w-4" style={{ color: accentColor }} />
                   ) : (
-                    <ShoppingCart className="h-5 w-5" style={{ color: accentColor }} />
+                    <ShoppingCart className="h-4 w-4" style={{ color: accentColor }} />
                   )}
                 </div>
                 <div className="flex flex-col items-center gap-1">
@@ -204,7 +203,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
                 items={activeItems.map((i) => i.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {activeItems.map((item) => (
+                {activeItems.map((item, index) => (
                   <ItemCard
                     key={item.id}
                     item={item}
@@ -212,6 +211,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
                     spaceName={space.name}
                     spaceType={space.type}
                     familyId={familyId}
+                    index={index}
                   />
                 ))}
               </SortableContext>
@@ -219,16 +219,16 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
           </div>
         </div>
 
-        {/* Add item button */}
-        <div className="p-3 pt-0">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+        {/* Add item — dashed card */}
+        <div className="p-3 pt-1">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-xl border-2 border-dashed border-border px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
             onClick={() => setAddItemOpen(true)}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             Add item
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -239,6 +239,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         spaceId={space.id}
         spaceName={space.name}
         spaceType={space.type}
+        spaceColor={space.color}
         onCreate={(input) => {
           createItem.mutate(input)
         }}

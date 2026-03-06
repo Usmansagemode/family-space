@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { CalendarIcon, GripVertical } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Checkbox } from '#/components/ui/checkbox'
 import {
   cn,
   formatDate,
@@ -23,9 +22,10 @@ type Props = {
   spaceName: string
   spaceType: SpaceType
   familyId: string
+  index?: number
 }
 
-export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: Props) {
+export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId, index = 0 }: Props) {
   const [editOpen, setEditOpen] = useState(false)
   const { complete, update, remove, reAdd, move } = useItemMutations(item.spaceId)
   const hue = extractHue(spaceColor)
@@ -48,30 +48,30 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
     data: { type: 'item', item, spaceColor },
   })
 
-  // Vibrant accent for the left stripe — more visible than the raw pastel
-  const accentColor = isDark
-    ? `oklch(0.62 0.16 ${hue})`
-    : `oklch(0.68 0.14 ${hue})`
+  // Full card bg — pastel in light, deep tint in dark
+  const cardBg = isDark
+    ? `oklch(0.22 0.07 ${hue})`
+    : spaceColor
 
-  const stripeColor =
+  // Card border — slightly deeper than the bg for subtle definition
+  const cardBorder =
     dateStatus === 'overdue'
       ? 'oklch(0.55 0.22 25)'
       : dateStatus === 'today'
-        ? 'oklch(0.60 0.18 75)'
-        : accentColor
+        ? 'oklch(0.58 0.20 75)'
+        : isDark
+          ? `oklch(0.30 0.09 ${hue})`
+          : `oklch(0.82 0.09 ${hue})`
 
-  // Checkbox colors against the card (bg-card) background
-  const checkboxBorder = isDark
-    ? `oklch(0.48 0.10 ${hue})`
-    : `oklch(0.60 0.12 ${hue})`
-  const checkboxCheckedBg = isDark
-    ? `oklch(0.40 0.14 ${hue})`
-    : `oklch(0.52 0.18 ${hue})`
+  // Accent color for the checkmark tick (deeper/more vivid than card bg)
+  const tickColor = isDark
+    ? `oklch(0.80 0.14 ${hue})`
+    : `oklch(0.55 0.18 ${hue})`
 
-  function handleCheck(checked: boolean | 'indeterminate') {
-    if (checked === true) {
+  function handleCheck(checked: boolean) {
+    if (checked) {
       complete.mutate(item)
-    } else if (checked === false) {
+    } else {
       reAdd.mutate(item)
     }
   }
@@ -81,45 +81,52 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
       <div
         ref={setNodeRef}
         className={cn(
-          'group relative flex items-center gap-3 rounded-lg border border-l-4 bg-card px-3 py-2.5 shadow-sm transition hover:shadow-md',
+          'rise-in group/card relative flex items-center gap-3 rounded-xl border px-3.5 py-3 shadow-sm transition-opacity',
           isDragging && 'opacity-40',
-          item.completed && 'opacity-60',
+          item.completed && 'opacity-55',
         )}
         style={{
-          borderLeftColor: stripeColor,
+          background: cardBg,
+          borderColor: cardBorder,
           transform: CSS.Transform.toString(transform),
           transition,
+          animationDelay: `${Math.min(index * 40, 280)}ms`,
         }}
       >
-        {/* Drag handle */}
+        {/* Drag handle — hidden until hover */}
         <button
           type="button"
-          className="cursor-grab touch-none text-muted-foreground/30 hover:text-muted-foreground/70 active:cursor-grabbing"
+          className="cursor-grab touch-none opacity-0 transition-opacity group-hover/card:opacity-40 hover:!opacity-70 active:cursor-grabbing"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
 
-        {/* Checkbox — primary color scoped to the space hue */}
-        <div
-          className="flex"
-          style={
-            {
-              '--input': checkboxBorder,
-              '--primary': checkboxCheckedBg,
-              '--primary-foreground': 'oklch(1 0 0)',
-            } as React.CSSProperties
-          }
+        {/* Circular checkbox — white circle, colored tick when done */}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={item.completed}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleCheck(!item.completed)
+          }}
+          disabled={complete.isPending || reAdd.isPending}
+          className="flex size-[18px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-white transition-all duration-150 hover:scale-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Checkbox
-            checked={item.completed}
-            onCheckedChange={handleCheck}
-            disabled={complete.isPending || reAdd.isPending}
-            className="size-5 shrink-0 cursor-pointer rounded-full border-0 bg-white shadow-sm transition-all hover:shadow-[0_0_8px_2px_color-mix(in_oklch,var(--primary)_40%,transparent)] dark:bg-white/90"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+          {item.completed && (
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path
+                d="M1 4L3.5 6.5L9 1"
+                stroke={tickColor}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
 
         {/* Card body → opens edit sheet */}
         <button
@@ -129,21 +136,19 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
         >
           <p
             className={cn(
-              'line-clamp-2 text-sm font-medium leading-snug',
-              item.completed
-                ? 'text-muted-foreground line-through'
-                : 'text-foreground',
+              'line-clamp-2 text-sm font-semibold leading-snug',
+              item.completed && 'line-through opacity-60',
             )}
           >
             {item.title}
             {item.quantity && (
-              <span className="ml-1.5 text-xs font-normal opacity-60">
+              <span className="ml-1.5 text-xs font-normal opacity-50">
                 × {item.quantity}
               </span>
             )}
           </p>
           {item.startDate && (
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-foreground/60">
+            <p className="mt-1 flex items-center gap-1.5 text-xs opacity-60">
               <CalendarIcon className="h-3 w-3 shrink-0" />
               <span>
                 {formatDate(item.startDate)}
@@ -170,7 +175,7 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
             </p>
           )}
           {item.description && (
-            <p className="mt-1 line-clamp-1 text-xs text-foreground/60">
+            <p className="mt-1 line-clamp-1 text-xs opacity-60">
               {item.description}
             </p>
           )}
@@ -183,6 +188,7 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId }: P
         spaceId={item.spaceId}
         spaceName={spaceName}
         spaceType={spaceType}
+        spaceColor={spaceColor}
         familyId={familyId}
         editItem={item}
         onCreate={() => {}}

@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CalendarIcon, Clock, Loader2, Hash } from 'lucide-react'
 import { format } from 'date-fns'
+import { extractHue, useIsDark } from '#/lib/utils'
 import {
   Sheet,
   SheetContent,
@@ -39,6 +40,7 @@ type Props = {
   spaceId: string
   spaceName: string
   spaceType: SpaceType
+  spaceColor?: string
   familyId?: string
   editItem?: Item
   onCreate: (input: {
@@ -68,6 +70,7 @@ export function AddItemSheet({
   spaceId,
   spaceName,
   spaceType,
+  spaceColor,
   familyId,
   editItem,
   onCreate,
@@ -80,6 +83,13 @@ export function AddItemSheet({
   const isStore = spaceType === 'store'
   const isEditing = !!editItem
   const [moveToSpaceId, setMoveToSpaceId] = useState('')
+  const isDark = useIsDark()
+  const hue = spaceColor ? extractHue(spaceColor) : null
+  const accentColor = hue
+    ? isDark
+      ? `oklch(0.62 0.16 ${hue})`
+      : `oklch(0.68 0.14 ${hue})`
+    : undefined
 
   const { data: allSpaces } = useQuery({
     queryKey: ['spaces', familyId],
@@ -233,6 +243,9 @@ export function AddItemSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex max-w-sm flex-col gap-0 p-0">
+        {accentColor && (
+          <div className="h-1 w-full shrink-0" style={{ background: accentColor }} />
+        )}
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle>
             {isEditing ? editItem.title : `Add to ${spaceName}`}
@@ -457,32 +470,39 @@ export function AddItemSheet({
           {/* Move to space — edit mode only, when other same-type spaces exist */}
           {isEditing && onMove && otherSpaces.length > 0 && (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="item-move">Move to space</Label>
-              <div className="flex gap-2">
-                <select
-                  id="item-move"
-                  value={moveToSpaceId}
-                  onChange={(e) => setMoveToSpaceId(e.target.value)}
-                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">— {spaceName} (current) —</option>
-                  {otherSpaces.map((s) => (
-                    <option key={s.id} value={s.id}>
+              <Label>Move to space</Label>
+              <div className="flex flex-wrap gap-2">
+                {otherSpaces.map((s) => {
+                  const selected = moveToSpaceId === s.id
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setMoveToSpaceId(selected ? '' : s.id)}
+                      className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all"
+                      style={{
+                        background: s.color,
+                        borderColor: selected ? 'oklch(0.30 0.01 0)' : 'transparent',
+                        outline: selected ? '2px solid oklch(0.30 0.01 0 / 0.15)' : 'none',
+                        outlineOffset: '2px',
+                      }}
+                    >
                       {s.name}
-                    </option>
-                  ))}
-                </select>
-                {moveToSpaceId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onMove(moveToSpaceId)}
-                    disabled={isPending}
-                  >
-                    Move
-                  </Button>
-                )}
+                    </button>
+                  )
+                })}
               </div>
+              {moveToSpaceId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => onMove(moveToSpaceId)}
+                  disabled={isPending}
+                  className="self-start"
+                >
+                  Move to {otherSpaces.find(s => s.id === moveToSpaceId)?.name}
+                </Button>
+              )}
             </div>
           )}
 

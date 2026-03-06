@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Sun, Moon, Settings, LogOut, User, Home } from 'lucide-react'
+import { Sun, Moon, Settings, LogOut, User } from 'lucide-react'
 import { fetchFamily } from '#/lib/supabase/families'
 import type { Family } from '#/lib/supabase/families'
 import {
@@ -63,7 +63,11 @@ export function Header() {
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-[var(--header-bg)] px-4 backdrop-blur-md">
       {/* Title */}
       <div className="flex items-center gap-2.5">
-        <Home className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <img
+          src="/family-space-logo.jpg"
+          alt="Family Space"
+          className="h-7 w-7 shrink-0 rounded-lg object-cover"
+        />
         <div className="flex flex-col">
           <span className="text-sm font-bold leading-none tracking-tight">
             Family Space

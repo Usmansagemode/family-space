@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { User, ShoppingCart, Loader2 } from 'lucide-react'
+import { extractHue, useIsDark } from '#/lib/utils'
 import {
   Sheet,
   SheetContent,
@@ -46,11 +47,17 @@ export function AddSpaceSheet({
   const isEditing = !!editSpace
   const [type, setType] = useState<SpaceType>(editSpace?.type ?? 'store')
   const [color, setColor] = useState(editSpace?.color ?? SPACE_COLORS[0])
+  const isDark = useIsDark()
+  const hue = extractHue(color)
+  const accentColor = isDark
+    ? `oklch(0.62 0.16 ${hue})`
+    : `oklch(0.68 0.14 ${hue})`
 
-  const { register, handleSubmit, reset, formState } = useForm<FormData>({
+  const { register, handleSubmit, reset, formState, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { name: editSpace?.name ?? '' },
   })
+  const nameValue = watch('name')
 
   useEffect(() => {
     if (open) {
@@ -72,6 +79,7 @@ export function AddSpaceSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex max-w-sm flex-col gap-0 p-0">
+        <div className="h-1 w-full shrink-0 transition-colors" style={{ background: accentColor }} />
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle>{isEditing ? 'Edit Space' : 'New Space'}</SheetTitle>
         </SheetHeader>
@@ -130,7 +138,7 @@ export function AddSpaceSheet({
           </div>
 
           {/* Color picker */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <Label>Color</Label>
             <div className="flex flex-wrap gap-2">
               {SPACE_COLORS.map((c) => (
@@ -139,9 +147,9 @@ export function AddSpaceSheet({
                   type="button"
                   onClick={() => setColor(c)}
                   className={cn(
-                    'h-8 w-8 rounded-full border-2 transition',
+                    'h-8 w-8 rounded-full border-2 transition-all',
                     color === c
-                      ? 'border-foreground scale-110'
+                      ? 'scale-110 border-foreground/40'
                       : 'border-transparent hover:scale-105',
                   )}
                   style={{ background: c }}
@@ -149,13 +157,21 @@ export function AddSpaceSheet({
                 />
               ))}
             </div>
-          </div>
 
-          {/* Preview bar */}
-          <div
-            className="h-1.5 w-full rounded-full"
-            style={{ background: color }}
-          />
+            {/* Live card preview */}
+            <div
+              className="flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors"
+              style={{
+                background: isDark ? `oklch(0.22 0.07 ${hue})` : color,
+                borderColor: isDark ? `oklch(0.30 0.09 ${hue})` : `oklch(0.82 0.09 ${hue})`,
+              }}
+            >
+              <div className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-white" />
+              <span className="text-sm font-semibold">
+                {nameValue.trim() || 'Space name'}
+              </span>
+            </div>
+          </div>
 
           <div className="mt-auto flex gap-3">
             <Button
