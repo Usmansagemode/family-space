@@ -94,6 +94,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
       >
         {/* Colored header — takes on the space's pastel in light, deep tint in dark */}
         <div
+          className="rounded-t-xl"
           style={{
             background: isDark ? `oklch(0.22 0.05 ${hue})` : space.color,
           }}
