@@ -337,6 +337,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                               src={member.avatarUrl}
                               className="h-7 w-7 rounded-full"
                               alt=""
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
                             />
                           ) : (
                             <User className="h-3.5 w-3.5 text-muted-foreground" />

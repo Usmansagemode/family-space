@@ -171,29 +171,12 @@ export async function findOrCreateFamily(userId: string): Promise<Family> {
     return { id: DEMO_FAMILY_ID, name: 'Our Family', createdAt: new Date() }
   }
 
-  // Find existing family via user_families join table
-  const { data: membership } = await supabase!
-    .from('user_families')
-    .select('family_id, families(*)')
-    .eq('user_id', userId)
-    .order('joined_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (membership?.families) return mapFamily(membership.families as Parameters<typeof mapFamily>[0])
-
-  // No family yet — create one and insert owner membership
-  const { data: created, error } = await supabase!
-    .from('families')
-    .insert({ name: 'Our Family' })
-    .select()
-    .single()
+  // Uses a SECURITY DEFINER function to atomically find or create the family,
+  // bypassing RLS for the initial owner insert (no membership row exists yet).
+  const { data, error } = await supabase!.rpc('find_or_create_family', {
+    p_user_id: userId,
+  })
 
   if (error) throw error
-
-  await supabase!
-    .from('user_families')
-    .insert({ user_id: userId, family_id: created.id, role: 'owner' })
-
-  return mapFamily(created)
+  return mapFamily(data as Parameters<typeof mapFamily>[0])
 }

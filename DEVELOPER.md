@@ -79,50 +79,73 @@ Paste both into your `.env` file.
 
 ### 4.3 Run the database schema
 
-Go to **SQL Editor** in the Supabase dashboard and run the following blocks in order.
+Go to **SQL Editor** in the Supabase dashboard and run the entire script below in one shot.
 
-#### Tables
+> **Why one script?** The setup has dependencies between tables, grants, functions, and policies that must run in order. Copy the whole block and click **Run**.
 
 ```sql
--- Families
+-- ================================================================
+-- FAMILY SPACE — COMPLETE DATABASE SETUP
+-- Safe to re-run: drops everything first, then rebuilds clean.
+-- ================================================================
+
+
+-- ----------------------------------------------------------------
+-- PART 1: DROP EVERYTHING
+-- ----------------------------------------------------------------
+
+drop table if exists items         cascade;
+drop table if exists invites       cascade;
+drop table if exists spaces        cascade;
+drop table if exists user_families cascade;
+drop table if exists families      cascade;
+drop table if exists profiles      cascade;
+
+drop function if exists find_or_create_family(uuid)     cascade;
+drop function if exists accept_invite(uuid, uuid, uuid) cascade;
+drop function if exists is_family_member(uuid)          cascade;
+drop function if exists is_family_owner(uuid)           cascade;
+drop function if exists item_is_family_member(uuid)     cascade;
+
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists handle_new_user() cascade;
+
+
+-- ----------------------------------------------------------------
+-- PART 2: TABLES
+-- ----------------------------------------------------------------
+
+create table profiles (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  name       text,
+  email      text,
+  avatar_url text,
+  created_at timestamptz default now()
+);
+
 create table families (
   id                        uuid primary key default gen_random_uuid(),
-  name                      text not null default 'Our Family',
+  name                      text not null,
   google_calendar_id        text,
   google_calendar_embed_url text,
   created_at                timestamptz default now()
 );
 
--- User profiles (mirrors auth.users into the public schema so it can be joined)
-create table profiles (
-  id         uuid primary key references auth.users(id) on delete cascade,
-  name       text,
-  email      text,
-  avatar_url text
-);
-
--- Family membership (many-to-many, supports invites and multi-member families)
 create table user_families (
-  user_id   uuid references profiles(id) on delete cascade,
-  family_id uuid references families(id) on delete cascade,
+  user_id   uuid not null references auth.users(id) on delete cascade,
+  family_id uuid not null references families(id)   on delete cascade,
   role      text not null default 'member', -- 'owner' | 'member'
   joined_at timestamptz default now(),
-  primary key (user_id, family_id)
+  primary key (user_id, family_id),
+  -- Second FK to profiles required for PostgREST to resolve the join in
+  -- fetchFamilyMembers: .select('user_id, role, profiles(name, email, avatar_url)')
+  constraint user_families_profile_fkey
+    foreign key (user_id) references profiles(id) on delete cascade
 );
 
--- One-time invite tokens
-create table invites (
-  id          uuid primary key default gen_random_uuid(),
-  family_id   uuid references families(id) on delete cascade not null,
-  token       uuid not null default gen_random_uuid() unique,
-  accepted_at timestamptz,
-  created_at  timestamptz default now()
-);
-
--- Spaces (columns on the board)
 create table spaces (
   id         uuid primary key default gen_random_uuid(),
-  family_id  uuid references families(id) on delete cascade not null,
+  family_id  uuid not null references families(id) on delete cascade,
   name       text not null,
   color      text not null,
   type       text not null default 'store', -- 'person' | 'store'
@@ -130,140 +153,232 @@ create table spaces (
   created_at timestamptz default now()
 );
 
--- Items (tasks / grocery entries)
 create table items (
   id              uuid primary key default gen_random_uuid(),
-  space_id        uuid references spaces(id) on delete cascade not null,
+  space_id        uuid not null references spaces(id) on delete cascade,
   title           text not null,
   description     text,
-  quantity        text,        -- store spaces only (e.g. "2", "500g", "1 dozen")
-  sort_order      integer not null default 0,
-  start_date      timestamptz, -- person spaces only
-  end_date        timestamptz, -- person spaces only
+  quantity        text,         -- store spaces only (e.g. "2", "500g", "1 dozen")
+  start_date      timestamptz,  -- person spaces only
+  end_date        timestamptz,  -- person spaces only
   completed       boolean not null default false,
   completed_at    timestamptz,
   google_event_id text,
+  sort_order      integer not null default 0,
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()
 );
-```
 
-#### Profile trigger
+create table invites (
+  token       uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  accepted_at timestamptz,
+  created_at  timestamptz default now()
+);
 
-This auto-creates a profile row whenever a new user signs up for the first time.
 
-```sql
-create or replace function handle_new_user()
-returns trigger as $$
-begin
-  insert into profiles (id, email, name, avatar_url)
-  values (
-    new.id,
-    new.email,
-    new.raw_user_meta_data->>'full_name',
-    new.raw_user_meta_data->>'avatar_url'
+-- ----------------------------------------------------------------
+-- PART 3: GRANTS
+-- Supabase auto-grants these for tables created via the UI.
+-- SQL-created tables start with no grants, so RLS blocks everything
+-- before policies are even evaluated without these.
+-- ----------------------------------------------------------------
+
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update, delete on profiles      to authenticated;
+grant select, insert, update, delete on families      to authenticated;
+grant select, insert, update, delete on user_families to authenticated;
+grant select, insert, update, delete on spaces        to authenticated;
+grant select, insert, update, delete on items         to authenticated;
+grant select                          on invites       to anon;
+grant select, insert, update          on invites       to authenticated;
+
+
+-- ----------------------------------------------------------------
+-- PART 4: RLS HELPER FUNCTIONS
+-- Must return boolean (scalar) — set-returning functions are not
+-- allowed in policy expressions.
+-- SECURITY DEFINER lets them query user_families without going
+-- through RLS on that table (prevents infinite recursion).
+-- ----------------------------------------------------------------
+
+create or replace function is_family_member(fid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1 from user_families where user_id = auth.uid() and family_id = fid
   )
-  on conflict (id) do nothing;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure handle_new_user();
-```
-
-#### Row Level Security
-
-```sql
--- Enable RLS
-alter table families    enable row level security;
-alter table profiles    enable row level security;
-alter table user_families enable row level security;
-alter table invites     enable row level security;
-alter table spaces      enable row level security;
-alter table items       enable row level security;
-
--- Helper function: returns the family IDs the current user belongs to.
--- Must be security definer to avoid infinite recursion in RLS policies
--- that reference user_families.
-create or replace function get_my_family_ids()
-returns setof uuid
-language sql
-security definer
-stable
-as $$
-  select family_id from user_families where user_id = auth.uid()
 $$;
 
--- Profiles: users can read all profiles, update only their own
-create policy "Profiles are readable by authenticated users"
-  on profiles for select to authenticated using (true);
+create or replace function is_family_owner(fid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1 from user_families
+    where user_id = auth.uid() and family_id = fid and role = 'owner'
+  )
+$$;
 
-create policy "Users can update own profile"
-  on profiles for update using (auth.uid() = id);
+-- For items: checks membership via the parent space
+create or replace function item_is_family_member(sid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1
+    from spaces s
+    join user_families uf on uf.family_id = s.family_id
+    where s.id = sid and uf.user_id = auth.uid()
+  )
+$$;
 
--- user_families: any family member can see all members of their family
-create policy "Family members can view all members"
-  on user_families for select
-  using (family_id in (select get_my_family_ids()));
+grant execute on function is_family_member(uuid)      to authenticated;
+grant execute on function is_family_owner(uuid)       to authenticated;
+grant execute on function item_is_family_member(uuid) to authenticated;
 
-create policy "Users can insert own membership"
-  on user_families for insert
-  with check (auth.uid() = user_id);
 
--- Needed for acceptInvite upsert (onConflict update path)
-create policy "Users can update own membership"
-  on user_families for update
-  using (auth.uid() = user_id);
+-- ----------------------------------------------------------------
+-- PART 5: RPC FUNCTIONS (SECURITY DEFINER)
+-- Used for operations that touch multiple tables or must run before
+-- the user has any membership row yet. Called via supabase.rpc()
+-- from the app — never as direct table inserts.
+--
+-- Profile creation lives here (not in a trigger on auth.users)
+-- because Supabase restricts trigger creation on the auth schema.
+-- ----------------------------------------------------------------
 
-create policy "Owners can delete members"
-  on user_families for delete
-  using (family_id in (select get_my_family_ids()));
+-- Called on every login. Upserts the profile and returns the user's
+-- family, creating one (as owner) if they don't have one yet.
+create or replace function find_or_create_family(p_user_id uuid)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_family    families%rowtype;
+begin
+  insert into profiles (id, name, email, avatar_url)
+  select id, raw_user_meta_data->>'full_name', email, raw_user_meta_data->>'avatar_url'
+  from auth.users where id = p_user_id
+  on conflict (id) do update
+    set name = excluded.name, email = excluded.email, avatar_url = excluded.avatar_url;
 
--- Families: readable and writable by any member
-create policy "Family members can read family"
-  on families for select
-  using (id in (select get_my_family_ids()));
+  select family_id into v_family_id
+  from user_families where user_id = p_user_id
+  order by joined_at asc limit 1;
 
-create policy "Family members can update family"
-  on families for update
-  using (id in (select get_my_family_ids()));
+  if v_family_id is not null then
+    select * into v_family from families where id = v_family_id;
+    return row_to_json(v_family);
+  end if;
 
-create policy "Authenticated users can create families"
-  on families for insert to authenticated
-  with check (true);
+  insert into families (name) values ('Our Family') returning * into v_family;
+  insert into user_families (user_id, family_id, role) values (p_user_id, v_family.id, 'owner');
+  return row_to_json(v_family);
+end;
+$$;
 
--- Invites: family members can create; anyone can read (needed for invite acceptance)
-create policy "Family members can create invites"
-  on invites for insert
-  with check (family_id in (select get_my_family_ids()));
+-- Called when a user accepts a family invite link.
+-- Upserts their profile, removes their auto-created solo family,
+-- then adds them to the invited family.
+create or replace function accept_invite(p_token uuid, p_user_id uuid, p_family_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  insert into profiles (id, name, email, avatar_url)
+  select id, raw_user_meta_data->>'full_name', email, raw_user_meta_data->>'avatar_url'
+  from auth.users where id = p_user_id
+  on conflict (id) do update
+    set name = excluded.name, email = excluded.email, avatar_url = excluded.avatar_url;
 
-create policy "Anyone can read invites by token"
-  on invites for select using (true);
+  -- Delete families where the user is the only member (auto-created on signup)
+  delete from families
+  where id in (
+    select uf.family_id from user_families uf
+    where uf.user_id = p_user_id
+      and uf.family_id != p_family_id
+      and (select count(*) from user_families where family_id = uf.family_id) = 1
+  );
 
-create policy "Anyone can accept an invite"
-  on invites for update using (true);
+  -- Remove user from any remaining families
+  delete from user_families where user_id = p_user_id and family_id != p_family_id;
 
--- Spaces: full access for family members
-create policy "Family members full access to spaces"
-  on spaces for all
-  using  (family_id in (select get_my_family_ids()))
-  with check (family_id in (select get_my_family_ids()));
+  -- Join the invited family
+  insert into user_families (user_id, family_id, role)
+  values (p_user_id, p_family_id, 'member')
+  on conflict (user_id, family_id) do nothing;
 
--- Items: full access for family members (via space → family)
-create policy "Family members full access to items"
-  on items for all
-  using (exists (
-    select 1 from spaces
-    where spaces.id = items.space_id
-    and spaces.family_id in (select get_my_family_ids())
-  ))
-  with check (exists (
-    select 1 from spaces
-    where spaces.id = items.space_id
-    and spaces.family_id in (select get_my_family_ids())
-  ));
+  update invites set accepted_at = now() where token = p_token;
+end;
+$$;
+
+grant execute on function find_or_create_family(uuid)        to authenticated;
+grant execute on function accept_invite(uuid, uuid, uuid)    to authenticated;
+
+
+-- ----------------------------------------------------------------
+-- PART 6: ENABLE ROW LEVEL SECURITY
+-- ----------------------------------------------------------------
+
+alter table profiles      enable row level security;
+alter table families      enable row level security;
+alter table user_families enable row level security;
+alter table spaces        enable row level security;
+alter table items         enable row level security;
+alter table invites       enable row level security;
+
+
+-- ----------------------------------------------------------------
+-- PART 7: POLICIES
+-- INSERT on families and user_families is intentionally omitted —
+-- those go through the SECURITY DEFINER RPCs, never directly.
+-- ----------------------------------------------------------------
+
+-- profiles
+create policy "profiles_select" on profiles
+  for select to authenticated using (true);
+create policy "profiles_update" on profiles
+  for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
+
+-- families
+create policy "families_select" on families
+  for select to authenticated using (is_family_member(id));
+create policy "families_update" on families
+  for update to authenticated
+  using (is_family_owner(id)) with check (is_family_owner(id));
+create policy "families_delete" on families
+  for delete to authenticated using (is_family_owner(id));
+
+-- user_families
+create policy "user_families_select" on user_families
+  for select to authenticated using (is_family_member(family_id));
+create policy "user_families_delete" on user_families
+  for delete to authenticated
+  using (user_id = auth.uid() or is_family_owner(family_id));
+
+-- spaces
+create policy "spaces_select" on spaces
+  for select to authenticated using (is_family_member(family_id));
+create policy "spaces_insert" on spaces
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "spaces_update" on spaces
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "spaces_delete" on spaces
+  for delete to authenticated using (is_family_member(family_id));
+
+-- items
+create policy "items_select" on items
+  for select to authenticated using (item_is_family_member(space_id));
+create policy "items_insert" on items
+  for insert to authenticated with check (item_is_family_member(space_id));
+create policy "items_update" on items
+  for update to authenticated
+  using (item_is_family_member(space_id)) with check (item_is_family_member(space_id));
+create policy "items_delete" on items
+  for delete to authenticated using (item_is_family_member(space_id));
+
+-- invites
+create policy "invites_select"  on invites for select using (true);
+create policy "invites_insert"  on invites
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "invites_update"  on invites
+  for update to authenticated using (true) with check (true);
 ```
 
 ---
@@ -561,7 +676,7 @@ And add it in Supabase under **Authentication → URL Configuration → Redirect
 
 ### Family members not showing / only one member appears
 
-- The `profiles` table must exist and be populated. If you added users before creating the trigger, backfill them:
+- The `profiles` table must exist and be populated. Profiles are created automatically when `find_or_create_family` is called on login. If you have users that pre-date this setup, backfill them:
   ```sql
   insert into profiles (id, email, name, avatar_url)
   select id, email,
@@ -570,13 +685,14 @@ And add it in Supabase under **Authentication → URL Configuration → Redirect
   from auth.users
   on conflict (id) do nothing;
   ```
-- Check the `get_my_family_ids()` function exists — without it the `user_families` RLS policy will cause infinite recursion and crash the app.
-- Check the RLS policy on `user_families` uses `get_my_family_ids()`, **not** a direct `select from user_families` subquery (that causes infinite recursion).
+- Check `user_families` has both a FK to `auth.users` AND a second FK to `profiles` (`user_families_profile_fkey`). PostgREST needs the `profiles` FK to resolve the member list join.
+- RLS helper functions (`is_family_member`, `is_family_owner`, `item_is_family_member`) must return `boolean`, not `setof uuid` — PostgreSQL does not allow set-returning functions in policy expressions.
 
 ### Items load but spaces are empty / vice versa
 
-- Check the RLS policies are applied (section 4.3). A missing policy silently returns empty arrays.
-- In the Supabase dashboard, go to **Table Editor** and verify rows exist in the `spaces` and `items` tables.
+- Check all RLS policies were created (section 4.3). A missing policy silently returns empty arrays rather than an error.
+- In the Supabase dashboard go to **Table Editor** and verify rows exist in the `spaces` and `items` tables.
+- Check the grants in Part 3 of the setup script were run. Without explicit grants, all access is blocked before RLS is even evaluated — this manifests as empty results, not an error.
 
 ### App shows demo data after adding `.env`
 

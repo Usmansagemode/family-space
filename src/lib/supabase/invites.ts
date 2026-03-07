@@ -39,19 +39,11 @@ export async function acceptInvite(
   userId: string,
   familyId: string,
 ): Promise<void> {
-  // Add user to the family (upsert in case they're already a member)
-  const { error: memberError } = await supabase!
-    .from('user_families')
-    .upsert(
-      { user_id: userId, family_id: familyId, role: 'member' },
-      { onConflict: 'user_id,family_id' },
-    )
+  const { error } = await supabase!.rpc('accept_invite', {
+    p_token: token,
+    p_user_id: userId,
+    p_family_id: familyId,
+  })
 
-  if (memberError) throw memberError
-
-  // Mark invite as accepted
-  await supabase!
-    .from('invites')
-    .update({ accepted_at: new Date().toISOString() })
-    .eq('token', token)
+  if (error) throw error
 }
