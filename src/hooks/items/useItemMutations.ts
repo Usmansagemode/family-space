@@ -7,6 +7,7 @@ import {
   deleteItem,
   reAddItem,
   moveItem,
+  advanceRecurringItem,
 } from '#/lib/supabase/items'
 import {
   createCalendarEvent,
@@ -14,20 +15,39 @@ import {
   deleteCalendarEvent,
 } from '#/lib/google-calendar'
 import { useBoardContext } from '#/contexts/board'
-import type { Item } from '#/entities/Item'
+import { useAuthContext } from '#/contexts/auth'
+import type { Item, Recurrence } from '#/entities/Item'
+import { formatDate } from '#/lib/utils'
+import { addDays, addWeeks, addMonths, addYears } from 'date-fns'
+
+function advanceDate(date: Date, recurrence: Recurrence): Date {
+  switch (recurrence) {
+    case 'daily': return addDays(date, 1)
+    case 'weekly': return addWeeks(date, 1)
+    case 'monthly': return addMonths(date, 1)
+    case 'yearly': return addYears(date, 1)
+  }
+}
 
 export function useItemMutations(spaceId: string) {
   const queryClient = useQueryClient()
   const { providerToken, calendarId } = useBoardContext()
+  const { refreshProviderToken } = useAuthContext()
   const key = ['items', spaceId]
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key })
 
+  // Returns a valid token, refreshing silently if the current one has expired
+  async function getToken(): Promise<string | null> {
+    if (providerToken) return providerToken
+    return refreshProviderToken()
+  }
+
   // Helper: delete a Google Calendar event if we have the credentials + eventId
   async function tryDeleteEvent(googleEventId: string | undefined) {
-    if (googleEventId && providerToken && calendarId) {
-      await deleteCalendarEvent(providerToken, calendarId, googleEventId)
-    }
+    if (!googleEventId || !calendarId) return
+    const token = await getToken()
+    if (token) await deleteCalendarEvent(token, calendarId, googleEventId)
   }
 
   const create = useMutation({
@@ -37,16 +57,20 @@ export function useItemMutations(spaceId: string) {
       quantity?: string
       startDate?: Date
       endDate?: Date
+      recurrence?: Recurrence
     }) => {
       let googleEventId: string | undefined
 
-      if (providerToken && calendarId && input.startDate) {
-        const result = await createCalendarEvent(providerToken, calendarId, {
-          title: input.title,
-          startDate: input.startDate,
-          endDate: input.endDate,
-        })
-        googleEventId = result.id
+      if (calendarId && input.startDate) {
+        const token = await getToken()
+        if (token) {
+          const result = await createCalendarEvent(token, calendarId, {
+            title: input.title,
+            startDate: input.startDate,
+            endDate: input.endDate,
+          })
+          googleEventId = result.id
+        }
       }
 
       return createItem({ spaceId, ...input, googleEventId })
@@ -68,40 +92,33 @@ export function useItemMutations(spaceId: string) {
       quantity?: string | null
       startDate?: Date
       endDate?: Date
+      recurrence?: Recurrence | null
     }) => {
       let googleEventId: string | null | undefined = undefined
 
-      if (providerToken && calendarId) {
+      if (calendarId) {
+        const token = await getToken()
         const cached = queryClient
           .getQueryData<Item[]>(key)
           ?.find((i) => i.id === input.id)
         const existingEventId = cached?.googleEventId
 
-        if (existingEventId) {
+        if (token && existingEventId) {
           if (input.startDate !== undefined) {
             // Date still set — update the event (title or date may have changed)
-            await updateCalendarEvent(
-              providerToken,
-              calendarId,
-              existingEventId,
-              {
-                title: input.title ?? cached?.title ?? '',
-                startDate: input.startDate,
-                endDate: input.endDate,
-              },
-            )
+            await updateCalendarEvent(token, calendarId, existingEventId, {
+              title: input.title ?? cached?.title ?? '',
+              startDate: input.startDate,
+              endDate: input.endDate,
+            })
           } else {
             // Date was cleared — delete the event
-            await deleteCalendarEvent(
-              providerToken,
-              calendarId,
-              existingEventId,
-            )
+            await deleteCalendarEvent(token, calendarId, existingEventId)
             googleEventId = null
           }
-        } else if (input.startDate !== undefined) {
+        } else if (token && input.startDate !== undefined) {
           // Date newly added — create event
-          const result = await createCalendarEvent(providerToken, calendarId, {
+          const result = await createCalendarEvent(token, calendarId, {
             title: input.title ?? cached?.title ?? '',
             startDate: input.startDate,
             endDate: input.endDate,
@@ -116,6 +133,7 @@ export function useItemMutations(spaceId: string) {
         quantity: input.quantity,
         startDate: input.startDate,
         endDate: input.endDate,
+        recurrence: input.recurrence,
         ...(googleEventId !== undefined && { googleEventId }),
       })
     },
@@ -130,23 +148,58 @@ export function useItemMutations(spaceId: string) {
 
   const complete = useMutation({
     mutationFn: async (item: Item) => {
+      if (item.recurrence && item.startDate) {
+        // Recurring: advance to next occurrence instead of marking done
+        await tryDeleteEvent(item.googleEventId)
+        const nextStart = advanceDate(item.startDate, item.recurrence)
+        const nextEnd = item.endDate
+          ? advanceDate(item.endDate, item.recurrence)
+          : undefined
+        let newEventId: string | null = null
+        if (calendarId) {
+          const token = await getToken()
+          if (token) {
+            const result = await createCalendarEvent(token, calendarId, {
+              title: item.title,
+              startDate: nextStart,
+              endDate: nextEnd,
+            })
+            newEventId = result.id
+          }
+        }
+        return advanceRecurringItem(item.id, nextStart, nextEnd, newEventId)
+      }
       await tryDeleteEvent(item.googleEventId)
       return completeItem(item.id)
     },
     onMutate: async (item) => {
       await queryClient.cancelQueries({ queryKey: key })
       const prev = queryClient.getQueryData<Item[]>(key)
-      queryClient.setQueryData<Item[]>(key, (old) =>
-        old?.map((i) =>
-          i.id === item.id
-            ? { ...i, completed: true, completedAt: new Date() }
-            : i,
-        ),
-      )
+      if (item.recurrence && item.startDate) {
+        // Optimistically advance the date
+        const nextStart = advanceDate(item.startDate, item.recurrence)
+        queryClient.setQueryData<Item[]>(key, (old) =>
+          old?.map((i) =>
+            i.id === item.id ? { ...i, startDate: nextStart } : i,
+          ),
+        )
+      } else {
+        queryClient.setQueryData<Item[]>(key, (old) =>
+          old?.map((i) =>
+            i.id === item.id
+              ? { ...i, completed: true, completedAt: new Date() }
+              : i,
+          ),
+        )
+      }
       return { prev }
     },
-    onSuccess: () => {
-      toast.success('Marked as done')
+    onSuccess: (_data, item) => {
+      if (item.recurrence && item.startDate) {
+        toast.success(`Rescheduled to ${formatDate(advanceDate(item.startDate, item.recurrence))}`)
+      } else {
+        toast.success('Marked as done')
+      }
     },
     onError: (_err, _item, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(key, ctx.prev)

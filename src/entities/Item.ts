@@ -1,3 +1,5 @@
+export type Recurrence = 'daily' | 'weekly' | 'monthly' | 'yearly'
+
 export type Item = {
   id: string
   spaceId: string
@@ -6,6 +8,7 @@ export type Item = {
   quantity?: string
   startDate?: Date
   endDate?: Date
+  recurrence?: Recurrence
   completed: boolean
   completedAt?: Date
   googleEventId?: string

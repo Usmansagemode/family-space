@@ -4,7 +4,7 @@ import { fetchSpaces } from '#/lib/supabase/spaces'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { CalendarIcon, Clock, Loader2, Hash } from 'lucide-react'
+import { CalendarIcon, Clock, Loader2, Hash, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { extractHue, useIsDark } from '#/lib/utils'
 import {
@@ -24,8 +24,15 @@ import {
 } from '#/components/ui/popover'
 import { cn, hasExplicitTime } from '#/lib/utils'
 import { useItems } from '#/hooks/items/useItems'
-import type { Item } from '#/entities/Item'
+import type { Item, Recurrence } from '#/entities/Item'
 import type { SpaceType } from '#/entities/Space'
+
+const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
+]
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
@@ -49,6 +56,7 @@ type Props = {
     quantity?: string
     startDate?: Date
     endDate?: Date
+    recurrence?: Recurrence
   }) => void
   onUpdate?: (input: {
     id: string
@@ -57,6 +65,7 @@ type Props = {
     quantity?: string | null
     startDate?: Date
     endDate?: Date
+    recurrence?: Recurrence | null
   }) => void
   onComplete?: (item: Item) => void
   onDelete?: (item: Item) => void
@@ -105,6 +114,9 @@ export function AddItemSheet({
     editItem?.startDate,
   )
   const [endDate, setEndDate] = useState<Date | undefined>(editItem?.endDate)
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(
+    editItem?.recurrence ?? null,
+  )
   const [startTimeStr, setStartTimeStr] = useState(
     editItem?.startDate && hasExplicitTime(editItem.startDate)
       ? format(editItem.startDate, 'HH:mm')
@@ -181,6 +193,7 @@ export function AddItemSheet({
           ? format(editItem.endDate, 'HH:mm')
           : '',
       )
+      setRecurrence(editItem?.recurrence ?? null)
       setMoveToSpaceId('')
       setLastAddedTitle(null)
       // Show suggestions immediately when creating (not editing)
@@ -199,6 +212,7 @@ export function AddItemSheet({
         quantity: isStore ? (quantity ?? null) : undefined,
         startDate: isStore ? undefined : startDate,
         endDate: isStore ? undefined : endDate,
+        recurrence: isStore ? undefined : (recurrence ?? null),
       })
       // Sheet stays open — parent closes it in mutation's onSuccess
     } else {
@@ -209,6 +223,7 @@ export function AddItemSheet({
         quantity,
         startDate: isStore ? undefined : startDate,
         endDate: isStore ? undefined : endDate,
+        recurrence: isStore ? undefined : recurrence ?? undefined,
       })
       // Quick-add: reset form and stay open for the next item
       reset({ title: '', description: '', quantity: '' })
@@ -393,6 +408,7 @@ export function AddItemSheet({
                     setEndDate(undefined)
                     setStartTimeStr('')
                     setEndTimeStr('')
+                    setRecurrence(null)
                   }}
                 >
                   Clear date
@@ -467,6 +483,45 @@ export function AddItemSheet({
             </div>
           )}
 
+          {/* Recurrence — person spaces only, when a date is set */}
+          {!isStore && startDate && (
+            <div className="flex flex-col gap-2">
+              <Label className="flex items-center gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5 opacity-60" />
+                Repeats
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRecurrence(null)}
+                  className={cn(
+                    'rounded-lg border px-3 py-1.5 text-xs font-medium transition',
+                    recurrence === null
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  None
+                </button>
+                {RECURRENCE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRecurrence(opt.value)}
+                    className={cn(
+                      'rounded-lg border px-3 py-1.5 text-xs font-medium transition',
+                      recurrence === opt.value
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Move to space — edit mode only, when other same-type spaces exist */}
           {isEditing && onMove && otherSpaces.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -526,7 +581,7 @@ export function AddItemSheet({
                 onClick={handleComplete}
                 disabled={isPending}
               >
-                Mark as Done
+                {editItem?.recurrence ? 'Done & Reschedule' : 'Mark as Done'}
               </Button>
             )}
             {isEditing && onDelete && (

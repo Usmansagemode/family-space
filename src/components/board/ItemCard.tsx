@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarIcon, GripVertical } from 'lucide-react'
+import { CalendarIcon, GripVertical, RefreshCw } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
@@ -149,7 +149,11 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId, ind
           </p>
           {item.startDate && (
             <p className="mt-1 flex items-center gap-1.5 text-xs opacity-60">
-              <CalendarIcon className="h-3 w-3 shrink-0" />
+              {item.recurrence ? (
+                <RefreshCw className="h-3 w-3 shrink-0" />
+              ) : (
+                <CalendarIcon className="h-3 w-3 shrink-0" />
+              )}
               <span>
                 {formatDate(item.startDate)}
                 {hasExplicitTime(item.startDate) &&

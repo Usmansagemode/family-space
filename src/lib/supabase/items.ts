@@ -1,5 +1,5 @@
 import { isDemoMode, supabase } from '#/lib/supabase'
-import type { Item } from '#/entities/Item'
+import type { Item, Recurrence } from '#/entities/Item'
 
 // --- Demo mode in-memory store ---
 
@@ -65,6 +65,7 @@ function rowToItem(row: {
   quantity: string | null
   start_date: string | null
   end_date: string | null
+  recurrence: string | null
   completed: boolean
   completed_at: string | null
   google_event_id: string | null
@@ -80,6 +81,7 @@ function rowToItem(row: {
     quantity: row.quantity ?? undefined,
     startDate: row.start_date ? new Date(row.start_date) : undefined,
     endDate: row.end_date ? new Date(row.end_date) : undefined,
+    recurrence: (row.recurrence as Recurrence) ?? undefined,
     completed: row.completed,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
     googleEventId: row.google_event_id ?? undefined,
@@ -115,6 +117,7 @@ export async function createItem(input: {
   quantity?: string
   startDate?: Date
   endDate?: Date
+  recurrence?: Recurrence
   googleEventId?: string
 }): Promise<Item> {
   if (isDemoMode) {
@@ -128,6 +131,7 @@ export async function createItem(input: {
       quantity: input.quantity,
       startDate: input.startDate,
       endDate: input.endDate,
+      recurrence: input.recurrence,
       googleEventId: input.googleEventId,
       completed: false,
       sortOrder: 0,
@@ -147,6 +151,7 @@ export async function createItem(input: {
       quantity: input.quantity ?? null,
       start_date: input.startDate?.toISOString() ?? null,
       end_date: input.endDate?.toISOString() ?? null,
+      recurrence: input.recurrence ?? null,
       google_event_id: input.googleEventId ?? null,
       sort_order: 0,
     })
@@ -165,6 +170,7 @@ export async function updateItem(
     quantity: string | null
     startDate: Date
     endDate: Date
+    recurrence: Recurrence | null
     googleEventId: string | null
   }>,
 ): Promise<Item> {
@@ -194,6 +200,8 @@ export async function updateItem(
     dbInput['start_date'] = input.startDate.toISOString()
   if (input.endDate !== undefined)
     dbInput['end_date'] = input.endDate.toISOString()
+  if (input.recurrence !== undefined)
+    dbInput['recurrence'] = input.recurrence
   if (input.googleEventId !== undefined)
     dbInput['google_event_id'] = input.googleEventId
 
@@ -319,6 +327,50 @@ export async function reorderItems(
   )
   const failed = results.find((r) => r.error)
   if (failed?.error) throw failed.error
+}
+
+// Advance a recurring item to its next occurrence without marking it complete.
+export async function advanceRecurringItem(
+  id: string,
+  nextStartDate: Date,
+  nextEndDate?: Date,
+  googleEventId?: string | null,
+): Promise<Item> {
+  if (isDemoMode) {
+    await delay()
+    const now = new Date()
+    demoItems = demoItems.map((i) =>
+      i.id === id
+        ? {
+            ...i,
+            startDate: nextStartDate,
+            endDate: nextEndDate,
+            googleEventId: googleEventId ?? undefined,
+            updatedAt: now,
+          }
+        : i,
+    )
+    const updated = demoItems.find((i) => i.id === id)
+    if (!updated) throw new Error('Item not found')
+    return updated
+  }
+
+  const dbInput: Record<string, unknown> = {
+    start_date: nextStartDate.toISOString(),
+    end_date: nextEndDate?.toISOString() ?? null,
+    updated_at: new Date().toISOString(),
+  }
+  if (googleEventId !== undefined) dbInput['google_event_id'] = googleEventId
+
+  const { data, error } = await supabase!
+    .from('items')
+    .update(dbInput)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return rowToItem(data)
 }
 
 // Uncomplete an existing item rather than creating a new row.

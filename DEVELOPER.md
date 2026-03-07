@@ -161,6 +161,7 @@ create table items (
   quantity        text,         -- store spaces only (e.g. "2", "500g", "1 dozen")
   start_date      timestamptz,  -- person spaces only
   end_date        timestamptz,  -- person spaces only
+  recurrence      text,             -- null | 'daily' | 'weekly' | 'monthly' | 'yearly'
   completed       boolean not null default false,
   completed_at    timestamptz,
   google_event_id text,
