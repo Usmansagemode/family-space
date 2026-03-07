@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Sun, Moon, Settings, LogOut, User } from 'lucide-react'
+import { Sun, Moon, Settings, LogOut, User, Activity } from 'lucide-react'
 import { fetchFamily } from '#/lib/supabase/families'
 import type { Family } from '#/lib/supabase/families'
 import {
@@ -16,7 +16,9 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { isDemoMode } from '#/lib/supabase'
 import { useAuthContext } from '#/contexts/auth'
 import { useIsDark } from '#/lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { SettingsSheet } from './SettingsSheet'
+import { ActivitySheet } from './ActivitySheet'
 import { DEMO_FAMILY_ID } from '#/lib/config'
 
 function applyTheme(mode: 'light' | 'dark') {
@@ -30,6 +32,7 @@ export function Header() {
   const { user, signOut } = useAuthContext()
   const isDark = useIsDark()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
 
   const { data: demoFamily, isLoading: demoLoading } = useQuery({
     queryKey: ['family', DEMO_FAMILY_ID],
@@ -87,14 +90,32 @@ export function Header() {
         )}
       </div>
 
+      {/* Activity button */}
+      {!isDemoMode && !!user && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setActivityOpen(true)}
+              className="ml-auto flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <Activity className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Recent activity</TooltipContent>
+        </Tooltip>
+      )}
+
       {/* Avatar dropdown — only shown when authenticated */}
       {(isDemoMode || !!user) && (
-        <div className="ml-auto">
+        <div className={!isDemoMode && !!user ? '' : 'ml-auto'}>
           <DropdownMenu>
+            <Tooltip>
+            <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex h-8 w-8 items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {user?.user_metadata?.avatar_url ? (
                   <img
@@ -109,6 +130,9 @@ export function Header() {
                 )}
               </button>
             </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Account</TooltipContent>
+            </Tooltip>
 
             <DropdownMenuContent align="end" className="w-52">
               {/* User info */}
@@ -163,6 +187,13 @@ export function Header() {
 
       {!isDemoMode && !!user && (
         <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
+      )}
+      {!isDemoMode && !!user && (
+        <ActivitySheet
+          open={activityOpen}
+          onOpenChange={setActivityOpen}
+          familyId={userFamily?.id}
+        />
       )}
     </header>
   )

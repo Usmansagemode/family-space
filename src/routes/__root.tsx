@@ -6,6 +6,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Toaster } from '#/components/ui/sonner'
+import { TooltipProvider } from '#/components/ui/tooltip'
 import { Header } from '#/components/Header'
 import { AuthProvider } from '#/contexts/auth'
 
@@ -52,10 +53,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="font-sans antialiased [overflow-wrap:anywhere]">
         <AuthProvider>
           <TanStackQueryProvider>
+            <TooltipProvider>
             <div className="flex h-screen flex-col overflow-hidden">
               <Header />
               <main className="min-h-0 flex-1 overflow-auto">{children}</main>
             </div>
+            </TooltipProvider>
             <Toaster richColors position="bottom-right" />
             <TanStackDevtools
               config={{ position: 'bottom-right' }}

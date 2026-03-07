@@ -110,6 +110,9 @@ drop function if exists item_is_family_member(uuid)     cascade;
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists handle_new_user() cascade;
 
+drop trigger if exists set_item_created_by_trigger on items;
+drop function if exists set_item_created_by() cascade;
+
 
 -- ----------------------------------------------------------------
 -- PART 2: TABLES
@@ -166,6 +169,7 @@ create table items (
   completed_at    timestamptz,
   google_event_id text,
   sort_order      integer not null default 0,
+  created_by      uuid references auth.users(id) on delete set null, -- auto-set by trigger
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()
 );
@@ -312,7 +316,28 @@ grant execute on function accept_invite(uuid, uuid, uuid)    to authenticated;
 
 
 -- ----------------------------------------------------------------
--- PART 6: ENABLE ROW LEVEL SECURITY
+-- PART 6: TRIGGERS
+-- ----------------------------------------------------------------
+
+-- Auto-stamp created_by on every new item so the activity feed can
+-- show who added each item without the app passing auth.uid() manually.
+-- A trigger on items (not auth.users) is fine — Supabase only restricts
+-- trigger creation on the auth schema.
+create or replace function set_item_created_by()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  NEW.created_by := auth.uid();
+  return NEW;
+end;
+$$;
+
+create trigger set_item_created_by_trigger
+  before insert on items
+  for each row execute function set_item_created_by();
+
+
+-- ----------------------------------------------------------------
+-- PART 8: ENABLE ROW LEVEL SECURITY
 -- ----------------------------------------------------------------
 
 alter table profiles      enable row level security;
@@ -324,7 +349,7 @@ alter table invites       enable row level security;
 
 
 -- ----------------------------------------------------------------
--- PART 7: POLICIES
+-- PART 9: POLICIES
 -- INSERT on families and user_families is intentionally omitted —
 -- those go through the SECURITY DEFINER RPCs, never directly.
 -- ----------------------------------------------------------------
@@ -542,11 +567,15 @@ src/
 │   │   └── HistorySheet.tsx  # Completed items with re-add
 │   ├── Header.tsx        # App header with family name + user dropdown
 │   ├── SettingsSheet.tsx # Family name, calendar ID, embed URL
+│   ├── ActivitySheet.tsx # Slide-in sheet showing recent family activity
 │   └── CalendarView.tsx  # Google Calendar iframe
 │
 ├── hooks/
 │   ├── auth/
-│   │   └── useUserFamily.ts       # Fetch/create family for current user
+│   │   ├── useUserFamily.ts       # Fetch/create family for current user
+│   │   └── useFamilyMembers.ts    # Fetch all members of a family
+│   ├── family/
+│   │   └── useActivityFeed.ts     # Recent add/complete events for the activity sheet
 │   ├── spaces/
 │   │   ├── useSpaces.ts           # Read spaces for a family
 │   │   └── useSpaceMutations.ts   # Create, update, delete, reorder spaces
@@ -568,9 +597,10 @@ src/
 │   ├── config.ts             # SPACE_COLORS palette, DEMO_FAMILY_ID
 │   ├── utils.ts              # cn(), formatDate(), hasExplicitTime(), useIsDark()
 │   └── supabase/
-│       ├── families.ts       # Family CRUD
+│       ├── families.ts       # Family CRUD + member listing + invites
 │       ├── spaces.ts         # Space CRUD + reorder
-│       └── items.ts          # Item CRUD + complete + reAdd
+│       ├── items.ts          # Item CRUD + complete + reAdd + advanceRecurring
+│       └── activity.ts       # Fetch recent add/complete events for activity feed
 │
 └── styles.css            # Tailwind v4 + OKLCH theme variables
 ```
@@ -626,6 +656,14 @@ Colours are OKLCH strings (e.g. `oklch(0.88 0.10 230)`). The `extractHue()` util
 ### Date sentinel
 
 When a user picks a date with no time, the date is stored at noon local time (`T12:00:00`). `hasExplicitTime(date)` returns `false` when hours === 12 and minutes === 0. This keeps dates and datetimes in the same column in Supabase.
+
+### Recurring items
+
+Items with a `recurrence` value (`daily | weekly | monthly | yearly`) are never marked done — completing them advances the date to the next occurrence instead. The `complete` mutation in `useItemMutations` handles this: it deletes the old Google Calendar event, creates a new one at the next date, and calls `advanceRecurringItem` in Supabase. `ItemCard` shows a `RefreshCw` icon in place of the calendar icon for recurring items.
+
+### Activity feed
+
+`src/lib/supabase/activity.ts` fetches items created or completed within the last 14 days across all spaces in the family. The `created_by` column on `items` is auto-stamped by the `set_item_created_by_trigger` trigger (sets `auth.uid()` on each INSERT). `useActivityFeed` merges the raw items with the family member list in JS to resolve actor names, then produces a sorted `ActivityEvent[]` shown in `ActivitySheet`.
 
 ### Code style
 

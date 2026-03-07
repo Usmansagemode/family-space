@@ -8,9 +8,11 @@ import {
   Plus,
   History,
   GripVertical,
+  Maximize2,
 } from 'lucide-react'
 import { cn, extractHue, useIsDark } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,9 +34,10 @@ type Props = {
   space: Space
   familyId: string
   isDropTarget?: boolean
+  onFocus?: () => void
 }
 
-export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
+export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editSpaceOpen, setEditSpaceOpen] = useState(false)
@@ -101,14 +104,19 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         >
           <div className="flex items-center gap-1.5 px-3 py-2.5">
             {/* Drag handle — hidden until hover */}
-            <button
-              type="button"
-              className="cursor-grab touch-none opacity-0 transition-opacity group-hover/column:opacity-40 hover:!opacity-80 active:cursor-grabbing"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="h-4 w-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="cursor-grab touch-none opacity-0 transition-opacity group-hover/column:opacity-40 hover:!opacity-80 active:cursor-grabbing"
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Drag to reorder</TooltipContent>
+            </Tooltip>
 
             {/* Space icon */}
             {space.type === 'person' ? (
@@ -130,28 +138,43 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
             )}
 
             {/* History — compact icon button with optional count */}
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(true)}
-              className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md opacity-50 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
-              title="History"
-            >
-              <History className="h-3.5 w-3.5" />
-              {completedCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-black/20 px-1 text-[9px] font-bold leading-none dark:bg-white/20">
-                  {completedCount}
-                </span>
-              )}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(true)}
+                  className="relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md opacity-50 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+                >
+                  <History className="h-3.5 w-3.5" />
+                  {completedCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-black/20 px-1 text-[9px] font-bold leading-none dark:bg-white/20">
+                      {completedCount}
+                    </span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>History</TooltipContent>
+            </Tooltip>
 
             {/* Dropdown */}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 cursor-pointer opacity-60 hover:opacity-100">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>More options</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="end">
+                {onFocus && (
+                  <DropdownMenuItem onClick={onFocus}>
+                    <Maximize2 className="size-3.5" />
+                    Focus mode
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setEditSpaceOpen(true)}>
                   Edit space
                 </DropdownMenuItem>
@@ -192,7 +215,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
                   </p>
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground/60 transition hover:text-foreground"
+                    className="cursor-pointer text-xs text-muted-foreground/60 transition hover:text-foreground"
                     onClick={() => setAddItemOpen(true)}
                   >
                     Add the first item →
@@ -224,7 +247,7 @@ export function SpaceColumn({ space, familyId, isDropTarget }: Props) {
         <div className="p-3 pt-1">
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-xl border-2 border-dashed border-border px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-border px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
             onClick={() => setAddItemOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" />

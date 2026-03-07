@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -15,13 +15,16 @@ import type {
 import {
   SortableContext,
   horizontalListSortingStrategy,
+  verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, ShoppingCart, User, X } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
+import { ItemCard } from './ItemCard'
 import { SpaceColumn } from './SpaceColumn'
 import { AddSpaceSheet } from './AddSpaceSheet'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
@@ -31,6 +34,7 @@ import { BoardProvider } from '#/contexts/board'
 import { extractHue, useIsDark } from '#/lib/utils'
 import type { Space } from '#/entities/Space'
 import type { Item } from '#/entities/Item'
+import { useItems } from '#/hooks/items/useItems'
 
 type Props = {
   familyId: string
@@ -42,6 +46,7 @@ type ActiveDragItem = { item: Item; spaceColor: string }
 
 export function SpaceView({ familyId, providerToken, calendarId }: Props) {
   const [addSpaceOpen, setAddSpaceOpen] = useState(false)
+  const [focusedSpaceId, setFocusedSpaceId] = useState<string | null>(null)
   const [activeDragItem, setActiveDragItem] = useState<ActiveDragItem | null>(
     null,
   )
@@ -233,6 +238,7 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
                         (s) => s.id === activeDragItem.item.spaceId,
                       )?.type === space.type
                     }
+                    onFocus={() => setFocusedSpaceId(space.id)}
                   />
                 ))}
               </SortableContext>
@@ -272,7 +278,115 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
           isPending={create.isPending}
         />
       </div>
+
+      {focusedSpaceId && (() => {
+        const focusedSpace = spaces?.find((s) => s.id === focusedSpaceId)
+        return focusedSpace ? (
+          <FocusOverlay
+            space={focusedSpace}
+            familyId={familyId}
+            onClose={() => setFocusedSpaceId(null)}
+          />
+        ) : null
+      })()}
     </BoardProvider>
+  )
+}
+
+function FocusOverlay({
+  space,
+  familyId,
+  onClose,
+}: {
+  space: Space
+  familyId: string
+  onClose: () => void
+}) {
+  const { data: items, isLoading } = useItems(space.id)
+  const hue = extractHue(space.color)
+  const isDark = useIsDark()
+
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const today = new Date()
+  const activeItems = (items ?? []).filter(
+    (i) =>
+      !i.completed ||
+      (i.completedAt &&
+        i.completedAt.getFullYear() === today.getFullYear() &&
+        i.completedAt.getMonth() === today.getMonth() &&
+        i.completedAt.getDate() === today.getDate()),
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* Header */}
+      <div
+        className="flex shrink-0 items-center gap-2.5 px-4 py-3"
+        style={{ background: isDark ? `oklch(0.22 0.05 ${hue})` : space.color }}
+      >
+        {space.type === 'person' ? (
+          <User className="h-4 w-4 shrink-0 opacity-60" />
+        ) : (
+          <ShoppingCart className="h-4 w-4 shrink-0 opacity-60" />
+        )}
+        <span className="flex-1 text-base font-bold">{space.name}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full opacity-60 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Exit focus mode</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Items */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="mx-auto flex max-w-lg flex-col gap-3">
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+            ))
+          ) : activeItems.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-16 text-center">
+              <p className="text-sm font-medium text-muted-foreground">
+                {space.type === 'person' ? 'No tasks yet' : 'Nothing on the list'}
+              </p>
+            </div>
+          ) : (
+            <DndContext sensors={[]}>
+              <SortableContext
+                items={activeItems.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {activeItems.map((item, index) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    spaceColor={space.color}
+                    spaceName={space.name}
+                    spaceType={space.type}
+                    familyId={familyId}
+                    index={index}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -12,6 +12,7 @@ import {
   getDateStatus,
 } from '#/lib/utils'
 import { AddItemSheet } from './AddItemSheet'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
 import { useItemMutations } from '#/hooks/items/useItemMutations'
 import type { Item } from '#/entities/Item'
 import type { SpaceType } from '#/entities/Space'
@@ -94,14 +95,19 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId, ind
         }}
       >
         {/* Drag handle — hidden until hover */}
-        <button
-          type="button"
-          className="cursor-grab touch-none opacity-0 transition-opacity group-hover/card:opacity-40 hover:!opacity-70 active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="cursor-grab touch-none opacity-0 transition-opacity group-hover/card:opacity-40 hover:!opacity-70 active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Drag to reorder</TooltipContent>
+        </Tooltip>
 
         {/* Circular checkbox — white circle, colored tick when done */}
         <button
