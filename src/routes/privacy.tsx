@@ -62,9 +62,7 @@ function PrivacyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-xl font-semibold">
-          4. Google API Services
-        </h2>
+        <h2 className="mb-3 text-xl font-semibold">4. Google API Services</h2>
         <p className="text-muted-foreground">
           Family Space's use of information received from Google APIs adheres to
           the{' '}
@@ -108,7 +106,9 @@ function PrivacyPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-xl font-semibold">8. Changes to This Policy</h2>
+        <h2 className="mb-3 text-xl font-semibold">
+          8. Changes to This Policy
+        </h2>
         <p className="text-muted-foreground">
           We may update this policy occasionally. We will notify you of
           significant changes by updating the date at the top of this page.

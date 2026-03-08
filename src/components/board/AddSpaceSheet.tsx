@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { User, ShoppingCart, Loader2 } from 'lucide-react'
-import { extractHue, useIsDark } from '#/lib/utils'
+import { extractHue, cn  } from '#/lib/utils'
+import { useIsDark } from '#/hooks/useIsDark'
 import {
   Sheet,
   SheetContent,
@@ -13,9 +14,8 @@ import {
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
-import { cn } from '#/lib/utils'
 import { SPACE_COLORS } from '#/lib/config'
-import type { SpaceType, Space  } from '#/entities/Space'
+import type { SpaceType, Space } from '#/entities/Space'
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(40),
@@ -26,7 +26,7 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   editSpace?: Space
-  onCreate: (input: { name: string; color: string; type: SpaceType }) => void
+  onCreate?: (input: { name: string; color: string; type: SpaceType }) => void
   onUpdate?: (input: {
     id: string
     name: string
@@ -53,10 +53,12 @@ export function AddSpaceSheet({
     ? `oklch(0.62 0.16 ${hue})`
     : `oklch(0.68 0.14 ${hue})`
 
-  const { register, handleSubmit, reset, formState, watch } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { name: editSpace?.name ?? '' },
-  })
+  const { register, handleSubmit, reset, formState, watch } = useForm<FormData>(
+    {
+      resolver: zodResolver(schema),
+      defaultValues: { name: editSpace?.name ?? '' },
+    },
+  )
   const nameValue = watch('name')
 
   useEffect(() => {
@@ -68,10 +70,10 @@ export function AddSpaceSheet({
   }, [open, editSpace, reset])
 
   function onSubmit(data: FormData) {
-    if (isEditing && editSpace && onUpdate) {
+    if (editSpace && onUpdate) {
       onUpdate({ id: editSpace.id, name: data.name, color, type })
     } else {
-      onCreate({ name: data.name, color, type })
+      onCreate?.({ name: data.name, color, type })
     }
     // Sheet stays open — parent closes it in mutation's onSuccess
   }
@@ -79,7 +81,10 @@ export function AddSpaceSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex max-w-sm flex-col gap-0 p-0">
-        <div className="h-1 w-full shrink-0 transition-colors" style={{ background: accentColor }} />
+        <div
+          className="h-1 w-full shrink-0 transition-colors"
+          style={{ background: accentColor }}
+        />
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle>{isEditing ? 'Edit Space' : 'New Space'}</SheetTitle>
         </SheetHeader>
@@ -163,7 +168,9 @@ export function AddSpaceSheet({
               className="flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors"
               style={{
                 background: isDark ? `oklch(0.22 0.07 ${hue})` : color,
-                borderColor: isDark ? `oklch(0.30 0.09 ${hue})` : `oklch(0.82 0.09 ${hue})`,
+                borderColor: isDark
+                  ? `oklch(0.30 0.09 ${hue})`
+                  : `oklch(0.82 0.09 ${hue})`,
               }}
             >
               <div className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-white" />

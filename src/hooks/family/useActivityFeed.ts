@@ -2,18 +2,14 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchRecentActivity } from '#/lib/supabase/activity'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
+import type { ActivityEvent } from '#/entities/Activity'
 
-export type ActivityEvent = {
-  key: string
-  type: 'added' | 'completed'
-  itemTitle: string
-  spaceName: string
-  spaceColor: string
-  actorName: string | null
-  timestamp: Date
-}
+export type { ActivityEvent }
 
-export function useActivityFeed(familyId: string | undefined, enabled: boolean) {
+export function useActivityFeed(
+  familyId: string | undefined,
+  enabled: boolean,
+) {
   const { data: spaces } = useSpaces(familyId ?? '')
   const { data: members } = useFamilyMembers(familyId)
   const spaceIds = (spaces ?? []).map((s) => s.id)

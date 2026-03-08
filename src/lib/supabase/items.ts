@@ -81,7 +81,7 @@ function rowToItem(row: {
     quantity: row.quantity ?? undefined,
     startDate: row.start_date ? new Date(row.start_date) : undefined,
     endDate: row.end_date ? new Date(row.end_date) : undefined,
-    recurrence: (row.recurrence as Recurrence) ?? undefined,
+    recurrence: row.recurrence as Recurrence | undefined,
     completed: row.completed,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
     googleEventId: row.google_event_id ?? undefined,
@@ -107,7 +107,7 @@ export async function fetchItems(spaceId: string): Promise<Item[]> {
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data ?? []).map(rowToItem)
+  return data.map(rowToItem)
 }
 
 export async function createItem(input: {
@@ -200,8 +200,7 @@ export async function updateItem(
     dbInput['start_date'] = input.startDate.toISOString()
   if (input.endDate !== undefined)
     dbInput['end_date'] = input.endDate.toISOString()
-  if (input.recurrence !== undefined)
-    dbInput['recurrence'] = input.recurrence
+  if (input.recurrence !== undefined) dbInput['recurrence'] = input.recurrence
   if (input.googleEventId !== undefined)
     dbInput['google_event_id'] = input.googleEventId
 
@@ -302,7 +301,7 @@ export async function searchItems(
     .limit(20)
 
   if (error) throw error
-  return (data ?? []).map(rowToItem)
+  return data.map(rowToItem)
 }
 
 export async function reorderItems(

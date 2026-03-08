@@ -54,10 +54,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <TanStackQueryProvider>
             <TooltipProvider>
-            <div className="flex h-screen flex-col overflow-hidden">
-              <Header />
-              <main className="min-h-0 flex-1 overflow-auto">{children}</main>
-            </div>
+              <div className="flex h-screen flex-col overflow-hidden">
+                <Header />
+                <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+              </div>
             </TooltipProvider>
             <Toaster richColors position="bottom-right" />
             <TanStackDevtools

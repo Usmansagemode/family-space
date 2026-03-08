@@ -1,10 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, X } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '#/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '#/components/ui/dialog'
 import { AddItemSheet } from '#/components/board/AddItemSheet'
 import { BoardProvider } from '#/contexts/board'
 import { useSearchItems } from '#/hooks/items/useSearchItems'

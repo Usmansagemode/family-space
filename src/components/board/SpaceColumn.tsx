@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import {
+  useSortable,
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
   User,
@@ -10,9 +14,14 @@ import {
   GripVertical,
   Maximize2,
 } from 'lucide-react'
-import { cn, extractHue, useIsDark } from '#/lib/utils'
+import { cn, extractHue } from '#/lib/utils'
+import { useIsDark } from '#/hooks/useIsDark'
 import { Button } from '#/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '#/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -161,7 +170,11 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 cursor-pointer opacity-60 hover:opacity-100">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 cursor-pointer opacity-60 hover:opacity-100"
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -206,12 +219,17 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
                   {space.type === 'person' ? (
                     <User className="h-4 w-4" style={{ color: accentColor }} />
                   ) : (
-                    <ShoppingCart className="h-4 w-4" style={{ color: accentColor }} />
+                    <ShoppingCart
+                      className="h-4 w-4"
+                      style={{ color: accentColor }}
+                    />
                   )}
                 </div>
                 <div className="flex flex-col items-center gap-1">
                   <p className="text-xs font-medium text-muted-foreground">
-                    {space.type === 'person' ? 'No tasks yet' : 'Nothing on the list'}
+                    {space.type === 'person'
+                      ? 'No tasks yet'
+                      : 'Nothing on the list'}
                   </p>
                   <button
                     type="button"
@@ -281,7 +299,6 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
         open={editSpaceOpen}
         onOpenChange={setEditSpaceOpen}
         editSpace={space}
-        onCreate={() => {}}
         onUpdate={(input) =>
           updateSpace.mutate(input, {
             onSuccess: () => setEditSpaceOpen(false),

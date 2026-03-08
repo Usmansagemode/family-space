@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Loader2, Home } from 'lucide-react'
 import { Button } from '#/components/ui/button'
-import { supabase } from '#/lib/supabase'
 import { getInviteByToken, acceptInvite } from '#/lib/supabase/invites'
+import { signInWithGoogle } from '#/lib/google-auth'
 import { useAuthContext } from '#/contexts/auth'
 import type { InviteInfo } from '#/lib/supabase/invites'
 
@@ -56,7 +56,7 @@ function InvitePage() {
     acceptInvite(token, user.id, invite.familyId)
       .then(() => setStatus('done'))
       .catch((err: { code?: string }) => {
-        if (err?.code === '23505') {
+        if (err.code === '23505') {
           setStatus('already-member')
         } else {
           setStatus('invalid')
@@ -65,13 +65,7 @@ function InvitePage() {
   }, [authLoading, status, user, invite, token])
 
   function handleSignIn() {
-    void supabase!.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/calendar',
-        redirectTo: window.location.href,
-      },
-    })
+    signInWithGoogle({ redirectTo: window.location.href })
   }
 
   function goHome() {
@@ -80,7 +74,11 @@ function InvitePage() {
 
   // Loading invite info
   if (status === 'loading-invite' || authLoading) {
-    return <InviteShell><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></InviteShell>
+    return (
+      <InviteShell>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </InviteShell>
+    )
   }
 
   // Invalid or already used
@@ -114,7 +112,9 @@ function InvitePage() {
     return (
       <InviteShell>
         <p className="text-lg font-semibold">
-          {status === 'done' ? `You've joined ${invite?.familyName}!` : `You're already a member`}
+          {status === 'done'
+            ? `You've joined ${invite?.familyName}!`
+            : `You're already a member`}
         </p>
         <p className="text-sm text-muted-foreground">
           {status === 'done'
@@ -165,7 +165,11 @@ function InvitePage() {
   }
 
   // Logged in but status is still 'ready' — waiting for accept effect
-  return <InviteShell><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></InviteShell>
+  return (
+    <InviteShell>
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </InviteShell>
+  )
 }
 
 function InviteShell({ children }: { children: React.ReactNode }) {

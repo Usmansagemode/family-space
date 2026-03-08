@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -7,34 +7,27 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type {
-  DragStartEvent,
-  DragOverEvent,
-  DragEndEvent,
-} from '@dnd-kit/core'
+import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core'
 import {
   SortableContext,
   horizontalListSortingStrategy,
-  verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ShoppingCart, User, X } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { Plus } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
-import { ItemCard } from './ItemCard'
 import { SpaceColumn } from './SpaceColumn'
 import { AddSpaceSheet } from './AddSpaceSheet'
+import { FocusOverlay } from './FocusOverlay'
+import { ItemDragOverlay } from './ItemDragOverlay'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
 import { moveItem, reorderItems } from '#/lib/supabase/items'
 import { BoardProvider } from '#/contexts/board'
-import { extractHue, useIsDark } from '#/lib/utils'
 import type { Space } from '#/entities/Space'
 import type { Item } from '#/entities/Item'
-import { useItems } from '#/hooks/items/useItems'
 
 type Props = {
   familyId: string
@@ -61,22 +54,17 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
   )
 
   const moveItemMutation = useMutation({
-    mutationFn: ({
-      item,
-      newSpaceId,
-    }: {
-      item: Item
-      newSpaceId: string
-    }) => moveItem(item.id, newSpaceId),
+    mutationFn: ({ item, newSpaceId }: { item: Item; newSpaceId: string }) =>
+      moveItem(item.id, newSpaceId),
     onError: (_err, { item, newSpaceId }) => {
       queryClient.setQueryData<Item[]>(
         ['items', newSpaceId],
         (old) => old?.filter((i) => i.id !== item.id) ?? [],
       )
-      queryClient.setQueryData<Item[]>(
-        ['items', item.spaceId],
-        (old) => [item, ...(old ?? [])],
-      )
+      queryClient.setQueryData<Item[]>(['items', item.spaceId], (old) => [
+        item,
+        ...(old ?? []),
+      ])
       toast.error('Failed to move item')
     },
     onSettled: (_data, _err, { item, newSpaceId }) => {
@@ -167,7 +155,10 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         const newIdx = allItems.findIndex((i) => i.id === overItem.id)
         if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return
         const reordered = arrayMove(allItems, oldIdx, newIdx)
-        queryClient.setQueryData<Item[]>(['items', draggedItem.spaceId], reordered)
+        queryClient.setQueryData<Item[]>(
+          ['items', draggedItem.spaceId],
+          reordered,
+        )
         reorderItemsMutation.mutate({
           spaceId: draggedItem.spaceId,
           orderedIds: reordered.map((i) => i.id),
@@ -179,11 +170,14 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
           ['items', draggedItem.spaceId],
           (old) => old?.filter((i) => i.id !== draggedItem.id) ?? [],
         )
-        queryClient.setQueryData<Item[]>(
-          ['items', targetSpaceId],
-          (old) => [{ ...draggedItem, spaceId: targetSpaceId }, ...(old ?? [])],
-        )
-        moveItemMutation.mutate({ item: draggedItem, newSpaceId: targetSpaceId })
+        queryClient.setQueryData<Item[]>(['items', targetSpaceId], (old) => [
+          { ...draggedItem, spaceId: targetSpaceId },
+          ...(old ?? []),
+        ])
+        moveItemMutation.mutate({
+          item: draggedItem,
+          newSpaceId: targetSpaceId,
+        })
       }
     }
   }
@@ -234,9 +228,8 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
                     isDropTarget={
                       activeDragItem !== null &&
                       overSpaceId === space.id &&
-                      spaces?.find(
-                        (s) => s.id === activeDragItem.item.spaceId,
-                      )?.type === space.type
+                      spaces?.find((s) => s.id === activeDragItem.item.spaceId)
+                        ?.type === space.type
                     }
                     onFocus={() => setFocusedSpaceId(space.id)}
                   />
@@ -279,145 +272,13 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         />
       </div>
 
-      {focusedSpaceId && (() => {
-        const focusedSpace = spaces?.find((s) => s.id === focusedSpaceId)
-        return focusedSpace ? (
-          <FocusOverlay
-            space={focusedSpace}
-            familyId={familyId}
-            onClose={() => setFocusedSpaceId(null)}
-          />
-        ) : null
-      })()}
+      {focusedSpaceId && spaces?.find((s) => s.id === focusedSpaceId) && (
+        <FocusOverlay
+          space={spaces.find((s) => s.id === focusedSpaceId)!}
+          familyId={familyId}
+          onClose={() => setFocusedSpaceId(null)}
+        />
+      )}
     </BoardProvider>
-  )
-}
-
-function FocusOverlay({
-  space,
-  familyId,
-  onClose,
-}: {
-  space: Space
-  familyId: string
-  onClose: () => void
-}) {
-  const { data: items, isLoading } = useItems(space.id)
-  const hue = extractHue(space.color)
-  const isDark = useIsDark()
-
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  const today = new Date()
-  const activeItems = (items ?? []).filter(
-    (i) =>
-      !i.completed ||
-      (i.completedAt &&
-        i.completedAt.getFullYear() === today.getFullYear() &&
-        i.completedAt.getMonth() === today.getMonth() &&
-        i.completedAt.getDate() === today.getDate()),
-  )
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Header */}
-      <div
-        className="flex shrink-0 items-center gap-2.5 px-4 py-3"
-        style={{ background: isDark ? `oklch(0.22 0.05 ${hue})` : space.color }}
-      >
-        {space.type === 'person' ? (
-          <User className="h-4 w-4 shrink-0 opacity-60" />
-        ) : (
-          <ShoppingCart className="h-4 w-4 shrink-0 opacity-60" />
-        )}
-        <span className="flex-1 text-base font-bold">{space.name}</span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full opacity-60 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Exit focus mode</TooltipContent>
-        </Tooltip>
-      </div>
-
-      {/* Items */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto flex max-w-lg flex-col gap-3">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
-            ))
-          ) : activeItems.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <p className="text-sm font-medium text-muted-foreground">
-                {space.type === 'person' ? 'No tasks yet' : 'Nothing on the list'}
-              </p>
-            </div>
-          ) : (
-            <DndContext sensors={[]}>
-              <SortableContext
-                items={activeItems.map((i) => i.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                {activeItems.map((item, index) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    spaceColor={space.color}
-                    spaceName={space.name}
-                    spaceType={space.type}
-                    familyId={familyId}
-                    index={index}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ItemDragOverlay({
-  item,
-  spaceColor,
-}: {
-  item: Item
-  spaceColor: string
-}) {
-  const hue = extractHue(spaceColor)
-  const isDark = useIsDark()
-  const cardBg = isDark ? `oklch(0.22 0.07 ${hue})` : spaceColor
-  const cardBorder = isDark
-    ? `oklch(0.30 0.09 ${hue})`
-    : `oklch(0.82 0.09 ${hue})`
-
-  return (
-    <div
-      className="flex w-72 items-center gap-3 rounded-xl border px-3.5 py-3 shadow-xl rotate-1 cursor-grabbing"
-      style={{ background: cardBg, borderColor: cardBorder }}
-    >
-      <div className="flex size-[18px] shrink-0 rounded-full bg-white" />
-      <p className="text-sm font-medium leading-snug text-foreground">
-        {item.title}
-        {item.quantity && (
-          <span className="ml-1.5 text-xs font-normal text-foreground/60">
-            × {item.quantity}
-          </span>
-        )}
-      </p>
-    </div>
   )
 }

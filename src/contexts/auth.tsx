@@ -1,13 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState
-  
-} from 'react'
-import type {ReactNode} from 'react';
+import { createContext, useContext, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, isDemoMode } from '#/lib/supabase'
+import { signInWithGoogle } from '#/lib/google-auth'
 
 type AuthContextValue = {
   user: User | null
@@ -49,18 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  function signInWithGoogle() {
-    void supabase!.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/calendar',
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
-    })
+  function handleSignInWithGoogle() {
+    signInWithGoogle({ requestOfflineAccess: true })
   }
 
   async function signOut() {
@@ -96,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         providerToken,
         providerRefreshToken: session?.provider_refresh_token ?? null,
         loading,
-        signInWithGoogle,
+        signInWithGoogle: handleSignInWithGoogle,
         signOut,
         refreshProviderToken,
       }}

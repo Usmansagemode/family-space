@@ -28,7 +28,9 @@ function TermsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-xl font-semibold">2. Description of Service</h2>
+        <h2 className="mb-3 text-xl font-semibold">
+          2. Description of Service
+        </h2>
         <p className="text-muted-foreground">
           Family Space is a personal family management tool that lets you
           organize tasks, grocery lists, and chores for your household. It
@@ -39,7 +41,9 @@ function TermsPage() {
       <section className="mb-8">
         <h2 className="mb-3 text-xl font-semibold">3. Your Account</h2>
         <ul className="text-muted-foreground list-disc space-y-2 pl-6">
-          <li>You are responsible for maintaining the security of your account.</li>
+          <li>
+            You are responsible for maintaining the security of your account.
+          </li>
           <li>
             You must not share your login credentials or allow unauthorized
             access to your account.
@@ -56,14 +60,14 @@ function TermsPage() {
         <ul className="text-muted-foreground list-disc space-y-2 pl-6">
           <li>Use the service for any unlawful purpose.</li>
           <li>Attempt to gain unauthorized access to other users' data.</li>
-          <li>
-            Interfere with or disrupt the service or its infrastructure.
-          </li>
+          <li>Interfere with or disrupt the service or its infrastructure.</li>
         </ul>
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-xl font-semibold">5. Google Calendar Integration</h2>
+        <h2 className="mb-3 text-xl font-semibold">
+          5. Google Calendar Integration
+        </h2>
         <p className="text-muted-foreground">
           If you connect Google Calendar, you authorize Family Space to create,
           update, and delete calendar events on your behalf for items you manage

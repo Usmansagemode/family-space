@@ -641,11 +641,11 @@ This keeps the sheet (and its loader) visible until the server confirms success.
 
 `SpaceType` is `'person' | 'store'`. The two types have different item fields:
 
-| Field | `person` | `store` |
-|-------|----------|---------|
-| `quantity` | — | ✓ free-text (e.g. "2", "500g") |
-| `start_date` / `end_date` | ✓ | — |
-| Google Calendar sync | ✓ (when date set) | — |
+| Field                     | `person`          | `store`                        |
+| ------------------------- | ----------------- | ------------------------------ |
+| `quantity`                | —                 | ✓ free-text (e.g. "2", "500g") |
+| `start_date` / `end_date` | ✓                 | —                              |
+| Google Calendar sync      | ✓ (when date set) | —                              |
 
 `AddItemSheet` receives a `spaceType` prop and conditionally renders the relevant fields. `ItemCard` shows `× {quantity}` inline when quantity is present.
 

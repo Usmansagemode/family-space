@@ -8,11 +8,15 @@ import {
   formatTime,
   hasExplicitTime,
   extractHue,
-  useIsDark,
   getDateStatus,
 } from '#/lib/utils'
+import { useIsDark } from '#/hooks/useIsDark'
 import { AddItemSheet } from './AddItemSheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '#/components/ui/tooltip'
 import { useItemMutations } from '#/hooks/items/useItemMutations'
 import type { Item } from '#/entities/Item'
 import type { SpaceType } from '#/entities/Space'
@@ -26,9 +30,18 @@ type Props = {
   index?: number
 }
 
-export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId, index = 0 }: Props) {
+export function ItemCard({
+  item,
+  spaceColor,
+  spaceName,
+  spaceType,
+  familyId,
+  index = 0,
+}: Props) {
   const [editOpen, setEditOpen] = useState(false)
-  const { complete, update, remove, reAdd, move } = useItemMutations(item.spaceId)
+  const { complete, update, remove, reAdd, move } = useItemMutations(
+    item.spaceId,
+  )
   const hue = extractHue(spaceColor)
   const isDark = useIsDark()
 
@@ -50,9 +63,7 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId, ind
   })
 
   // Full card bg — pastel in light, deep tint in dark
-  const cardBg = isDark
-    ? `oklch(0.22 0.07 ${hue})`
-    : spaceColor
+  const cardBg = isDark ? `oklch(0.22 0.07 ${hue})` : spaceColor
 
   // Card border — slightly deeper than the bg for subtle definition
   const cardBorder =
@@ -217,7 +228,12 @@ export function ItemCard({ item, spaceColor, spaceName, spaceType, familyId, ind
             { onSuccess: () => setEditOpen(false) },
           )
         }}
-        isPending={update.isPending || complete.isPending || remove.isPending || move.isPending}
+        isPending={
+          update.isPending ||
+          complete.isPending ||
+          remove.isPending ||
+          move.isPending
+        }
       />
     </>
   )

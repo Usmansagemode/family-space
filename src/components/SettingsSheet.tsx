@@ -1,9 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, ChevronDown, ChevronRight, ExternalLink, Copy, Check, UserPlus, User, X, Crown, Users, Link2 } from 'lucide-react'
+import {
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Copy,
+  Check,
+  UserPlus,
+  User,
+  X,
+  Crown,
+  Users,
+  Link2,
+} from 'lucide-react'
 import { createInvite } from '#/lib/supabase/invites'
-import { removeFamilyMember } from '#/lib/supabase/families'
+import { removeFamilyMember, updateFamily  } from '#/lib/supabase/families'
 import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
 import {
   Sheet,
@@ -18,7 +31,6 @@ import { Label } from '#/components/ui/label'
 import { Skeleton } from '#/components/ui/skeleton'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
-import { updateFamily } from '#/lib/supabase/families'
 
 type Tab = 'family' | 'connections'
 
@@ -171,7 +183,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
     family?.googleCalendarEmbedUrl,
   ])
 
-  const { data: members, isLoading: membersLoading } = useFamilyMembers(family?.id)
+  const { data: members, isLoading: membersLoading } = useFamilyMembers(
+    family?.id,
+  )
   const isOwner = members?.find((m) => m.userId === user?.id)?.role === 'owner'
 
   const removeMember = useMutation({
@@ -324,7 +338,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                       <Skeleton className="h-9 w-3/4" />
                     </>
                   ) : (members ?? []).length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No members found.</p>
+                    <p className="text-xs text-muted-foreground">
+                      No members found.
+                    </p>
                   ) : (
                     (members ?? []).map((member) => (
                       <div
@@ -349,7 +365,10 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                           <span className="truncate text-sm leading-none">
                             {member.name ?? member.email ?? 'Unknown'}
                             {member.userId === user?.id && (
-                              <span className="text-muted-foreground"> (you)</span>
+                              <span className="text-muted-foreground">
+                                {' '}
+                                (you)
+                              </span>
                             )}
                           </span>
                           {member.name && member.email && (
@@ -393,7 +412,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                   onClick={() => save.mutate()}
                   disabled={save.isPending || !family}
                 >
-                  {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {save.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                   Save
                 </Button>
               </div>
@@ -430,14 +451,18 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                 {embedUrl.trim() &&
                   !embedUrl
                     .trim()
-                    .startsWith('https://calendar.google.com/calendar/embed') && (
+                    .startsWith(
+                      'https://calendar.google.com/calendar/embed',
+                    ) && (
                     <p className="text-xs text-destructive">
-                      Should start with https://calendar.google.com/calendar/embed
+                      Should start with
+                      https://calendar.google.com/calendar/embed
                     </p>
                   )}
                 <p className="text-xs text-muted-foreground">
-                  Google Calendar → Settings → your calendar → Integrate calendar
-                  → copy the <strong>src=</strong> URL from the Embed code.
+                  Google Calendar → Settings → your calendar → Integrate
+                  calendar → copy the <strong>src=</strong> URL from the Embed
+                  code.
                 </p>
               </div>
 
@@ -493,7 +518,9 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
                   onClick={() => save.mutate()}
                   disabled={save.isPending || !family}
                 >
-                  {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {save.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                   Save
                 </Button>
               </div>

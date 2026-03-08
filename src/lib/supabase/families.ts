@@ -130,7 +130,7 @@ export async function fetchFamilyMembers(
 
   if (error) throw error
 
-  return (data ?? []).map((row) => {
+  return data.map((row) => {
     const profile = row.profiles as {
       name: string | null
       email: string | null
@@ -162,7 +162,8 @@ export async function removeFamilyMember(
     .eq('user_id', userId)
 
   if (error) throw error
-  if (count === 0) throw new Error('Delete blocked — check RLS policy on user_families')
+  if (count === 0)
+    throw new Error('Delete blocked — check RLS policy on user_families')
 }
 
 export async function findOrCreateFamily(userId: string): Promise<Family> {

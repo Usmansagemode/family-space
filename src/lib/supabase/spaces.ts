@@ -73,7 +73,7 @@ export async function fetchSpaces(familyId: string): Promise<Space[]> {
     .order('sort_order', { ascending: true })
 
   if (error) throw error
-  return (data ?? []).map(rowToSpace)
+  return data.map(rowToSpace)
 }
 
 export async function createSpace(input: {

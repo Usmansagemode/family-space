@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchSpaces } from '#/lib/supabase/spaces'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CalendarIcon, Clock, Loader2, Hash, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
-import { extractHue, useIsDark } from '#/lib/utils'
+import { extractHue, cn, hasExplicitTime  } from '#/lib/utils'
+import { useIsDark } from '#/hooks/useIsDark'
 import {
   Sheet,
   SheetContent,
@@ -22,8 +21,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/ui/popover'
-import { cn, hasExplicitTime } from '#/lib/utils'
 import { useItems } from '#/hooks/items/useItems'
+import { useSpaces } from '#/hooks/spaces/useSpaces'
 import type { Item, Recurrence } from '#/entities/Item'
 import type { SpaceType } from '#/entities/Space'
 
@@ -100,12 +99,7 @@ export function AddItemSheet({
       : `oklch(0.68 0.14 ${hue})`
     : undefined
 
-  const { data: allSpaces } = useQuery({
-    queryKey: ['spaces', familyId],
-    queryFn: () => fetchSpaces(familyId!),
-    enabled: isEditing && !!familyId,
-    staleTime: 1000 * 60 * 5,
-  })
+  const { data: allSpaces } = useSpaces(familyId ?? '')
   const otherSpaces = (allSpaces ?? []).filter(
     (s) => s.type === spaceType && s.id !== spaceId,
   )
@@ -204,7 +198,7 @@ export function AddItemSheet({
   function onSubmit(data: FormData) {
     const description = data.description?.trim() || undefined
     const quantity = isStore ? data.quantity?.trim() || undefined : undefined
-    if (isEditing && editItem && onUpdate) {
+    if (editItem && onUpdate) {
       onUpdate({
         id: editItem.id,
         title: data.title,
@@ -223,7 +217,7 @@ export function AddItemSheet({
         quantity,
         startDate: isStore ? undefined : startDate,
         endDate: isStore ? undefined : endDate,
-        recurrence: isStore ? undefined : recurrence ?? undefined,
+        recurrence: isStore ? undefined : (recurrence ?? undefined),
       })
       // Quick-add: reset form and stay open for the next item
       reset({ title: '', description: '', quantity: '' })
@@ -259,7 +253,10 @@ export function AddItemSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex max-w-sm flex-col gap-0 p-0">
         {accentColor && (
-          <div className="h-1 w-full shrink-0" style={{ background: accentColor }} />
+          <div
+            className="h-1 w-full shrink-0"
+            style={{ background: accentColor }}
+          />
         )}
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle>
@@ -537,8 +534,12 @@ export function AddItemSheet({
                       className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all"
                       style={{
                         background: s.color,
-                        borderColor: selected ? 'oklch(0.30 0.01 0)' : 'transparent',
-                        outline: selected ? '2px solid oklch(0.30 0.01 0 / 0.15)' : 'none',
+                        borderColor: selected
+                          ? 'oklch(0.30 0.01 0)'
+                          : 'transparent',
+                        outline: selected
+                          ? '2px solid oklch(0.30 0.01 0 / 0.15)'
+                          : 'none',
                         outlineOffset: '2px',
                       }}
                     >
@@ -555,7 +556,8 @@ export function AddItemSheet({
                   disabled={isPending}
                   className="self-start"
                 >
-                  Move to {otherSpaces.find(s => s.id === moveToSpaceId)?.name}
+                  Move to{' '}
+                  {otherSpaces.find((s) => s.id === moveToSpaceId)?.name}
                 </Button>
               )}
             </div>
@@ -581,7 +583,7 @@ export function AddItemSheet({
                 onClick={handleComplete}
                 disabled={isPending}
               >
-                {editItem?.recurrence ? 'Done & Reschedule' : 'Mark as Done'}
+                {editItem.recurrence ? 'Done & Reschedule' : 'Mark as Done'}
               </Button>
             )}
             {isEditing && onDelete && (

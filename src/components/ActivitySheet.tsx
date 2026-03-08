@@ -73,7 +73,9 @@ export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <p className="text-sm leading-snug">
                       {event.actorName && (
-                        <span className="font-semibold">{event.actorName} </span>
+                        <span className="font-semibold">
+                          {event.actorName}{' '}
+                        </span>
                       )}
                       <span className="text-muted-foreground">
                         {event.type === 'added' ? 'added ' : 'completed '}
@@ -85,7 +87,9 @@ export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground/50">
-                      {formatDistanceToNow(event.timestamp, { addSuffix: true })}
+                      {formatDistanceToNow(event.timestamp, {
+                        addSuffix: true,
+                      })}
                     </p>
                   </div>
                 </div>

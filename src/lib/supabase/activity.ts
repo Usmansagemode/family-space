@@ -20,15 +20,19 @@ export async function fetchRecentActivity(
 
   const { data, error } = await supabase!
     .from('items')
-    .select('id, title, created_at, completed_at, created_by, spaces!inner(name, color)')
+    .select(
+      'id, title, created_at, completed_at, created_by, spaces!inner(name, color)',
+    )
     .in('space_id', spaceIds)
-    .or(`created_at.gte.${cutoff.toISOString()},completed_at.gte.${cutoff.toISOString()}`)
+    .or(
+      `created_at.gte.${cutoff.toISOString()},completed_at.gte.${cutoff.toISOString()}`,
+    )
     .order('created_at', { ascending: false })
     .limit(60)
 
   if (error) throw error
 
-  return (data ?? []).map((row) => {
+  return data.map((row) => {
     const space = row.spaces as { name: string; color: string }
     return {
       id: row.id,

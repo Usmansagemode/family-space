@@ -15,8 +15,12 @@ import { Badge } from '#/components/ui/badge'
 import { Skeleton } from '#/components/ui/skeleton'
 import { isDemoMode } from '#/lib/supabase'
 import { useAuthContext } from '#/contexts/auth'
-import { useIsDark } from '#/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { useIsDark } from '#/hooks/useIsDark'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '#/components/ui/tooltip'
 import { SettingsSheet } from './SettingsSheet'
 import { ActivitySheet } from './ActivitySheet'
 import { DEMO_FAMILY_ID } from '#/lib/config'
@@ -46,7 +50,9 @@ export function Header() {
   // staleTime:Infinity, which would prevent findOrCreateFamily from ever running.
   const userFamily = useQuery<Family>({
     queryKey: ['family', 'user', user?.id],
-    queryFn: () => { throw new Error('unreachable') },
+    queryFn: () => {
+      throw new Error('unreachable')
+    },
     enabled: false,
   }).data
 
@@ -111,27 +117,27 @@ export function Header() {
         <div className={!isDemoMode && !!user ? '' : 'ml-auto'}>
           <DropdownMenu>
             <Tooltip>
-            <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {user?.user_metadata?.avatar_url ? (
-                  <img
-                    src={user.user_metadata.avatar_url as string}
-                    className="h-8 w-8 rounded-full"
-                    alt=""
-                  />
-                ) : (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                  </span>
-                )}
-              </button>
-            </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>Account</TooltipContent>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {user?.user_metadata.avatar_url ? (
+                      <img
+                        src={user.user_metadata.avatar_url as string}
+                        className="h-8 w-8 rounded-full"
+                        alt=""
+                      />
+                    ) : (
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Account</TooltipContent>
             </Tooltip>
 
             <DropdownMenuContent align="end" className="w-52">
@@ -141,7 +147,7 @@ export function Header() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-medium leading-none">
-                        {user.user_metadata?.name as string}
+                        {user.user_metadata.name as string}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {user.email}

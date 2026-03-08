@@ -2,7 +2,6 @@ import type { ClassValue } from 'clsx'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { format } from 'date-fns'
-import { useState, useEffect } from 'react'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -37,11 +36,7 @@ export type DateStatus = 'overdue' | 'today' | 'soon' | 'future' | null
 export function getDateStatus(date: Date): DateStatus {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dateDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  )
+  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const diffDays = Math.round(
     (dateDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
   )
@@ -49,22 +44,4 @@ export function getDateStatus(date: Date): DateStatus {
   if (diffDays === 0) return 'today'
   if (diffDays <= 2) return 'soon'
   return 'future'
-}
-
-// Returns true when the <html> element has the 'dark' class, and updates
-// reactively when the user toggles the theme.
-export function useIsDark(): boolean {
-  const [isDark, setIsDark] = useState(
-    () =>
-      typeof document !== 'undefined' &&
-      document.documentElement.classList.contains('dark'),
-  )
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains('dark'))
-    })
-    observer.observe(document.documentElement, { attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [])
-  return isDark
 }

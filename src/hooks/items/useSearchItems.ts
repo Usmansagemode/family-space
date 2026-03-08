@@ -1,12 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchItems } from '#/lib/supabase/items'
 import type { Space } from '#/entities/Space'
-import type { Item } from '#/entities/Item'
+import type { SearchResult } from '#/entities/Search'
 
-export type SearchResult = {
-  item: Item
-  space: Space
-}
+export type { SearchResult }
 
 export function useSearchItems(
   familyId: string,
@@ -21,12 +18,10 @@ export function useSearchItems(
         queryClient.getQueryData<Space[]>(['spaces', familyId]) ?? []
       const spaceIds = spaces.map((s) => s.id)
       const items = await searchItems(spaceIds, query)
-      return items
-        .map((item) => ({
-          item,
-          space: spaces.find((s) => s.id === item.spaceId)!,
-        }))
-        .filter((r) => r.space)
+      return items.flatMap((item) => {
+        const space = spaces.find((s) => s.id === item.spaceId)
+        return space ? [{ item, space }] : []
+      })
     },
     enabled: query.trim().length >= 1,
     staleTime: 0,
