@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Sun, Moon, Settings, LogOut, User, Activity } from 'lucide-react'
-import { fetchFamily } from '#/lib/supabase/families'
 import type { Family } from '#/lib/supabase/families'
 import {
   DropdownMenu,
@@ -11,9 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '#/components/ui/dropdown-menu'
-import { Badge } from '#/components/ui/badge'
 import { Skeleton } from '#/components/ui/skeleton'
-import { isDemoMode } from '#/lib/supabase'
 import { useAuthContext } from '#/contexts/auth'
 import { useIsDark } from '#/hooks/useIsDark'
 import {
@@ -23,7 +20,6 @@ import {
 } from '#/components/ui/tooltip'
 import { SettingsSheet } from './SettingsSheet'
 import { ActivitySheet } from './ActivitySheet'
-import { DEMO_FAMILY_ID } from '#/lib/config'
 
 function applyTheme(mode: 'light' | 'dark') {
   document.documentElement.classList.remove('light', 'dark')
@@ -38,13 +34,6 @@ export function Header() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
 
-  const { data: demoFamily, isLoading: demoLoading } = useQuery({
-    queryKey: ['family', DEMO_FAMILY_ID],
-    queryFn: () => fetchFamily(DEMO_FAMILY_ID),
-    enabled: isDemoMode,
-    staleTime: Infinity,
-  })
-
   // Don't fetch here — just subscribe to the cache the board page populates.
   // This avoids a race where Header caches null (no membership yet) with
   // staleTime:Infinity, which would prevent findOrCreateFamily from ever running.
@@ -56,11 +45,8 @@ export function Header() {
     enabled: false,
   }).data
 
-  // Show skeleton while user is logged in but family hasn't been fetched yet
-  const userFamilyLoading = !isDemoMode && !!user && userFamily === undefined
-
-  const familyName = isDemoMode ? demoFamily?.name : userFamily?.name
-  const familyNameLoading = isDemoMode ? demoLoading : userFamilyLoading
+  const familyNameLoading = !!user && userFamily === undefined
+  const familyName = userFamily?.name
 
   function toggleTheme() {
     const next = isDark ? 'light' : 'dark'
@@ -89,15 +75,10 @@ export function Header() {
             </span>
           ) : null}
         </div>
-        {isDemoMode && (
-          <Badge variant="secondary" className="text-xs">
-            Demo
-          </Badge>
-        )}
       </div>
 
       {/* Activity button */}
-      {!isDemoMode && !!user && (
+      {!!user && (
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -113,88 +94,75 @@ export function Header() {
       )}
 
       {/* Avatar dropdown — only shown when authenticated */}
-      {(isDemoMode || !!user) && (
-        <div className={!isDemoMode && !!user ? '' : 'ml-auto'}>
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {user?.user_metadata.avatar_url ? (
-                      <img
-                        src={user.user_metadata.avatar_url as string}
-                        className="h-8 w-8 rounded-full"
-                        alt=""
-                      />
-                    ) : (
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      </span>
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Account</TooltipContent>
-            </Tooltip>
+      {!!user && (
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ring-1 ring-border transition hover:ring-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {user.user_metadata.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url as string}
+                      className="h-8 w-8 rounded-full"
+                      alt=""
+                    />
+                  ) : (
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Account</TooltipContent>
+          </Tooltip>
 
-            <DropdownMenuContent align="end" className="w-52">
-              {/* User info */}
-              {user && (
-                <>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium leading-none">
-                        {user.user_metadata.name as string}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {user.email}
-                      </span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                </>
-              )}
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium leading-none">
+                  {user.user_metadata.name as string}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {user.email}
+                </span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
 
-              {/* Dark mode toggle */}
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault()
-                  toggleTheme()
-                }}
-              >
-                {isDark ? <Sun /> : <Moon />}
-                {isDark ? 'Light mode' : 'Dark mode'}
-              </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                toggleTheme()
+              }}
+            >
+              {isDark ? <Sun /> : <Moon />}
+              {isDark ? 'Light mode' : 'Dark mode'}
+            </DropdownMenuItem>
 
-              {/* Real mode only */}
-              {!isDemoMode && (
-                <>
-                  <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-                    <Settings />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => void signOut()}
-                  >
-                    <LogOut />
-                    Sign out
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              <Settings />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => void signOut()}
+            >
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
-      {!isDemoMode && !!user && (
+      {!!user && (
         <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       )}
-      {!isDemoMode && !!user && (
+      {!!user && (
         <ActivitySheet
           open={activityOpen}
           onOpenChange={setActivityOpen}

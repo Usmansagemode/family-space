@@ -1,5 +1,4 @@
-import { isDemoMode, supabase } from '#/lib/supabase'
-import { DEMO_FAMILY_ID } from '#/lib/config'
+import { supabase } from '#/lib/supabase'
 
 export type FamilyMember = {
   userId: string
@@ -16,8 +15,6 @@ export type Family = {
   googleCalendarEmbedUrl?: string
   createdAt: Date
 }
-
-const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms))
 
 function mapFamily(data: {
   id: string
@@ -36,12 +33,7 @@ function mapFamily(data: {
 }
 
 export async function fetchFamily(id: string): Promise<Family> {
-  if (isDemoMode) {
-    await delay()
-    return { id, name: 'Our Family', createdAt: new Date() }
-  }
-
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('families')
     .select('*')
     .eq('id', id)
@@ -59,17 +51,6 @@ export async function updateFamily(
     googleCalendarEmbedUrl?: string
   },
 ): Promise<Family> {
-  if (isDemoMode) {
-    await delay()
-    return {
-      id,
-      name: input.name ?? 'Our Family',
-      googleCalendarId: input.googleCalendarId,
-      googleCalendarEmbedUrl: input.googleCalendarEmbedUrl,
-      createdAt: new Date(),
-    }
-  }
-
   const dbInput: Record<string, unknown> = {}
   if (input.name !== undefined) dbInput['name'] = input.name
   if (input.googleCalendarId !== undefined)
@@ -77,7 +58,7 @@ export async function updateFamily(
   if (input.googleCalendarEmbedUrl !== undefined)
     dbInput['google_calendar_embed_url'] = input.googleCalendarEmbedUrl || null
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('families')
     .update(dbInput)
     .eq('id', id)
@@ -89,12 +70,7 @@ export async function updateFamily(
 }
 
 export async function findFamily(userId: string): Promise<Family | null> {
-  if (isDemoMode) {
-    await delay()
-    return { id: DEMO_FAMILY_ID, name: 'Our Family', createdAt: new Date() }
-  }
-
-  const { data: membership } = await supabase!
+  const { data: membership } = await supabase
     .from('user_families')
     .select('family_id, families(*)')
     .eq('user_id', userId)
@@ -109,20 +85,7 @@ export async function findFamily(userId: string): Promise<Family | null> {
 export async function fetchFamilyMembers(
   familyId: string,
 ): Promise<FamilyMember[]> {
-  if (isDemoMode) {
-    await delay()
-    return [
-      {
-        userId: 'demo-user',
-        role: 'owner',
-        name: 'You',
-        email: 'you@example.com',
-        avatarUrl: null,
-      },
-    ]
-  }
-
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('user_families')
     .select('user_id, role, profiles(name, email, avatar_url)')
     .eq('family_id', familyId)
@@ -150,12 +113,7 @@ export async function removeFamilyMember(
   familyId: string,
   userId: string,
 ): Promise<void> {
-  if (isDemoMode) {
-    await delay()
-    return
-  }
-
-  const { error, count } = await supabase!
+  const { error, count } = await supabase
     .from('user_families')
     .delete({ count: 'exact' })
     .eq('family_id', familyId)
@@ -167,14 +125,9 @@ export async function removeFamilyMember(
 }
 
 export async function findOrCreateFamily(userId: string): Promise<Family> {
-  if (isDemoMode) {
-    await delay()
-    return { id: DEMO_FAMILY_ID, name: 'Our Family', createdAt: new Date() }
-  }
-
   // Uses a SECURITY DEFINER function to atomically find or create the family,
   // bypassing RLS for the initial owner insert (no membership row exists yet).
-  const { data, error } = await supabase!.rpc('find_or_create_family', {
+  const { data, error } = await supabase.rpc('find_or_create_family', {
     p_user_id: userId,
   })
 

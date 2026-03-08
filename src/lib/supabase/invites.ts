@@ -6,7 +6,7 @@ export type InviteInfo = {
 }
 
 export async function createInvite(familyId: string): Promise<string> {
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('invites')
     .insert({ family_id: familyId })
     .select('token')
@@ -19,7 +19,7 @@ export async function createInvite(familyId: string): Promise<string> {
 export async function getInviteByToken(
   token: string,
 ): Promise<InviteInfo | null> {
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('invites')
     .select('family_id, accepted_at, families(name)')
     .eq('token', token)
@@ -39,7 +39,7 @@ export async function acceptInvite(
   userId: string,
   familyId: string,
 ): Promise<void> {
-  const { error } = await supabase!.rpc('accept_invite', {
+  const { error } = await supabase.rpc('accept_invite', {
     p_token: token,
     p_user_id: userId,
     p_family_id: familyId,

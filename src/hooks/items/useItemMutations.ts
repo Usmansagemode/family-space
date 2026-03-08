@@ -20,19 +20,19 @@ import { advanceDate } from '#/lib/date-utils'
 import type { Item, Recurrence } from '#/entities/Item'
 import { formatDate } from '#/lib/utils'
 
-export function useItemMutations(spaceId: string) {
+type ItemMutationOpts = {
+  calendarId: string | null
+  getToken: () => Promise<string | null>
+}
+
+// Core hook — no context imports, fully portable.
+// Will move to packages/hooks/ during monorepo migration (Phase 7).
+export function useItemMutationsCore(spaceId: string, opts: ItemMutationOpts) {
+  const { calendarId, getToken } = opts
   const queryClient = useQueryClient()
-  const { providerToken, calendarId } = useBoardContext()
-  const { refreshProviderToken } = useAuthContext()
   const key = ['items', spaceId]
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key })
-
-  // Returns a valid token, refreshing silently if the current one has expired
-  async function getToken(): Promise<string | null> {
-    if (providerToken) return providerToken
-    return refreshProviderToken()
-  }
 
   const create = useMutation({
     mutationFn: async (input: {
@@ -240,4 +240,16 @@ export function useItemMutations(spaceId: string) {
   })
 
   return { create, update, complete, remove, reAdd, move }
+}
+
+// Web wrapper — fills in opts from React contexts.
+// Stays in apps/web/ during monorepo migration.
+export function useItemMutations(spaceId: string) {
+  const { calendarId, providerToken } = useBoardContext()
+  const { refreshProviderToken } = useAuthContext()
+
+  return useItemMutationsCore(spaceId, {
+    calendarId,
+    getToken: () => (providerToken ? Promise.resolve(providerToken) : refreshProviderToken()),
+  })
 }

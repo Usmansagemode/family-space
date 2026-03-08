@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase, isDemoMode } from '#/lib/supabase'
+import { supabase } from '#/lib/supabase'
 import { signInWithGoogle } from '#/lib/google-auth'
 
 type AuthContextValue = {
@@ -19,13 +19,11 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(!isDemoMode)
+  const [loading, setLoading] = useState(true)
   const [providerToken, setProviderToken] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isDemoMode) return
-
-    supabase!.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setUser(data.session?.user ?? null)
       setProviderToken(data.session?.provider_token ?? null)
@@ -34,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase!.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
       setUser(s?.user ?? null)
       if (s?.provider_token) setProviderToken(s.provider_token)
@@ -49,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase!.auth.signOut()
+    await supabase.auth.signOut()
   }
 
   async function refreshProviderToken(): Promise<string | null> {

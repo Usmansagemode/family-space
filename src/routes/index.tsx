@@ -9,8 +9,6 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { cn } from '#/lib/utils'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
-import { isDemoMode } from '#/lib/supabase'
-import { DEMO_FAMILY_ID } from '#/lib/config'
 
 export const Route = createFileRoute('/')({
   component: BoardPage,
@@ -19,15 +17,6 @@ export const Route = createFileRoute('/')({
 type Tab = 'board' | 'calendar'
 
 function BoardPage() {
-  if (isDemoMode) {
-    return (
-      <FamilyContent
-        familyId={DEMO_FAMILY_ID}
-        providerToken={null}
-        calendarId={null}
-      />
-    )
-  }
   return <AuthGate />
 }
 

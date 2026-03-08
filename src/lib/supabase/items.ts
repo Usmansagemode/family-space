@@ -1,61 +1,5 @@
-import { isDemoMode, supabase } from '#/lib/supabase'
+import { supabase } from '#/lib/supabase'
 import type { Item, Recurrence } from '#/entities/Item'
-
-// --- Demo mode in-memory store ---
-
-let demoItems: Item[] = [
-  {
-    id: 'demo-item-1',
-    spaceId: 'demo-space-1',
-    title: 'Olive oil (2 bottles)',
-    completed: false,
-    sortOrder: 0,
-    createdAt: new Date('2026-01-10'),
-    updatedAt: new Date('2026-01-10'),
-  },
-  {
-    id: 'demo-item-2',
-    spaceId: 'demo-space-1',
-    title: 'Paper towels',
-    completed: false,
-    sortOrder: 1,
-    createdAt: new Date('2026-01-11'),
-    updatedAt: new Date('2026-01-11'),
-  },
-  {
-    id: 'demo-item-3',
-    spaceId: 'demo-space-2',
-    title: 'Dentist appointment',
-    startDate: new Date('2026-03-15T10:00:00'),
-    completed: false,
-    sortOrder: 0,
-    createdAt: new Date('2026-01-12'),
-    updatedAt: new Date('2026-01-12'),
-  },
-  {
-    id: 'demo-item-4',
-    spaceId: 'demo-space-1',
-    title: 'Salmon (frozen)',
-    completed: true,
-    completedAt: new Date('2026-01-20'),
-    sortOrder: 2,
-    createdAt: new Date('2026-01-08'),
-    updatedAt: new Date('2026-01-20'),
-  },
-  {
-    id: 'demo-item-5',
-    spaceId: 'demo-space-3',
-    title: 'Almond butter',
-    completed: false,
-    sortOrder: 0,
-    createdAt: new Date('2026-01-14'),
-    updatedAt: new Date('2026-01-14'),
-  },
-]
-
-const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// --- Type helpers ---
 
 function rowToItem(row: {
   id: string
@@ -91,15 +35,8 @@ function rowToItem(row: {
   }
 }
 
-// --- CRUD ---
-
 export async function fetchItems(spaceId: string): Promise<Item[]> {
-  if (isDemoMode) {
-    await delay()
-    return demoItems.filter((i) => i.spaceId === spaceId)
-  }
-
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .select('*')
     .eq('space_id', spaceId)
@@ -120,29 +57,7 @@ export async function createItem(input: {
   recurrence?: Recurrence
   googleEventId?: string
 }): Promise<Item> {
-  if (isDemoMode) {
-    await delay()
-    const now = new Date()
-    const newItem: Item = {
-      id: `demo-item-${Date.now()}`,
-      spaceId: input.spaceId,
-      title: input.title,
-      description: input.description,
-      quantity: input.quantity,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      recurrence: input.recurrence,
-      googleEventId: input.googleEventId,
-      completed: false,
-      sortOrder: 0,
-      createdAt: now,
-      updatedAt: now,
-    }
-    demoItems = [newItem, ...demoItems]
-    return newItem
-  }
-
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .insert({
       space_id: input.spaceId,
@@ -174,21 +89,6 @@ export async function updateItem(
     googleEventId: string | null
   }>,
 ): Promise<Item> {
-  if (isDemoMode) {
-    await delay()
-    const { googleEventId: newEventId, quantity: newQty, ...fields } = input
-    demoItems = demoItems.map((i) => {
-      if (i.id !== id) return i
-      const next: Item = { ...i, ...fields, updatedAt: new Date() }
-      if (newEventId !== undefined) next.googleEventId = newEventId ?? undefined
-      if (newQty !== undefined) next.quantity = newQty ?? undefined
-      return next
-    })
-    const updated = demoItems.find((i) => i.id === id)
-    if (!updated) throw new Error('Item not found')
-    return updated
-  }
-
   const dbInput: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
@@ -204,7 +104,7 @@ export async function updateItem(
   if (input.googleEventId !== undefined)
     dbInput['google_event_id'] = input.googleEventId
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .update(dbInput)
     .eq('id', id)
@@ -216,21 +116,8 @@ export async function updateItem(
 }
 
 export async function completeItem(id: string): Promise<Item> {
-  if (isDemoMode) {
-    await delay()
-    const now = new Date()
-    demoItems = demoItems.map((i) =>
-      i.id === id
-        ? { ...i, completed: true, completedAt: now, updatedAt: now }
-        : i,
-    )
-    const updated = demoItems.find((i) => i.id === id)
-    if (!updated) throw new Error('Item not found')
-    return updated
-  }
-
   const now = new Date().toISOString()
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .update({ completed: true, completed_at: now, updated_at: now })
     .eq('id', id)
@@ -242,28 +129,12 @@ export async function completeItem(id: string): Promise<Item> {
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  if (isDemoMode) {
-    await delay()
-    demoItems = demoItems.filter((i) => i.id !== id)
-    return
-  }
-
-  const { error } = await supabase!.from('items').delete().eq('id', id)
+  const { error } = await supabase.from('items').delete().eq('id', id)
   if (error) throw error
 }
 
 export async function moveItem(id: string, newSpaceId: string): Promise<Item> {
-  if (isDemoMode) {
-    await delay()
-    demoItems = demoItems.map((i) =>
-      i.id === id ? { ...i, spaceId: newSpaceId, updatedAt: new Date() } : i,
-    )
-    const updated = demoItems.find((i) => i.id === id)
-    if (!updated) throw new Error('Item not found')
-    return updated
-  }
-
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .update({ space_id: newSpaceId, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -278,20 +149,9 @@ export async function searchItems(
   spaceIds: string[],
   query: string,
 ): Promise<Item[]> {
-  if (isDemoMode) {
-    await delay(150)
-    const q = query.toLowerCase()
-    return demoItems.filter(
-      (i) =>
-        spaceIds.includes(i.spaceId) &&
-        !i.completed &&
-        i.title.toLowerCase().includes(q),
-    )
-  }
-
   if (spaceIds.length === 0) return []
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .select('*')
     .in('space_id', spaceIds)
@@ -308,20 +168,9 @@ export async function reorderItems(
   spaceId: string,
   orderedIds: string[],
 ): Promise<void> {
-  if (isDemoMode) {
-    await delay()
-    const others = demoItems.filter((i) => !orderedIds.includes(i.id))
-    const reordered = orderedIds
-      .map((id) => demoItems.find((i) => i.id === id))
-      .filter((i): i is Item => i !== undefined)
-      .map((i, index) => ({ ...i, sortOrder: index }))
-    demoItems = [...reordered, ...others]
-    return
-  }
-
   const results = await Promise.all(
     orderedIds.map((id, index) =>
-      supabase!.from('items').update({ sort_order: index }).eq('id', id),
+      supabase.from('items').update({ sort_order: index }).eq('id', id),
     ),
   )
   const failed = results.find((r) => r.error)
@@ -335,25 +184,6 @@ export async function advanceRecurringItem(
   nextEndDate?: Date,
   googleEventId?: string | null,
 ): Promise<Item> {
-  if (isDemoMode) {
-    await delay()
-    const now = new Date()
-    demoItems = demoItems.map((i) =>
-      i.id === id
-        ? {
-            ...i,
-            startDate: nextStartDate,
-            endDate: nextEndDate,
-            googleEventId: googleEventId ?? undefined,
-            updatedAt: now,
-          }
-        : i,
-    )
-    const updated = demoItems.find((i) => i.id === id)
-    if (!updated) throw new Error('Item not found')
-    return updated
-  }
-
   const dbInput: Record<string, unknown> = {
     start_date: nextStartDate.toISOString(),
     end_date: nextEndDate?.toISOString() ?? null,
@@ -361,7 +191,7 @@ export async function advanceRecurringItem(
   }
   if (googleEventId !== undefined) dbInput['google_event_id'] = googleEventId
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .update(dbInput)
     .eq('id', id)
@@ -376,21 +206,8 @@ export async function advanceRecurringItem(
 // This keeps one row per recurring item (Apples, Paper towels, etc.)
 // and prevents history from accumulating duplicates.
 export async function reAddItem(original: Item): Promise<Item> {
-  if (isDemoMode) {
-    await delay()
-    const now = new Date()
-    demoItems = demoItems.map((i) =>
-      i.id === original.id
-        ? { ...i, completed: false, completedAt: undefined, updatedAt: now }
-        : i,
-    )
-    const updated = demoItems.find((i) => i.id === original.id)
-    if (!updated) throw new Error('Item not found')
-    return updated
-  }
-
   const now = new Date().toISOString()
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .update({ completed: false, completed_at: null, updated_at: now })
     .eq('id', original.id)

@@ -1,4 +1,4 @@
-import { isDemoMode, supabase } from '#/lib/supabase'
+import { supabase } from '#/lib/supabase'
 
 export type RawActivityItem = {
   id: string
@@ -13,12 +13,12 @@ export type RawActivityItem = {
 export async function fetchRecentActivity(
   spaceIds: string[],
 ): Promise<RawActivityItem[]> {
-  if (isDemoMode || spaceIds.length === 0) return []
+  if (spaceIds.length === 0) return []
 
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 14)
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('items')
     .select(
       'id, title, created_at, completed_at, created_by, spaces!inner(name, color)',
