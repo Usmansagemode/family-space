@@ -1,0 +1,12 @@
+{
+  "name": "@family/utils",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@family/types": "*",
+    "date-fns": "^4.1.0"
+  }
+}

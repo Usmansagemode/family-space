@@ -272,6 +272,16 @@ alter table invites enable row level security;
 alter table profiles enable row level security;
 ```
 
+## Documentation Policy
+
+`docs/` contains living documentation. When resolving bugs, setup issues, or deployment gotchas, **always update the relevant doc** in `docs/` to capture the fix:
+
+- `docs/deployment.md` — update when fixing environment setup, OAuth config, Supabase dashboard settings, Vercel config, EAS/Expo issues, or any "one-time step" that caused a problem
+- `docs/monorepo-migration.md` — update when fixing package resolution, Metro config, or Turborepo issues
+- `docs/react-native-guide.md` — update when discovering React Native behaviour that differs from what's documented
+
+This ensures future debugging sessions have context and the same issue is never diagnosed twice.
+
 ## Key Design Decisions
 
 - `DEMO_FAMILY_ID` is hardcoded in `lib/config.ts` — when real auth is active, `useUserFamily` resolves the family from the authenticated user
