@@ -66,6 +66,8 @@ No new GitHub repo or Vercel project needed beyond your existing one. Vercel sup
 
 Vercel auto-detects Vite and sets the correct build command (`vite build`) and output directory.
 
+> **Gotcha:** In a Turborepo monorepo, env vars set on the Vercel project are **not** automatically forwarded to the build unless they're declared in `turbo.json`'s `build.env` array. If you see a warning like `VITE_SUPABASE_URL is missing from turbo.json`, add it there — otherwise Turbo strips it and the build fails. See the root `turbo.json` for the current list.
+
 ### After setup
 
 Every push to `main` triggers a production deploy automatically. Every pull request gets its own preview URL.

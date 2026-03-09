@@ -4,7 +4,13 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".output/**", ".vercel/**", "dist/**", ".vinxi/**"]
+      "outputs": [".output/**", ".vercel/**", "dist/**", ".vinxi/**"],
+      "env": [
+        "VITE_SUPABASE_URL",
+        "VITE_SUPABASE_ANON_KEY",
+        "VITE_GOOGLE_CLIENT_ID",
+        "VITE_GOOGLE_CLIENT_SECRET"
+      ]
     },
     "dev": {
       "cache": false,
