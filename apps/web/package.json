@@ -50,6 +50,10 @@
     "tailwindcss": "^4.1.18",
     "tw-animate-css": "^1.3.6"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*",
+    "@rollup/rollup-linux-x64-musl": "*"
+  },
   "devDependencies": {
     "@content-collections/core": "^0.14.2",
     "@content-collections/markdown": "^0.1.4",
