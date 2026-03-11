@@ -172,7 +172,7 @@ export async function searchItems(
 }
 
 export async function reorderItems(
-  spaceId: string,
+  _spaceId: string,
   orderedIds: string[],
 ): Promise<void> {
   const supabase = getSupabaseClient()

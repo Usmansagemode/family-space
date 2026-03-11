@@ -69,7 +69,7 @@ const STEPS = [
         . Choose <strong>Web application</strong>. Under{' '}
         <strong>Authorised redirect URIs</strong> add:
         <code className="mt-1 block rounded bg-muted px-2 py-1 text-xs break-all">
-          https://fmwenxuqdnsbpattjefo.supabase.co/auth/v1/callback
+          {`${import.meta.env['VITE_SUPABASE_URL']}/auth/v1/callback`}
         </code>
         Copy the <strong>Client ID</strong> and <strong>Client Secret</strong>.
       </>

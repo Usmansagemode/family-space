@@ -57,18 +57,33 @@ No new GitHub repo or Vercel project needed beyond your existing one. Vercel sup
 3. Before clicking Deploy, set **Root Directory** to `apps/web`
 4. Add environment variables (Settings → Environment Variables):
    ```
-   VITE_SUPABASE_URL
-   VITE_SUPABASE_ANON_KEY
-   VITE_GOOGLE_CLIENT_ID
-   VITE_GOOGLE_CLIENT_SECRET
+   VITE_SUPABASE_URL         # bundled into client (public)
+   VITE_SUPABASE_ANON_KEY    # bundled into client (public)
+   VITE_GOOGLE_CLIENT_ID     # bundled into client (public)
+   GOOGLE_CLIENT_ID          # server-only (no VITE_ prefix)
+   GOOGLE_CLIENT_SECRET      # server-only (no VITE_ prefix) — NEVER use VITE_ prefix for this
    ```
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are used exclusively in the server-side
+   token-refresh function (`src/lib/server/refresh-google-token.ts`) and are never bundled
+   into the client JS. The `VITE_` prefixed version of the client secret was removed — if
+   you still have `VITE_GOOGLE_CLIENT_SECRET` set in Vercel, it can be deleted.
 5. Click **Deploy**
 
 Vercel auto-detects Vite and sets the correct build command (`vite build`) and output directory.
 
-> **Gotcha (Rollup native binary):** In a monorepo, npm sometimes fails to install Rollup's optional Linux native binaries (`@rollup/rollup-linux-x64-gnu`), causing `vite build` to crash on Vercel with `Cannot find module @rollup/rollup-linux-x64-gnu`. Fix: add both `@rollup/rollup-linux-x64-gnu` and `@rollup/rollup-linux-x64-musl` to `optionalDependencies` in `apps/web/package.json`. npm skips whichever doesn't match the current platform, so this is safe locally.
+### Known build issues
 
-> **Gotcha (env vars):** In a Turborepo monorepo, env vars set on the Vercel project are **not** automatically forwarded to the build unless they're declared in `turbo.json`'s `build.env` array. If you see a warning like `VITE_SUPABASE_URL is missing from turbo.json`, add it there — otherwise Turbo strips it and the build fails. See the root `turbo.json` for the current list.
+**1. Missing Linux native binaries (`Cannot find native binding` / `Cannot find module`)**
+
+npm has a bug where optional platform-specific binaries are not installed correctly in monorepos. On Vercel (Linux), this causes crashes like:
+- `Cannot find module '@rollup/rollup-linux-x64-gnu'`
+- `Cannot find native binding` from `@tailwindcss/oxide`
+
+Fix: declare the Linux binaries as `optionalDependencies` in `apps/web/package.json` — npm installs whichever matches the platform and skips the rest, so this is safe on macOS too. Already done for Rollup and Tailwind oxide. If a new package hits this error, add its `-linux-x64-gnu` and `-linux-x64-musl` variants the same way.
+
+**2. Env vars stripped by Turbo (`VITE_* missing from turbo.json`)**
+
+Turbo treats env vars as cache inputs — any var not listed in `turbo.json`'s `build.env` array is stripped before the task runs and will be `undefined` at build time. If Vercel warns that a var is missing from `turbo.json`, add it to the `env` array in the root `turbo.json`. Already done for all four `VITE_*` vars.
 
 ### After setup
 

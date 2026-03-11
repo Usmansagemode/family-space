@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useDebounce } from '@family/utils'
 import { Search, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '#/components/ui/dialog'
 import { AddItemSheet } from '#/components/board/AddItemSheet'
@@ -25,22 +26,13 @@ export function SearchDialog({
   calendarId,
 }: Props) {
   const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const debouncedQuery = useDebounce(query, 300)
   const [selected, setSelected] = useState<SearchResult | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Debounce query
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 300)
-    return () => clearTimeout(t)
-  }, [query])
-
   // Reset on close
   useEffect(() => {
-    if (!open) {
-      setQuery('')
-      setDebouncedQuery('')
-    }
+    if (!open) setQuery('')
   }, [open])
 
   // Cmd+K / Ctrl+K global shortcut

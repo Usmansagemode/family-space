@@ -105,7 +105,7 @@ export function Header() {
                 >
                   {user.user_metadata.avatar_url ? (
                     <img
-                      src={user.user_metadata.avatar_url as string}
+                      src={typeof user.user_metadata.avatar_url === 'string' ? user.user_metadata.avatar_url : undefined}
                       className="h-8 w-8 rounded-full"
                       alt=""
                     />
@@ -124,7 +124,7 @@ export function Header() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium leading-none">
-                  {user.user_metadata.name as string}
+                  {typeof user.user_metadata.name === 'string' ? user.user_metadata.name : user.email}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
                   {user.email}

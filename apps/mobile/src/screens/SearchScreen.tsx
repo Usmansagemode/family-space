@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDebounce } from '@family/utils'
 import {
   ActivityIndicator,
   FlatList,
@@ -20,14 +21,8 @@ export function SearchScreen() {
   const { data: family } = useUserFamily(user?.id)
 
   const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const debouncedQuery = useDebounce(query, 300)
   const [editItem, setEditItem] = useState<{ item: Item; space: Space } | null>(null)
-
-  // 300ms debounce
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 300)
-    return () => clearTimeout(t)
-  }, [query])
 
   const { data: results = [], isLoading } = useSearchItems(
     family?.id ?? '',

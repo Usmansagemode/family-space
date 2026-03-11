@@ -7,7 +7,7 @@ export function signInWithGoogle(opts?: {
   redirectTo?: string
   requestOfflineAccess?: boolean
 }) {
-  void supabase.auth.signInWithOAuth({
+  void supabase?.auth.signInWithOAuth({
     provider: 'google',
     options: {
       scopes: 'https://www.googleapis.com/auth/calendar',

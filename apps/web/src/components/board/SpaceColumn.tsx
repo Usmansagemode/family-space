@@ -30,6 +30,16 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Skeleton } from '#/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '#/components/ui/alert-dialog'
 import { ItemCard } from './ItemCard'
 import { AddItemSheet } from './AddItemSheet'
 import { HistorySheet } from './HistorySheet'
@@ -50,6 +60,7 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editSpaceOpen, setEditSpaceOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const { data: items, isLoading } = useItems(space.id)
   const { create: createItem } = useItemMutations(space.id)
@@ -194,7 +205,7 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  onClick={() => removeSpace.mutate(space.id)}
+                  onClick={() => setDeleteConfirmOpen(true)}
                 >
                   Delete space
                 </DropdownMenuItem>
@@ -306,6 +317,30 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
         }
         isPending={updateSpace.isPending}
       />
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{space.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the space and all{' '}
+              {(items ?? []).filter((i) => !i.completed).length > 0
+                ? `${(items ?? []).filter((i) => !i.completed).length} remaining item(s) inside it`
+                : 'items inside it'}
+              . This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => removeSpace.mutate(space.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

@@ -5,13 +5,15 @@ let _client: SupabaseClient | null = null
 export function initSupabase(
   url: string | undefined,
   key: string | undefined,
-): void {
+): boolean {
   if (!url || !key) {
-    throw new Error(
-      'Missing Supabase URL or anon key — add them to your .env file.',
+    console.warn(
+      '[family-app] Missing Supabase credentials — database features will be unavailable. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.',
     )
+    return false
   }
   _client = createClient(url, key)
+  return true
 }
 
 export function getSupabaseClient(): SupabaseClient {

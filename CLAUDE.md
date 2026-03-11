@@ -19,13 +19,19 @@ npm run test      # vitest
 Create a `.env` file in the project root:
 
 ```
+# Client-side (bundled, public)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_GOOGLE_CLIENT_ID=your-google-client-id
-VITE_GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Server-side only (never use VITE_ prefix for these)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-If `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are missing, the app runs in **demo mode** with seeded in-memory data. No error is thrown.
+`GOOGLE_CLIENT_SECRET` is used only in the server function `src/lib/server/refresh-google-token.ts` — it is never bundled into the client.
+
+If `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are missing, the app logs a warning and runs without database connectivity (auth will be a no-op).
 
 ## Tech Stack
 

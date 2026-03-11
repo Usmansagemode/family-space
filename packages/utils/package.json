@@ -8,5 +8,8 @@
   "dependencies": {
     "@family/types": "*",
     "date-fns": "^4.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
   }
 }

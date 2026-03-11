@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase } from '#/lib/supabase'
+import { supabase, isDemoMode } from '#/lib/supabase'
 import { signInWithGoogle } from '#/lib/google-auth'
+import { refreshGoogleToken } from '#/lib/server/refresh-google-token'
 
 type AuthContextValue = {
   user: User | null
@@ -23,6 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [providerToken, setProviderToken] = useState<string | null>(null)
 
   useEffect(() => {
+    if (isDemoMode || !supabase) {
+      setLoading(false)
+      return
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setUser(data.session?.user ?? null)
@@ -47,29 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    await supabase?.auth.signOut()
   }
 
   async function refreshProviderToken(): Promise<string | null> {
     const refreshToken = session?.provider_refresh_token
     if (!refreshToken) return null
 
-    const res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: import.meta.env['VITE_GOOGLE_CLIENT_ID'] as string,
-        client_secret: import.meta.env['VITE_GOOGLE_CLIENT_SECRET'] as string,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    })
-
-    if (!res.ok) return null
-    const data = (await res.json()) as { access_token?: string }
-    if (!data.access_token) return null
-    setProviderToken(data.access_token)
-    return data.access_token
+    const accessToken = await refreshGoogleToken({ data: { refreshToken } })
+    if (!accessToken) return null
+    setProviderToken(accessToken)
+    return accessToken
   }
 
   return (

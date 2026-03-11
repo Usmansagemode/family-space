@@ -64,7 +64,6 @@ export async function findFamily(userId: string): Promise<Family | null> {
     .from('user_families')
     .select('family_id, families(*)')
     .eq('user_id', userId)
-    .order('joined_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
@@ -80,7 +79,6 @@ export async function fetchFamilyMembers(
     .from('user_families')
     .select('user_id, role, profiles(name, email, avatar_url)')
     .eq('family_id', familyId)
-    .order('joined_at', { ascending: true })
 
   if (error) throw error
 
