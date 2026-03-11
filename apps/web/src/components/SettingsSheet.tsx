@@ -16,7 +16,7 @@ import {
   Link2,
 } from 'lucide-react'
 import { createInvite } from '#/lib/supabase/invites'
-import { removeFamilyMember, updateFamily  } from '#/lib/supabase/families'
+import { removeFamilyMember, updateFamily } from '#/lib/supabase/families'
 import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
 import {
   Sheet,

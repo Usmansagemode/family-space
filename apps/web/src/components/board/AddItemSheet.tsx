@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CalendarIcon, Clock, Loader2, Hash, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
-import { extractHue, cn, hasExplicitTime  } from '#/lib/utils'
+import { extractHue, cn, hasExplicitTime } from '#/lib/utils'
 import { useIsDark } from '#/hooks/useIsDark'
 import {
   Sheet,

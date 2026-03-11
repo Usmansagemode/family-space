@@ -1,9 +1,6 @@
 import { useEffect } from 'react'
 import { DndContext } from '@dnd-kit/core'
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { User, ShoppingCart, X } from 'lucide-react'
 import {
   Tooltip,

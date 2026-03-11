@@ -7,7 +7,7 @@ A family management kanban board. Each column ("Space") is either a family membe
 ## Commands
 
 ```bash
-npm run dev       # start dev server at localhost:3000
+npm run dev       # start dev server at localhost:3005
 npm run build     # production build
 npm run check     # prettier write + eslint fix (run before committing)
 npm run lint      # eslint only
@@ -22,14 +22,13 @@ Create a `.env` file in the project root:
 # Client-side (bundled, public)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_GOOGLE_CLIENT_ID=your-google-client-id
 
 # Server-side only (never use VITE_ prefix for these)
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-`GOOGLE_CLIENT_SECRET` is used only in the server function `src/lib/server/refresh-google-token.ts` — it is never bundled into the client.
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are server-only — used exclusively in `src/lib/server/refresh-google-token.ts` and never bundled into the client.
 
 If `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are missing, the app logs a warning and runs without database connectivity (auth will be a no-op).
 
@@ -41,7 +40,8 @@ If `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are missing, the app logs a wa
 - **Auth**: Supabase Google OAuth — `contexts/auth.tsx` manages session + provider token
 - **Google Calendar**: bi-directional sync via Google Calendar REST API (`lib/google-calendar.ts`)
 - **Styling**: Tailwind CSS v4, OKLCH color space, dark mode via class toggle
-- **UI components**: shadcn/ui (New York style, copy-paste into `src/components/ui/`)
+- **UI components**: shadcn/ui (New York style, copy-paste into `src/components/ui/`) + MagicUI components (motion-based animations)
+- **Animations**: `motion` (Motion for React) — used by NumberTicker, AnimatedList, BorderBeam
 - **Icons**: Lucide React only — never HugeIcons or other icon sets
 - **Forms**: React Hook Form + Zod (`zod` lives in devDependencies but bundles fine)
 - **Toasts**: Sonner (`toast.success` / `toast.error`)
@@ -70,7 +70,13 @@ src/
 │   ├── privacy.tsx
 │   └── terms.tsx
 ├── components/
-│   ├── ui/                 # shadcn copy-paste components (never edit manually)
+│   ├── ui/                 # shadcn + MagicUI components (never edit manually)
+│   │   ├── confetti.tsx        # canvas-confetti wrapper — fire on task completion
+│   │   ├── number-ticker.tsx   # MagicUI spring-animated number counter
+│   │   ├── animated-list.tsx   # MagicUI staggered AnimatePresence list
+│   │   ├── border-beam.tsx     # MagicUI animated conic-gradient border
+│   │   ├── shimmer-button.tsx  # MagicUI shimmer CTA button
+│   │   └── command.tsx         # shadcn cmdk — keyboard-navigable command palette
 │   ├── board/
 │   │   ├── SpaceView.tsx       # DndContext + board layout, renders SpaceColumns
 │   │   ├── SpaceColumn.tsx     # Single draggable column with items list
@@ -84,8 +90,8 @@ src/
 │   │   └── LoginPage.tsx       # Google sign-in landing
 │   ├── Header.tsx              # App header: family name, activity, user menu, theme toggle
 │   ├── SettingsSheet.tsx       # Family settings: name, members, Google Calendar connection
-│   ├── ActivitySheet.tsx       # Recent activity feed (added/completed events)
-│   ├── SearchDialog.tsx        # Cmd+K cross-space search
+│   ├── ActivitySheet.tsx       # Recent activity feed — uses AnimatedList for staggered entries
+│   ├── SearchDialog.tsx        # Cmd+K cross-space search — uses Command/CommandGroup/CommandItem
 │   ├── CalendarView.tsx        # Embedded Google Calendar iframe
 │   └── ThemeToggle.tsx         # Light/dark cycle, persists to localStorage
 ├── contexts/
@@ -207,6 +213,31 @@ signInWithGoogle({ redirectTo: window.location.href }) // invite page
 
 Use `useIsDark()` from `#/hooks/useIsDark` — not from `#/lib/utils`. It uses a MutationObserver on `<html class>` and is React-reactive.
 
+### Animation / MagicUI pattern
+
+MagicUI components live in `src/components/ui/` alongside shadcn components. Install with:
+
+```bash
+npx shadcn@latest add "https://magicui.design/r/<name>.json"
+```
+
+Key components and where they're used:
+
+| Component | Used in | Notes |
+|---|---|---|
+| `confetti` | `ItemCard.tsx` — checkbox completion | Person spaces only; fires `canvas-confetti` burst |
+| `number-ticker` | `SpaceColumn.tsx` — pending count badge | Spring-animated counter via `motion` |
+| `animated-list` | `ActivitySheet.tsx` — events list | Staggered `AnimatePresence` entrance |
+| `border-beam` | `SpaceColumn.tsx` — drag-over highlight | Replaces the plain `boxShadow` ring |
+| `shimmer-button` | `SpaceView.tsx` — "Add Space" CTA | Shown only when board has zero spaces |
+| `command` | `SearchDialog.tsx` — Cmd+K results | Full keyboard nav via `cmdk`; grouped by space |
+
+**Rules:**
+- Never call `canvas-confetti` directly — use `import { confetti } from '#/components/ui/confetti'`
+- All motion animations use `motion` (Motion for React), not `framer-motion`
+- `border-beam` + `shimmer-button` animations are defined as `@keyframes` in `styles.css` — do not add them inline
+- `command.tsx` uses `cmdk` under the hood — always `shouldFilter={false}` when filtering externally (e.g. server search)
+
 ## Supabase Schema
 
 ```sql
@@ -288,12 +319,17 @@ alter table profiles enable row level security;
 
 This ensures future debugging sessions have context and the same issue is never diagnosed twice.
 
+### ESLint ignores
+
+`apps/web/eslint.config.js` explicitly ignores `.vercel/**` and `.content-collections/**` — both are generated output directories that are not in `tsconfig.json` and cause false parse errors. Do not remove these ignores.
+
 ## Key Design Decisions
 
 - `DEMO_FAMILY_ID` is hardcoded in `lib/config.ts` — when real auth is active, `useUserFamily` resolves the family from the authenticated user
 - Space colors are OKLCH strings from `SPACE_COLORS` in `lib/config.ts` — add colors there, not inline
 - Board layout: `h-screen flex-col overflow-hidden` → header `h-14` → main `min-h-0 flex-1` → horizontal scroll inside SpaceView
 - dnd-kit uses `PointerSensor` with `activationConstraint: { distance: 8 }` to prevent accidental drags on click
+- Drag handles use `opacity-20` (not `opacity-0`) so they're always faintly visible on touch/mobile where hover never fires
 - Cross-space drag is only allowed between spaces of the same type (`person` ↔ `person`, `store` ↔ `store`)
 - Noon (12:00) is the sentinel for "date picked, no explicit time" — `hasExplicitTime()` detects any other hour/minute
 - Recurring items are advanced (not completed) when checked — `advanceDate()` in `lib/date-utils.ts`

@@ -1,6 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useDebounce } from '@family/utils'
-import { Search, X } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '#/components/ui/command'
 import { Dialog, DialogContent, DialogTitle } from '#/components/ui/dialog'
 import { AddItemSheet } from '#/components/board/AddItemSheet'
 import { BoardProvider } from '#/contexts/board'
@@ -28,7 +35,6 @@ export function SearchDialog({
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebounce(query, 300)
   const [selected, setSelected] = useState<SearchResult | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset on close
   useEffect(() => {
@@ -74,89 +80,63 @@ export function SearchDialog({
         >
           <DialogTitle className="sr-only">Search items</DialogTitle>
 
-          {/* Search input */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              ref={inputRef}
-              type="text"
+          <Command shouldFilter={false}>
+            <CommandInput
               placeholder="Search items…"
-              autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              onValueChange={setQuery}
             />
-            {query ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('')
-                  inputRef.current?.focus()
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : (
-              <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
-                esc
-              </kbd>
-            )}
-          </div>
-
-          {/* Results */}
-          <div className="max-h-96 overflow-y-auto">
-            {!debouncedQuery.trim() ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Start typing to search across all spaces
-              </p>
-            ) : isLoading ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Searching…
-              </p>
-            ) : grouped.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                No results for "{debouncedQuery}"
-              </p>
-            ) : (
-              grouped.map(({ space, items }) => (
-                <div key={space.id}>
-                  {/* Space header */}
-                  <div className="flex items-center gap-2 px-4 py-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: space.color }}
-                    />
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {space.name}
-                    </span>
-                  </div>
-                  {/* Items */}
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-accent"
-                      onClick={() => handleSelect({ item, space })}
-                    >
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: space.color }}
-                      />
-                      <span className="flex-1 truncate text-sm">
-                        {item.title}
-                        {item.quantity && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">
-                            × {item.quantity}
-                          </span>
-                        )}
+            <CommandList className="max-h-96">
+              {!debouncedQuery.trim() ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Start typing to search across all spaces
+                </p>
+              ) : isLoading ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Searching…
+                </p>
+              ) : grouped.length === 0 ? (
+                <CommandEmpty>No results for "{debouncedQuery}"</CommandEmpty>
+              ) : (
+                grouped.map(({ space, items }) => (
+                  <CommandGroup
+                    key={space.id}
+                    heading={
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: space.color }}
+                        />
+                        {space.name}
                       </span>
-                    </button>
-                  ))}
-                </div>
-              ))
-            )}
-          </div>
+                    }
+                  >
+                    {items.map((item) => (
+                      <CommandItem
+                        key={item.id}
+                        value={item.id}
+                        onSelect={() => handleSelect({ item, space })}
+                        className="gap-3"
+                      >
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: space.color }}
+                        />
+                        <span className="flex-1 truncate">
+                          {item.title}
+                          {item.quantity && (
+                            <span className="ml-1.5 text-xs text-muted-foreground">
+                              × {item.quantity}
+                            </span>
+                          )}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))
+              )}
+            </CommandList>
+          </Command>
         </DialogContent>
       </Dialog>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CalendarIcon, GripVertical, RefreshCw } from 'lucide-react'
+import { confetti } from '#/components/ui/confetti'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
@@ -82,6 +83,14 @@ export function ItemCard({
 
   function handleCheck(checked: boolean) {
     if (checked) {
+      if (spaceType === 'person') {
+        void confetti({
+          particleCount: 50,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: [spaceColor, '#ffffff', tickColor],
+        })
+      }
       complete.mutate(item)
     } else {
       reAdd.mutate(item)
@@ -110,7 +119,7 @@ export function ItemCard({
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="cursor-grab touch-none opacity-0 transition-opacity group-hover/card:opacity-40 hover:!opacity-70 active:cursor-grabbing"
+              className="cursor-grab touch-none opacity-20 transition-opacity group-hover/card:opacity-50 hover:opacity-80! active:cursor-grabbing"
               {...attributes}
               {...listeners}
             >

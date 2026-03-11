@@ -8,6 +8,7 @@ import {
   SheetDescription,
 } from '#/components/ui/sheet'
 import { Skeleton } from '#/components/ui/skeleton'
+import { AnimatedList } from '#/components/ui/animated-list'
 import { useActivityFeed } from '#/hooks/family/useActivityFeed'
 
 type Props = {
@@ -52,7 +53,7 @@ export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col divide-y divide-border/40">
+            <AnimatedList className="flex flex-col divide-y divide-border/40 gap-0">
               {events.map((event) => (
                 <div
                   key={event.key}
@@ -94,7 +95,7 @@ export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
                   </div>
                 </div>
               ))}
-            </div>
+            </AnimatedList>
           )}
         </div>
       </SheetContent>

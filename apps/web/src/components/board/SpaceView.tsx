@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
+import { ShimmerButton } from '#/components/ui/shimmer-button'
 import { SpaceColumn } from './SpaceColumn'
 import { AddSpaceSheet } from './AddSpaceSheet'
 import { FocusOverlay } from './FocusOverlay'
@@ -240,14 +241,25 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
             {/* Add Space button */}
             {!isLoading && (
               <div className="flex shrink-0 items-start pt-1">
-                <Button
-                  variant="outline"
-                  className="gap-2 whitespace-nowrap"
-                  onClick={() => setAddSpaceOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Space
-                </Button>
+                {spaces?.length === 0 ? (
+                  <ShimmerButton
+                    onClick={() => setAddSpaceOpen(true)}
+                    background="oklch(0.4 0.13 258)"
+                    className="gap-2 whitespace-nowrap px-5 py-2.5 text-sm font-medium"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Space
+                  </ShimmerButton>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="gap-2 whitespace-nowrap"
+                    onClick={() => setAddSpaceOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Space
+                  </Button>
+                )}
               </div>
             )}
           </div>

@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { User, ShoppingCart, Loader2 } from 'lucide-react'
-import { extractHue, cn  } from '#/lib/utils'
+import { extractHue, cn } from '#/lib/utils'
 import { useIsDark } from '#/hooks/useIsDark'
 import {
   Sheet,

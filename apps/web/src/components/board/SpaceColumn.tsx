@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Skeleton } from '#/components/ui/skeleton'
+import { NumberTicker } from '#/components/ui/number-ticker'
+import { BorderBeam } from '#/components/ui/border-beam'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,6 +117,15 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
           isDropTarget && 'bg-card/80',
         )}
       >
+        {isDropTarget && (
+          <BorderBeam
+            size={120}
+            duration={2}
+            colorFrom={accentColor}
+            colorTo="transparent"
+          />
+        )}
+
         {/* Colored header — takes on the space's pastel in light, deep tint in dark */}
         <div
           className="rounded-t-xl"
@@ -128,7 +139,7 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="cursor-grab touch-none opacity-0 transition-opacity group-hover/column:opacity-40 hover:!opacity-80 active:cursor-grabbing"
+                  className="cursor-grab touch-none opacity-20 transition-opacity group-hover/column:opacity-50 hover:opacity-80! active:cursor-grabbing"
                   {...attributes}
                   {...listeners}
                 >
@@ -153,7 +164,7 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
             {/* Pending count badge */}
             {!isLoading && pendingCount > 0 && (
               <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:bg-white/10">
-                {pendingCount}
+                <NumberTicker value={pendingCount} />
               </span>
             )}
 
