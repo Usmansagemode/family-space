@@ -34,11 +34,12 @@ type Props = {
   familyId: string
   providerToken: string | null
   calendarId: string | null
+  typeFilter: 'person' | 'store'
 }
 
 type ActiveDragItem = { item: Item; spaceColor: string }
 
-export function SpaceView({ familyId, providerToken, calendarId }: Props) {
+export function SpaceView({ familyId, providerToken, calendarId, typeFilter }: Props) {
   const [addSpaceOpen, setAddSpaceOpen] = useState(false)
   const [focusedSpaceId, setFocusedSpaceId] = useState<string | null>(null)
   const [activeDragItem, setActiveDragItem] = useState<ActiveDragItem | null>(
@@ -47,6 +48,7 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
   const [overSpaceId, setOverSpaceId] = useState<string | null>(null)
 
   const { data: spaces, isLoading } = useSpaces(familyId)
+  const filteredSpaces = (spaces ?? []).filter((s) => s.type === typeFilter)
   const { create, reorder } = useSpaceMutations(familyId)
   const queryClient = useQueryClient()
 
@@ -122,13 +124,18 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
     const activeType = active.data.current?.type
 
     if (activeType === 'space') {
-      if (active.id === over.id || !spaces) return
-      const oldIndex = spaces.findIndex((s) => s.id === active.id)
-      const newIndex = spaces.findIndex((s) => s.id === over.id)
+      if (active.id === over.id || !filteredSpaces.length) return
+      const oldIndex = filteredSpaces.findIndex((s) => s.id === active.id)
+      const newIndex = filteredSpaces.findIndex((s) => s.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
-      const reordered = arrayMove(spaces, oldIndex, newIndex)
-      queryClient.setQueryData<Space[]>(['spaces', familyId], reordered)
-      reorder.mutate(reordered.map((s) => s.id))
+      const reordered = arrayMove(filteredSpaces, oldIndex, newIndex)
+      // Merge reordered filtered spaces back into full spaces list preserving other types
+      const otherSpaces = (spaces ?? []).filter((s) => s.type !== typeFilter)
+      queryClient.setQueryData<Space[]>(['spaces', familyId], [
+        ...reordered,
+        ...otherSpaces,
+      ])
+      reorder.mutate([...reordered, ...otherSpaces].map((s) => s.id))
     } else if (activeType === 'item') {
       const draggedItem = active.data.current?.item as Item
       const overType = over.data.current?.type
@@ -143,8 +150,8 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         return
       }
 
-      const sourceSpace = spaces?.find((s) => s.id === draggedItem.spaceId)
-      const targetSpace = spaces?.find((s) => s.id === targetSpaceId)
+      const sourceSpace = filteredSpaces.find((s) => s.id === draggedItem.spaceId)
+      const targetSpace = filteredSpaces.find((s) => s.id === targetSpaceId)
       if (!sourceSpace || !targetSpace) return
 
       if (draggedItem.spaceId === targetSpaceId && overType === 'item') {
@@ -218,10 +225,10 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
               ))
             ) : (
               <SortableContext
-                items={(spaces ?? []).map((s) => s.id)}
+                items={filteredSpaces.map((s) => s.id)}
                 strategy={horizontalListSortingStrategy}
               >
-                {(spaces ?? []).map((space) => (
+                {filteredSpaces.map((space) => (
                   <SpaceColumn
                     key={space.id}
                     space={space}
@@ -229,8 +236,9 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
                     isDropTarget={
                       activeDragItem !== null &&
                       overSpaceId === space.id &&
-                      spaces?.find((s) => s.id === activeDragItem.item.spaceId)
-                        ?.type === space.type
+                      filteredSpaces.find(
+                        (s) => s.id === activeDragItem.item.spaceId,
+                      )?.type === space.type
                     }
                     onFocus={() => setFocusedSpaceId(space.id)}
                   />
@@ -241,7 +249,7 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
             {/* Add Space button */}
             {!isLoading && (
               <div className="flex shrink-0 items-start pt-1">
-                {spaces?.length === 0 ? (
+                {filteredSpaces.length === 0 ? (
                   <ShimmerButton
                     onClick={() => setAddSpaceOpen(true)}
                     background="oklch(0.4 0.13 258)"
@@ -277,6 +285,7 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         <AddSpaceSheet
           open={addSpaceOpen}
           onOpenChange={setAddSpaceOpen}
+          defaultType={typeFilter}
           onCreate={(input) => {
             create.mutate(input, { onSuccess: () => setAddSpaceOpen(false) })
           }}
@@ -284,9 +293,9 @@ export function SpaceView({ familyId, providerToken, calendarId }: Props) {
         />
       </div>
 
-      {focusedSpaceId && spaces?.find((s) => s.id === focusedSpaceId) && (
+      {focusedSpaceId && filteredSpaces.find((s) => s.id === focusedSpaceId) && (
         <FocusOverlay
-          space={spaces.find((s) => s.id === focusedSpaceId)!}
+          space={filteredSpaces.find((s) => s.id === focusedSpaceId)!}
           familyId={familyId}
           onClose={() => setFocusedSpaceId(null)}
         />

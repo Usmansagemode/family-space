@@ -110,6 +110,7 @@ export function Header() {
                           ? user.user_metadata.avatar_url
                           : undefined
                       }
+                      referrerPolicy="no-referrer"
                       className="h-8 w-8 rounded-full"
                       alt=""
                     />

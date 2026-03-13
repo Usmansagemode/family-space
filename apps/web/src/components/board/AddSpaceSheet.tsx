@@ -26,6 +26,7 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   editSpace?: Space
+  defaultType?: SpaceType
   onCreate?: (input: { name: string; color: string; type: SpaceType }) => void
   onUpdate?: (input: {
     id: string
@@ -40,12 +41,13 @@ export function AddSpaceSheet({
   open,
   onOpenChange,
   editSpace,
+  defaultType = 'store',
   onCreate,
   onUpdate,
   isPending,
 }: Props) {
   const isEditing = !!editSpace
-  const [type, setType] = useState<SpaceType>(editSpace?.type ?? 'store')
+  const [type, setType] = useState<SpaceType>(editSpace?.type ?? defaultType)
   const [color, setColor] = useState(editSpace?.color ?? SPACE_COLORS[0])
   const isDark = useIsDark()
   const hue = extractHue(color)
@@ -64,7 +66,7 @@ export function AddSpaceSheet({
   useEffect(() => {
     if (open) {
       reset({ name: editSpace?.name ?? '' })
-      setType(editSpace?.type ?? 'store')
+      setType(editSpace?.type ?? defaultType)
       setColor(editSpace?.color ?? SPACE_COLORS[0])
     }
   }, [open, editSpace, reset])

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { LayoutGrid, CalendarDays, Search } from 'lucide-react'
+import { ShoppingCart, CheckCheck, CalendarDays, Search } from 'lucide-react'
 import { SpaceView } from '#/components/board/SpaceView'
 import { CalendarView } from '#/components/CalendarView'
 import { LoginPage } from '#/components/auth/LoginPage'
@@ -14,7 +14,7 @@ export const Route = createFileRoute('/')({
   component: BoardPage,
 })
 
-type Tab = 'board' | 'calendar'
+type Tab = 'lists' | 'chores' | 'calendar'
 
 function BoardPage() {
   return <AuthGate />
@@ -60,10 +60,18 @@ function FamilyContent({
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const stored = window.localStorage.getItem('fs-tab')
+      if (stored === 'chores') return 'chores'
       if (stored === 'calendar') return 'calendar'
     } catch {}
-    return 'board'
+    return 'lists'
   })
+
+  // Redirect calendar tab to lists on mobile (no calendar tab in mobile nav)
+  useEffect(() => {
+    if (tab === 'calendar' && window.innerWidth < 640) {
+      setTab('lists')
+    }
+  }, [tab])
 
   function handleTabChange(newTab: Tab) {
     setTab(newTab)
@@ -77,11 +85,18 @@ function FamilyContent({
       {/* Vertical tab sidebar — desktop only */}
       <div className="hidden shrink-0 flex-col border-r border-border/40 py-3 sm:flex">
         <TabButton
-          active={tab === 'board'}
-          icon={<LayoutGrid className="h-4 w-4" />}
-          onClick={() => handleTabChange('board')}
+          active={tab === 'lists'}
+          icon={<ShoppingCart className="h-4 w-4" />}
+          onClick={() => handleTabChange('lists')}
         >
-          Spaces
+          Lists
+        </TabButton>
+        <TabButton
+          active={tab === 'chores'}
+          icon={<CheckCheck className="h-4 w-4" />}
+          onClick={() => handleTabChange('chores')}
+        >
+          Chores
         </TabButton>
         <TabButton
           active={tab === 'calendar'}
@@ -101,33 +116,47 @@ function FamilyContent({
 
       {/* Content + mobile bottom nav */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Both mounted to preserve iframe state */}
-        <div className={cn('min-h-0 flex-1', tab !== 'board' && 'hidden')}>
-          <SpaceView
-            familyId={familyId}
-            providerToken={providerToken}
-            calendarId={calendarId}
-          />
-        </div>
+        {/* SpaceView — remounts when switching between lists/chores */}
+        {tab === 'lists' && (
+          <div className="min-h-0 flex-1">
+            <SpaceView
+              familyId={familyId}
+              providerToken={providerToken}
+              calendarId={calendarId}
+              typeFilter="store"
+            />
+          </div>
+        )}
+        {tab === 'chores' && (
+          <div className="min-h-0 flex-1">
+            <SpaceView
+              familyId={familyId}
+              providerToken={providerToken}
+              calendarId={calendarId}
+              typeFilter="person"
+            />
+          </div>
+        )}
+        {/* CalendarView mounted always to preserve iframe state — desktop only */}
         <div className={cn('min-h-0 flex-1', tab !== 'calendar' && 'hidden')}>
           <CalendarView embedUrl={embedUrl} />
         </div>
 
-        {/* Bottom tab bar — mobile only */}
+        {/* Bottom tab bar — mobile only (no Calendar tab) */}
         <div className="flex shrink-0 border-t border-border/40 bg-background/90 backdrop-blur-sm sm:hidden">
           <MobileTabButton
-            active={tab === 'board'}
-            icon={<LayoutGrid className="h-5 w-5" />}
-            onClick={() => handleTabChange('board')}
+            active={tab === 'lists'}
+            icon={<ShoppingCart className="h-5 w-5" />}
+            onClick={() => handleTabChange('lists')}
           >
-            Spaces
+            Lists
           </MobileTabButton>
           <MobileTabButton
-            active={tab === 'calendar'}
-            icon={<CalendarDays className="h-5 w-5" />}
-            onClick={() => handleTabChange('calendar')}
+            active={tab === 'chores'}
+            icon={<CheckCheck className="h-5 w-5" />}
+            onClick={() => handleTabChange('chores')}
           >
-            Calendar
+            Chores
           </MobileTabButton>
           <MobileTabButton
             active={false}
