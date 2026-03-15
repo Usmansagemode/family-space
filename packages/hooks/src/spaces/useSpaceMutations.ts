@@ -84,5 +84,16 @@ export function useSpaceMutations(familyId: string) {
     },
   })
 
-  return { create, update, assign, remove, reorder }
+  const toggleShowInExpenses = useMutation({
+    mutationFn: ({ id, showInExpenses }: { id: string; showInExpenses: boolean }) =>
+      updateSpace(id, { showInExpenses }),
+    onSuccess: () => {
+      void invalidate()
+    },
+    onError: () => {
+      toast.error('Failed to update space')
+    },
+  })
+
+  return { create, update, assign, remove, reorder, toggleShowInExpenses }
 }

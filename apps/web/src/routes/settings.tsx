@@ -1,0 +1,1366 @@
+import { useState, useEffect } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import {
+  Brain,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Crown,
+  Eye,
+  EyeOff,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  User,
+  UserPlus,
+  Wallet,
+  X,
+} from 'lucide-react'
+import {
+  GEMINI_MODELS,
+  GEMINI_LS_KEY_API,
+  GEMINI_LS_KEY_MODEL,
+  getGeminiApiKey,
+  getGeminiModel,
+} from '#/lib/csv-import'
+import { CATEGORY_ICONS, getCategoryIcon } from '#/lib/categoryIcons'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
+import { Label } from '#/components/ui/label'
+import { Switch } from '#/components/ui/switch'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Badge } from '#/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
+import { useAuthContext } from '#/contexts/auth'
+import { useUserFamily } from '#/hooks/auth/useUserFamily'
+import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
+import { useSpaces } from '#/hooks/spaces/useSpaces'
+import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
+import { useCategories } from '#/hooks/categories/useCategories'
+import { useCategoriesMutations } from '#/hooks/categories/useCategoriesMutations'
+import { useIncomeSources } from '#/hooks/income/useIncomeSources'
+import { useIncomeMutations } from '#/hooks/income/useIncomeMutations'
+import { useBudgets } from '#/hooks/budgets/useBudgets'
+import { useBudgetMutations } from '#/hooks/budgets/useBudgetMutations'
+import { createInvite } from '#/lib/supabase/invites'
+import { updateFamily, removeFamilyMember } from '#/lib/supabase/families'
+import { cn, formatCurrency } from '#/lib/utils'
+import {
+  INCOME_TYPES,
+  FREQUENCIES,
+  getIncomeTypeDef,
+  toMonthly,
+} from '#/lib/incomeTypes'
+import type { Space, Category, IncomeSource, IncomeType, IncomeFrequency, BudgetPeriod } from '@family/types'
+
+export const Route = createFileRoute('/settings')({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tab: (
+      ['family', 'members', 'locations', 'categories', 'budgets', 'integrations'] as const
+    ).includes(s.tab as 'family' | 'members' | 'locations' | 'categories' | 'budgets' | 'integrations')
+      ? (s.tab as 'family' | 'members' | 'locations' | 'categories' | 'budgets' | 'integrations')
+      : 'family',
+  }),
+  component: SettingsPage,
+})
+
+const TABS = [
+  { id: 'family', label: 'Family' },
+  { id: 'members', label: 'Members' },
+  { id: 'locations', label: 'Locations' },
+  { id: 'categories', label: 'Categories' },
+  { id: 'budgets', label: 'Budgets' },
+  { id: 'integrations', label: 'Integrations' },
+] as const
+
+const CURRENCIES = ['USD', 'CAD', 'EUR', 'GBP', 'AUD', 'PKR', 'INR', 'AED']
+const LOCALES = [
+  { value: 'en-US', label: 'English (US)' },
+  { value: 'en-CA', label: 'English (CA)' },
+  { value: 'en-GB', label: 'English (UK)' },
+  { value: 'en-AU', label: 'English (AU)' },
+  { value: 'fr-FR', label: 'French' },
+  { value: 'de-DE', label: 'German' },
+  { value: 'ur-PK', label: 'Urdu (PK)' },
+]
+
+function SettingsPage() {
+  const { user } = useAuthContext()
+  const { tab } = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  function setTab(t: typeof tab) {
+    void navigate({ search: { tab: t } })
+  }
+
+  const { data: family } = useUserFamily(user?.id)
+  const familyId = family?.id ?? ''
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Page header */}
+      <div className="border-b border-border px-6 py-4">
+        <h1 className="text-xl font-semibold">Settings</h1>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex border-b border-border px-6">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={cn(
+              'relative px-4 py-2.5 text-sm font-medium transition-colors',
+              tab === t.id
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t.label}
+            {tab === t.id && (
+              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {tab === 'family' && family && (
+          <FamilyTab family={family} userId={user?.id ?? ''} />
+        )}
+        {tab === 'members' && family && (
+          <MembersTab familyId={familyId} currentUserId={user?.id ?? ''} currency={family.currency} locale={family.locale} />
+        )}
+        {tab === 'locations' && familyId && (
+          <LocationsTab familyId={familyId} />
+        )}
+        {tab === 'categories' && familyId && (
+          <CategoriesTab familyId={familyId} />
+        )}
+        {tab === 'budgets' && familyId && (
+          <BudgetsTab familyId={familyId} currency={family?.currency} locale={family?.locale} />
+        )}
+        {tab === 'integrations' && (
+          <IntegrationsTab />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Family Tab ──────────────────────────────────────────────────────────────
+
+function FamilyTab({
+  family,
+  userId,
+}: {
+  family: { id: string; name: string; currency: string; locale: string; googleCalendarId?: string; googleCalendarEmbedUrl?: string }
+  userId: string
+}) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(family.name)
+  const [currency, setCurrency] = useState(family.currency)
+  const [locale, setLocale] = useState(family.locale)
+  const [calendarId, setCalendarId] = useState(family.googleCalendarId ?? '')
+  const [embedUrl, setEmbedUrl] = useState(family.googleCalendarEmbedUrl ?? '')
+
+  useEffect(() => {
+    setName(family.name)
+    setCurrency(family.currency)
+    setLocale(family.locale)
+    setCalendarId(family.googleCalendarId ?? '')
+    setEmbedUrl(family.googleCalendarEmbedUrl ?? '')
+  }, [family])
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateFamily(family.id, {
+        name: name.trim() || 'Our Family',
+        currency,
+        locale,
+        googleCalendarId: calendarId.trim() || undefined,
+        googleCalendarEmbedUrl: embedUrl.trim() || undefined,
+      }),
+    onSuccess: (updated) => {
+      void queryClient.invalidateQueries({ queryKey: ['family', 'user', userId] })
+      void queryClient.invalidateQueries({ queryKey: ['family', updated.id] })
+      toast.success('Settings saved')
+    },
+    onError: () => toast.error('Failed to save settings'),
+  })
+
+  return (
+    <div className="mx-auto max-w-lg px-6 py-6">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="fam-name">Family name</Label>
+          <Input
+            id="fam-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Our Family"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fam-currency">Currency</Label>
+            <select
+              id="fam-currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fam-locale">Locale</Label>
+            <select
+              id="fam-locale"
+              value={locale}
+              onChange={(e) => setLocale(e.target.value)}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {LOCALES.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <p className="mb-3 text-sm font-medium">Google Calendar</p>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cal-id">Calendar ID</Label>
+              <Input
+                id="cal-id"
+                value={calendarId}
+                onChange={(e) => setCalendarId(e.target.value)}
+                placeholder="abc123@group.calendar.google.com"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cal-embed">Embed URL</Label>
+              <Input
+                id="cal-embed"
+                value={embedUrl}
+                onChange={(e) => setEmbedUrl(e.target.value)}
+                placeholder="https://calendar.google.com/calendar/embed?src=…"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="self-end">
+          {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save changes
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Members Tab ─────────────────────────────────────────────────────────────
+
+const incomeSourceSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  type: z.string().min(1),
+  amount: z.coerce.number().positive('Amount must be positive'),
+  frequency: z.string().min(1),
+  personId: z.string().optional().nullable(),
+})
+type IncomeSourceForm = z.infer<typeof incomeSourceSchema>
+
+function MembersTab({
+  familyId,
+  currentUserId,
+  currency,
+  locale,
+}: {
+  familyId: string
+  currentUserId: string
+  currency?: string
+  locale?: string
+}) {
+  const queryClient = useQueryClient()
+  const { data: members, isLoading } = useFamilyMembers(familyId)
+  const { data: spaces } = useSpaces(familyId)
+  const { data: sources } = useIncomeSources(familyId)
+  const mutations = useIncomeMutations(familyId)
+
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogPersonId, setDialogPersonId] = useState<string | null>(null)
+  const [dialogPersonName, setDialogPersonName] = useState<string>('')
+  const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
+
+  const isOwner = members?.find((m) => m.userId === currentUserId)?.role === 'owner'
+
+  const personSpaces = (spaces ?? []).filter((s) => s.type === 'person')
+
+  const invite = useMutation({
+    mutationFn: () => createInvite(familyId),
+    onSuccess: (token) => {
+      setInviteLink(`${window.location.origin}/invite?token=${token}`)
+    },
+    onError: () => toast.error('Failed to create invite link'),
+  })
+
+  const remove = useMutation({
+    mutationFn: (userId: string) => removeFamilyMember(familyId, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['family-members', familyId] })
+      toast.success('Member removed')
+    },
+    onError: () => toast.error('Failed to remove member'),
+  })
+
+  function handleCopy() {
+    if (!inviteLink) return
+    void navigator.clipboard.writeText(inviteLink).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  function toggleExpand(memberId: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(memberId)) {
+        next.delete(memberId)
+      } else {
+        next.add(memberId)
+      }
+      return next
+    })
+  }
+
+  const form = useForm<IncomeSourceForm>({
+    resolver: zodResolver(incomeSourceSchema) as any,
+    defaultValues: { name: '', type: 'salary', amount: undefined as any, frequency: 'monthly', personId: null },
+  })
+
+  function openAddSource(personSpaceId: string | null, personName: string) {
+    setEditingSource(null)
+    setDialogPersonId(personSpaceId)
+    setDialogPersonName(personName)
+    form.reset({
+      name: '',
+      type: 'salary',
+      amount: undefined as any,
+      frequency: 'monthly',
+      personId: personSpaceId,
+    })
+    setDialogOpen(true)
+  }
+
+  function openEditSource(source: IncomeSource, personName: string) {
+    setEditingSource(source)
+    setDialogPersonId(source.personId)
+    setDialogPersonName(personName)
+    form.reset({
+      name: source.name,
+      type: source.type,
+      amount: source.amount,
+      frequency: source.frequency,
+      personId: source.personId,
+    })
+    setDialogOpen(true)
+  }
+
+  function handleSourceSubmit(data: IncomeSourceForm) {
+    const payload = {
+      name: data.name,
+      type: data.type as IncomeType,
+      amount: data.amount,
+      frequency: data.frequency as IncomeFrequency,
+      personId: dialogPersonId,
+    }
+    if (editingSource) {
+      mutations.updateSource.mutate(
+        { id: editingSource.id, ...payload },
+        { onSuccess: () => setDialogOpen(false) },
+      )
+    } else {
+      mutations.createSource.mutate(payload, { onSuccess: () => setDialogOpen(false) })
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-6 py-6">
+      <div className="flex flex-col gap-6">
+        {/* Invite */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">Invite a member</p>
+          <p className="text-xs text-muted-foreground">
+            Generate a one-time link and share it with a family member.
+          </p>
+          {inviteLink ? (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
+              <span className="flex-1 truncate text-xs text-muted-foreground">
+                {inviteLink}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="shrink-0 text-muted-foreground transition hover:text-foreground"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="self-start gap-2"
+              onClick={() => invite.mutate()}
+              disabled={invite.isPending}
+            >
+              {invite.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              Create invite link
+            </Button>
+          )}
+        </div>
+
+        {/* Member list */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">
+            Members{members ? ` (${members.length})` : ''}
+          </p>
+          {isLoading ? (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-3/4" />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {(members ?? []).map((member) => {
+                const personSpace = personSpaces.find(
+                  (s) => s.linkedUserId === member.userId,
+                )
+                const memberSources = (sources ?? []).filter(
+                  (src) => src.personId === personSpace?.id,
+                )
+                const isExpanded = expandedIds.has(member.userId)
+
+                return (
+                  <div
+                    key={member.userId}
+                    className="rounded-lg border border-border bg-muted/30"
+                  >
+                    {/* Member row */}
+                    <div className="flex items-center gap-3 px-3 py-2.5">
+                      {/* Expand/collapse chevron */}
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(member.userId)}
+                        className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                        {member.avatarUrl ? (
+                          <img
+                            src={member.avatarUrl}
+                            className="h-8 w-8 rounded-full"
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-medium leading-none">
+                          {member.name ?? member.email ?? 'Unknown'}
+                          {member.userId === currentUserId && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">(you)</span>
+                          )}
+                        </span>
+                        {member.name && member.email && (
+                          <span className="truncate text-xs text-muted-foreground">{member.email}</span>
+                        )}
+                      </div>
+                      {member.role === 'owner' ? (
+                        <Badge variant="secondary" className="gap-1 text-xs">
+                          <Crown className="h-3 w-3 text-amber-500" />
+                          Owner
+                        </Badge>
+                      ) : isOwner ? (
+                        <button
+                          type="button"
+                          onClick={() => remove.mutate(member.userId)}
+                          disabled={remove.isPending}
+                          className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                          title="Remove member"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Expanded: income sources */}
+                    {isExpanded && (
+                      <div className="border-t border-border px-3 pb-3 pt-2">
+                        <div className="flex flex-col gap-1.5">
+                          {memberSources.length === 0 ? (
+                            <p className="py-1 text-xs text-muted-foreground">No income sources yet.</p>
+                          ) : (
+                            memberSources.map((src) => {
+                              const def = getIncomeTypeDef(src.type)
+                              const Icon = def.icon
+                              const freq = FREQUENCIES.find((f) => f.id === src.frequency)
+                              const monthly = toMonthly(src.amount, src.frequency)
+                              return (
+                                <div
+                                  key={src.id}
+                                  className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2"
+                                >
+                                  <span
+                                    className={cn(
+                                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+                                      def.color,
+                                    )}
+                                  >
+                                    <Icon className="h-3.5 w-3.5" />
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-medium">{src.name}</p>
+                                    <div className="mt-0.5 flex items-center gap-1.5">
+                                      <Badge variant="secondary" className="text-[10px]">
+                                        {def.label}
+                                      </Badge>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {formatCurrency(src.amount, currency, locale)} / {freq?.label.toLowerCase()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                      {formatCurrency(monthly, currency, locale)}
+                                      <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openEditSource(src, personSpace?.name ?? member.name ?? 'Member')
+                                    }
+                                    className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => mutations.removeSource.mutate(src.id)}
+                                    className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )
+                            })
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-1 self-start gap-1.5 text-xs"
+                            onClick={() =>
+                              openAddSource(
+                                personSpace?.id ?? null,
+                                personSpace?.name ?? member.name ?? 'Member',
+                              )
+                            }
+                          >
+                            <Plus className="h-3 w-3" />
+                            Add income source
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add/Edit income source dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSource ? 'Edit income source' : 'Add income source'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(handleSourceSubmit)} className="flex flex-col gap-4">
+            {/* Person label (read-only, pre-filled) */}
+            {dialogPersonName && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Person</Label>
+                <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+                  {dialogPersonName}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Name</Label>
+              <Input
+                {...form.register('name')}
+                placeholder="e.g. Main Job, Airbnb"
+                autoFocus
+              />
+              {form.formState.errors.name && (
+                <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {INCOME_TYPES.map((t) => {
+                  const Icon = t.icon
+                  const selected = form.watch('type') === t.id
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => form.setValue('type', t.id)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition',
+                        selected
+                          ? 'border-foreground bg-muted font-medium'
+                          : 'border-border text-muted-foreground hover:border-border hover:text-foreground',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+                          t.color,
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...form.register('amount')}
+                  placeholder="0.00"
+                />
+                {form.formState.errors.amount && (
+                  <p className="text-xs text-destructive">{form.formState.errors.amount.message}</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Frequency</Label>
+                <select
+                  {...form.register('frequency')}
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {FREQUENCIES.map((f) => (
+                    <option key={f.id} value={f.id}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={mutations.createSource.isPending || mutations.updateSource.isPending}
+              >
+                {(mutations.createSource.isPending || mutations.updateSource.isPending) && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                {editingSource ? 'Save' : 'Add'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ─── Locations Tab ───────────────────────────────────────────────────────────
+
+function LocationsTab({ familyId }: { familyId: string }) {
+  const { data: spaces, isLoading } = useSpaces(familyId)
+  const mutations = useSpaceMutations(familyId)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+
+  const stores = (spaces ?? []).filter((s) => s.type === 'store')
+
+  function submitAdd() {
+    if (!newName.trim()) return
+    mutations.create.mutate(
+      { name: newName.trim(), color: 'oklch(0.7 0.15 250)', type: 'store' },
+      {
+        onSuccess: () => {
+          setNewName('')
+          setAdding(false)
+        },
+      },
+    )
+  }
+
+  function submitEdit(space: Space) {
+    if (!editName.trim()) return
+    mutations.update.mutate(
+      { id: space.id, name: editName.trim() },
+      { onSuccess: () => setEditingId(null) },
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-6 py-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Store locations</p>
+            <p className="text-xs text-muted-foreground">
+              Toggle "Show in expenses" to make a location appear in the expense picker.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </Button>
+        </div>
+
+        {adding && (
+          <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2">
+            <Input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Location name"
+              className="h-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitAdd()
+                if (e.key === 'Escape') { setAdding(false); setNewName('') }
+              }}
+            />
+            <Button size="sm" onClick={submitAdd} disabled={mutations.create.isPending}>
+              {mutations.create.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Add'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewName('') }}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : stores.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No locations yet. Add one above.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {stores.map((space) => (
+              <div
+                key={space.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5"
+              >
+                <div
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: space.color }}
+                />
+                {editingId === space.id ? (
+                  <Input
+                    autoFocus
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="h-7 flex-1 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') submitEdit(space)
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    onBlur={() => submitEdit(space)}
+                  />
+                ) : (
+                  <span className="flex-1 text-sm">{space.name}</span>
+                )}
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-muted-foreground">Expenses</span>
+                  <Switch
+                    checked={space.showInExpenses}
+                    onCheckedChange={(checked) =>
+                      mutations.toggleShowInExpenses.mutate({ id: space.id, showInExpenses: checked })
+                    }
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setEditingId(space.id); setEditName(space.name) }}
+                  className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mutations.remove.mutate(space.id)}
+                  className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Categories Tab ──────────────────────────────────────────────────────────
+
+const PRESET_COLORS = [
+  'oklch(0.60 0.18 30)',
+  'oklch(0.60 0.18 60)',
+  'oklch(0.60 0.18 145)',
+  'oklch(0.60 0.15 200)',
+  'oklch(0.60 0.15 250)',
+  'oklch(0.60 0.18 320)',
+  'oklch(0.50 0.15 0)',
+  'oklch(0.55 0.18 80)',
+  'oklch(0.65 0.14 170)',
+]
+
+
+function CategoriesTab({ familyId }: { familyId: string }) {
+  const { data: categories, isLoading } = useCategories(familyId)
+  const mutations = useCategoriesMutations(familyId)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Category | null>(null)
+  const [formName, setFormName] = useState('')
+  const [formColor, setFormColor] = useState(PRESET_COLORS[0]!)
+  const [formIcon, setFormIcon] = useState(CATEGORY_ICONS[0]!.id)
+
+  function openAdd() {
+    setEditing(null)
+    setFormName('')
+    setFormColor(PRESET_COLORS[0]!)
+    setFormIcon(CATEGORY_ICONS[0]!.id)
+    setDialogOpen(true)
+  }
+
+  function openEdit(cat: Category) {
+    setEditing(cat)
+    setFormName(cat.name)
+    setFormColor(cat.color ?? PRESET_COLORS[0]!)
+    setFormIcon(cat.icon ?? CATEGORY_ICONS[0]!.id)
+    setDialogOpen(true)
+  }
+
+  function handleSubmit() {
+    if (!formName.trim()) return
+    if (editing) {
+      mutations.update.mutate(
+        { id: editing.id, name: formName.trim(), color: formColor, icon: formIcon },
+        { onSuccess: () => setDialogOpen(false) },
+      )
+    } else {
+      mutations.create.mutate(
+        { name: formName.trim(), color: formColor, icon: formIcon },
+        { onSuccess: () => setDialogOpen(false) },
+      )
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-6 py-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Expense categories</p>
+            <p className="text-xs text-muted-foreground">
+              Used to organize and chart your expenses.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={openAdd}>
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </Button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : (categories ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No categories yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {(categories ?? []).map((cat) => {
+              const Icon = getCategoryIcon(cat.icon)
+              return (
+                <div
+                  key={cat.id}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5"
+                >
+                  <div
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                    style={{ background: cat.color ?? PRESET_COLORS[0] }}
+                  >
+                    <Icon className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="flex-1 text-sm">{cat.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(cat)}
+                    className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => mutations.archive.mutate(cat.id)}
+                    className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                    title="Archive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit category' : 'Add category'}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            {/* Preview */}
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                style={{ background: formColor }}
+              >
+                {(() => { const Icon = getCategoryIcon(formIcon); return <Icon className="h-5 w-5 text-white" /> })()}
+              </div>
+              <Input
+                autoFocus
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="e.g. Groceries"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
+              />
+            </div>
+
+            {/* Icon picker */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Icon</Label>
+              <div className="grid grid-cols-8 gap-1.5">
+                {CATEGORY_ICONS.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    title={label}
+                    onClick={() => setFormIcon(id)}
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-md border transition',
+                      formIcon === id
+                        ? 'border-foreground bg-muted'
+                        : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color picker */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setFormColor(c)}
+                    className={cn(
+                      'h-6 w-6 rounded-full border-2 transition',
+                      formColor === c ? 'border-foreground scale-110' : 'border-transparent',
+                    )}
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={mutations.create.isPending || mutations.update.isPending}
+            >
+              {(mutations.create.isPending || mutations.update.isPending) && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              {editing ? 'Save' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ─── Budgets Tab ─────────────────────────────────────────────────────────────
+
+const budgetSchema = z.object({
+  categoryId: z.string().nullable(),
+  personId: z.string().nullable(),
+  amount: z.coerce.number().positive('Amount must be positive'),
+  period: z.enum(['monthly', 'yearly']),
+})
+type BudgetForm = z.infer<typeof budgetSchema>
+
+function BudgetsTab({
+  familyId,
+  currency,
+  locale,
+}: {
+  familyId: string
+  currency?: string
+  locale?: string
+}) {
+  const { data: budgets, isLoading } = useBudgets(familyId)
+  const { data: categories } = useCategories(familyId)
+  const { data: spaces } = useSpaces(familyId)
+  const mutations = useBudgetMutations(familyId)
+
+  const personSpaces = (spaces ?? []).filter((s) => s.type === 'person')
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  const form = useForm<BudgetForm>({
+    resolver: zodResolver(budgetSchema) as any,
+    defaultValues: { categoryId: null, personId: null, amount: undefined as any, period: 'monthly' },
+  })
+
+  function openAdd() {
+    form.reset({ categoryId: null, personId: null, amount: undefined as any, period: 'monthly' })
+    setDialogOpen(true)
+  }
+
+  function handleSubmit(data: BudgetForm) {
+    mutations.upsert.mutate(
+      {
+        categoryId: data.categoryId || null,
+        personId: data.personId || null,
+        amount: data.amount,
+        period: data.period as BudgetPeriod,
+      },
+      { onSuccess: () => setDialogOpen(false) },
+    )
+  }
+
+  function getCategoryName(id: string | null, cats: Category[]) {
+    if (!id) return 'Overall (all categories)'
+    return cats.find((c) => c.id === id)?.name ?? '(Deleted)'
+  }
+
+  function getPersonName(id: string | null, persons: Space[]) {
+    if (!id) return 'Family-wide'
+    return persons.find((p) => p.id === id)?.name ?? '(Deleted)'
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-6 py-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Spending budgets</p>
+            <p className="text-xs text-muted-foreground">
+              Set limits per category or person. Leave category blank for an overall budget.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={openAdd}>
+            <Plus className="h-3.5 w-3.5" />
+            Add budget
+          </Button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          </div>
+        ) : (budgets ?? []).length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <Wallet className="h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">No budgets set yet.</p>
+            <Button onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              Add budget
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {(budgets ?? []).map((b) => (
+              <div
+                key={b.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {getCategoryName(b.categoryId, categories ?? [])}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {getPersonName(b.personId, personSpaces)}
+                  </p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold">
+                  {formatCurrency(b.amount, currency, locale)}
+                </p>
+                <Badge variant="secondary" className="shrink-0 text-[10px]">{b.period}</Badge>
+                <button
+                  type="button"
+                  onClick={() => mutations.remove.mutate(b.id)}
+                  className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Add budget</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Category</Label>
+              <select
+                {...form.register('categoryId')}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Overall (all categories)</option>
+                {(categories ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {personSpaces.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Person</Label>
+                <select
+                  {...form.register('personId')}
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Family-wide</option>
+                  {personSpaces.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...form.register('amount')}
+                  placeholder="0.00"
+                />
+                {form.formState.errors.amount && (
+                  <p className="text-xs text-destructive">{form.formState.errors.amount.message}</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Period</Label>
+                <select
+                  {...form.register('period')}
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={mutations.upsert.isPending}>
+                {mutations.upsert.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ─── Integrations Tab ─────────────────────────────────────────────────────────
+
+function IntegrationsTab() {
+  const [apiKey, setApiKey] = useState(() => getGeminiApiKey())
+  const [model, setModel] = useState(() => getGeminiModel())
+  const [showKey, setShowKey] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  function handleSave() {
+    localStorage.setItem(GEMINI_LS_KEY_API, apiKey.trim())
+    localStorage.setItem(GEMINI_LS_KEY_MODEL, model)
+    setSaved(true)
+    toast.success('Integrations settings saved')
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-6 py-6">
+      <div className="flex flex-col gap-6">
+        {/* Gemini section */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-purple-500" />
+            <p className="text-sm font-semibold">Google Gemini AI</p>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-2">
+            Required for AI-powered PDF bank statement import. Your API key is stored locally in
+            your browser and never sent to our servers.
+          </p>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="gemini-api-key">API Key</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="gemini-api-key"
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="AIza…"
+                  className="flex-1 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showKey ? 'Hide key' : 'Show key'}
+                >
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Get a free API key at{' '}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  aistudio.google.com
+                </a>
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="gemini-model">Model</Label>
+              <select
+                id="gemini-model"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {GEMINI_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {apiKey.trim() && (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              Gemini is configured — PDF import is enabled.
+            </div>
+          )}
+        </div>
+
+        <Button onClick={handleSave} className="self-end" disabled={saved}>
+          {saved ? <Check className="h-4 w-4" /> : null}
+          {saved ? 'Saved' : 'Save changes'}
+        </Button>
+      </div>
+    </div>
+  )
+}

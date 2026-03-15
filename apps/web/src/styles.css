@@ -416,3 +416,24 @@ a {
     color: var(--foreground);
   }
 }
+
+@media print {
+  /* Allow chart content to flow across print pages instead of being clipped */
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Recharts SVGs must not be clipped */
+  .recharts-wrapper,
+  .recharts-surface,
+  .recharts-responsive-container {
+    overflow: visible !important;
+  }
+
+  /* Force all colors to print (SVG fills, backgrounds) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

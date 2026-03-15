@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Sun, Moon, Settings, LogOut, User, Activity } from 'lucide-react'
 import type { Family } from '#/lib/supabase/families'
 import {
@@ -18,7 +19,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '#/components/ui/tooltip'
-import { SettingsSheet } from './SettingsSheet'
 import { ActivitySheet } from './ActivitySheet'
 
 function applyTheme(mode: 'light' | 'dark') {
@@ -31,7 +31,7 @@ function applyTheme(mode: 'light' | 'dark') {
 export function Header() {
   const { user, signOut } = useAuthContext()
   const isDark = useIsDark()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const navigate = useNavigate()
   const [activityOpen, setActivityOpen] = useState(false)
 
   // Don't fetch here — just subscribe to the cache the board page populates.
@@ -150,7 +150,7 @@ export function Header() {
               {isDark ? 'Light mode' : 'Dark mode'}
             </DropdownMenuItem>
 
-            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+            <DropdownMenuItem onSelect={() => void navigate({ to: '/settings' })}>
               <Settings />
               Settings
             </DropdownMenuItem>
@@ -166,9 +166,6 @@ export function Header() {
         </DropdownMenu>
       )}
 
-      {!!user && (
-        <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
-      )}
       {!!user && (
         <ActivitySheet
           open={activityOpen}

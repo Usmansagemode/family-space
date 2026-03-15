@@ -6,4 +6,4 @@ export {
   removeFamilyMember,
   findOrCreateFamily,
 } from '@family/supabase'
-export type { Family, FamilyMember } from '@family/supabase'
+export type { Family, FamilyMember } from '@family/types'

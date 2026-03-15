@@ -11,6 +11,8 @@ type AuthContextValue = {
   providerRefreshToken: string | null
   loading: boolean
   signInWithGoogle: () => void
+  signInWithEmail: (email: string, password: string) => Promise<string | null>
+  signUpWithEmail: (email: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
   refreshProviderToken: () => Promise<string | null>
 }
@@ -52,6 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithGoogle({ requestOfflineAccess: true })
   }
 
+  async function signInWithEmail(email: string, password: string): Promise<string | null> {
+    if (!supabase) return 'Supabase not configured'
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return error?.message ?? null
+  }
+
+  async function signUpWithEmail(email: string, password: string): Promise<string | null> {
+    if (!supabase) return 'Supabase not configured'
+    const { error } = await supabase.auth.signUp({ email, password })
+    return error?.message ?? null
+  }
+
   async function signOut() {
     await supabase?.auth.signOut()
   }
@@ -74,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         providerRefreshToken: session?.provider_refresh_token ?? null,
         loading,
         signInWithGoogle: handleSignInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
         signOut,
         refreshProviderToken,
       }}

@@ -1,4 +1,11 @@
-export type IncomeType = 'wage' | 'side_gig' | 'other'
+export type IncomeType =
+  | 'salary'
+  | 'side_gig'
+  | 'freelance'
+  | 'business'
+  | 'rental'
+  | 'investment'
+  | 'other'
 export type IncomeFrequency = 'weekly' | 'biweekly' | 'monthly' | 'yearly'
 
 export type IncomeSource = {

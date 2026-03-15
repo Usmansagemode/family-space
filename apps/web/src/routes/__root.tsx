@@ -8,7 +8,9 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Toaster } from '#/components/ui/sonner'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import { Header } from '#/components/Header'
+import { AppNav } from '#/components/AppNav'
 import { AuthProvider } from '#/contexts/auth'
+import { useAuthContext } from '#/contexts/auth'
 
 import TanStackQueryProvider from '#/integrations/tanstack-query/root-provider'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
@@ -43,6 +45,19 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   shellComponent: RootDocument,
 })
 
+function AuthedLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useAuthContext()
+  if (!user) return <>{children}</>
+  return (
+    <div className="flex min-h-0 flex-1">
+      <AppNav />
+      <main className="flex min-h-0 flex-1 flex-col overflow-auto pb-16 sm:pb-0">
+        {children}
+      </main>
+    </div>
+  )
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -56,7 +71,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <TooltipProvider>
               <div className="flex h-screen flex-col overflow-hidden">
                 <Header />
-                <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+                <AuthedLayout>{children}</AuthedLayout>
               </div>
             </TooltipProvider>
             <Toaster richColors position="bottom-right" />

@@ -10,6 +10,8 @@ function rowToSpace(row: {
   sort_order: number
   show_in_expenses: boolean
   assigned_person_id: string | null
+  is_system: boolean
+  linked_user_id: string | null
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -23,6 +25,8 @@ function rowToSpace(row: {
     sortOrder: row.sort_order,
     showInExpenses: row.show_in_expenses,
     assignedPersonId: row.assigned_person_id ?? null,
+    isSystem: row.is_system,
+    linkedUserId: row.linked_user_id ?? null,
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),

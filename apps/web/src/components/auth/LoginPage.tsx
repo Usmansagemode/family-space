@@ -1,5 +1,7 @@
-import { LayoutGrid, CalendarDays, Clock, ImageIcon } from 'lucide-react'
+import { useState } from 'react'
+import { LayoutGrid, CalendarDays, Clock, ImageIcon, Receipt, BarChart3, FileUp } from 'lucide-react'
 import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
 import { useAuthContext } from '#/contexts/auth'
 
 const GOOGLE_SVG = (
@@ -48,12 +50,110 @@ const FEATURES = [
     placeholder: 'Calendar sync screenshot',
   },
   {
+    icon: <Receipt className="h-5 w-5" />,
+    title: 'Track every family expense',
+    body: 'Log expenses by category, location, and who paid. See a running total for each person and filter by month, store, or category in seconds.',
+    placeholder: 'Expense table screenshot',
+  },
+  {
+    icon: <BarChart3 className="h-5 w-5" />,
+    title: 'Yearly analytics at a glance',
+    body: 'Nine charts break down your spending by month, category, and family member — so you know exactly where the money goes and can plan ahead with confidence.',
+    placeholder: 'Analytics charts screenshot',
+  },
+  {
+    icon: <FileUp className="h-5 w-5" />,
+    title: 'Import your bank statements with AI',
+    body: 'Upload a PDF bank statement and Gemini AI extracts every transaction automatically. Review, adjust, and import in one go — no manual entry required.',
+    placeholder: 'PDF import wizard screenshot',
+  },
+  {
     icon: <Clock className="h-5 w-5" />,
     title: 'History that works for you',
     body: "Bought olive oil last month? Re-add it in one tap. Family Space remembers what you've added to each space so your routine never starts from scratch.",
     placeholder: 'History feature screenshot',
   },
 ]
+
+function EmailAuthForm() {
+  const { signInWithEmail, signUpWithEmail } = useAuthContext()
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setMessage(null)
+    setLoading(true)
+
+    const err =
+      mode === 'signin'
+        ? await signInWithEmail(email, password)
+        : await signUpWithEmail(email, password)
+
+    setLoading(false)
+    if (err) {
+      setError(err)
+    } else if (mode === 'signup') {
+      setMessage('Check your email to confirm your account.')
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 w-full max-w-sm space-y-3">
+      <Input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        required
+        autoComplete="email"
+      />
+      <Input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        required
+        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+      />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {message && <p className="text-sm text-green-600">{message}</p>}
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+      </Button>
+      <p className="text-center text-xs text-muted-foreground">
+        {mode === 'signin' ? (
+          <>
+            No account?{' '}
+            <button
+              type="button"
+              className="underline underline-offset-2 hover:text-foreground"
+              onClick={() => { setMode('signup'); setError(null); setMessage(null) }}
+            >
+              Sign up
+            </button>
+          </>
+        ) : (
+          <>
+            Already have an account?{' '}
+            <button
+              type="button"
+              className="underline underline-offset-2 hover:text-foreground"
+              onClick={() => { setMode('signin'); setError(null); setMessage(null) }}
+            >
+              Sign in
+            </button>
+          </>
+        )}
+      </p>
+    </form>
+  )
+}
 
 export function LoginPage() {
   const { signInWithGoogle } = useAuthContext()
@@ -72,7 +172,8 @@ export function LoginPage() {
         </h1>
         <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
           Family Space is a shared board for tasks, groceries, and appointments
-          — organised by person and store, and synced to Google Calendar.
+          — plus expense tracking and yearly analytics — organised by person and
+          store, and synced to Google Calendar.
         </p>
         <Button
           size="lg"
@@ -82,9 +183,12 @@ export function LoginPage() {
           {GOOGLE_SVG}
           Sign in with Google
         </Button>
-        <p className="mt-3 text-xs text-muted-foreground">
-          No account needed beyond your Google login.
-        </p>
+        <div className="mt-6 flex w-full max-w-sm items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <EmailAuthForm />
       </section>
 
       {/* ── Feature rows ── */}

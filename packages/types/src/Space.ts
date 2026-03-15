@@ -1,4 +1,4 @@
-export type SpaceType = 'person' | 'location'
+export type SpaceType = 'person' | 'store' | 'chore'
 
 export type Space = {
   id: string
@@ -9,11 +9,15 @@ export type Space = {
   sortOrder: number
   /** Controls visibility in expense pickers.
    *  person + true  → shows in "Paid by" dropdown
-   *  location + true → shows in "Location" dropdown
-   *  either + false  → board column only (chore area, non-expense location) */
+   *  store  + true  → shows in "Location" dropdown
+   *  either + false → board column only */
   showInExpenses: boolean
-  /** For location spaces: optionally assigned to a person for accountability */
+  /** For store spaces: optionally assigned to a person for accountability */
   assignedPersonId: string | null
+  /** Auto-created system spaces (one per member) cannot be deleted */
+  isSystem: boolean
+  /** For person spaces: the family member this space represents */
+  linkedUserId: string | null
   deletedAt: Date | null
   createdAt: Date
   updatedAt: Date

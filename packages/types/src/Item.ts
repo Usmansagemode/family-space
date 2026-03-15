@@ -3,7 +3,7 @@ export type Recurrence = 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type Item = {
   id: string
   spaceId: string
-  familyId: string
+  familyId?: string
   title: string
   description?: string
   quantity?: string

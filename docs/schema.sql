@@ -1,453 +1,679 @@
--- ============================================================
--- Family Space — Supabase Schema
--- Run this in a NEW Supabase project's SQL editor.
--- Do NOT run against daily-expenses or family-calendar projects.
--- ============================================================
+-- ================================================================
+-- FAMILY SPACE — COMPLETE DATABASE SETUP
+-- Safe to re-run: drops everything first, then rebuilds clean.
+-- Run the entire script in one shot in Supabase SQL Editor.
+-- ================================================================
 
--- ============================================================
--- CORE: FAMILIES & AUTH
--- ============================================================
 
-CREATE TABLE families (
-  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name                        TEXT NOT NULL,
-  plan                        TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
-  currency                    TEXT NOT NULL DEFAULT 'USD',   -- e.g. 'USD', 'GBP', 'PKR'
-  locale                      TEXT NOT NULL DEFAULT 'en-US', -- e.g. 'en-US', 'en-GB'
-  google_calendar_id          TEXT,
-  google_calendar_embed_url   TEXT,
-  google_refresh_token        TEXT,                          -- long-lived token for calendar sync
-  created_at                  TIMESTAMPTZ DEFAULT now(),
-  updated_at                  TIMESTAMPTZ DEFAULT now()
-);
+-- ----------------------------------------------------------------
+-- PART 1: DROP EVERYTHING (reverse dependency order)
+-- ----------------------------------------------------------------
+
+drop trigger if exists on_auth_user_created        on auth.users;
+drop trigger if exists set_item_created_by_trigger on items;
+
+drop function if exists handle_new_user()                    cascade;
+drop function if exists set_item_created_by()                cascade;
+drop function if exists find_or_create_family(uuid)          cascade;
+drop function if exists accept_invite(uuid, uuid, uuid)      cascade;
+drop function if exists is_family_member(uuid)               cascade;
+drop function if exists is_family_owner(uuid)                cascade;
+drop function if exists item_is_family_member(uuid)          cascade;
+drop function if exists update_updated_at()                  cascade;
+
+drop table if exists tracker_entries  cascade;
+drop table if exists trackers         cascade;
+drop table if exists budgets          cascade;
+drop table if exists income_entries   cascade;
+drop table if exists income_sources   cascade;
+drop table if exists expenses         cascade;
+drop table if exists items            cascade;
+drop table if exists invites          cascade;
+drop table if exists categories       cascade;
+drop table if exists spaces           cascade;
+drop table if exists user_families    cascade;
+drop table if exists family_members   cascade;
+drop table if exists families         cascade;
+drop table if exists profiles         cascade;
+
+
+-- ----------------------------------------------------------------
+-- PART 2: TABLES
+-- ----------------------------------------------------------------
 
 -- Mirrors auth.users — auto-populated via trigger on signup
-CREATE TABLE profiles (
-  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name        TEXT,
-  email       TEXT,
-  avatar_url  TEXT,
-  created_at  TIMESTAMPTZ DEFAULT now(),
-  updated_at  TIMESTAMPTZ DEFAULT now()
+create table profiles (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  name       text,
+  email      text,
+  avatar_url text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
-CREATE TABLE family_members (
-  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  family_id  UUID REFERENCES families(id) ON DELETE CASCADE,
-  role       TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member')),
-  joined_at  TIMESTAMPTZ DEFAULT now(),
-  PRIMARY KEY (user_id, family_id)
+create table families (
+  id                        uuid primary key default gen_random_uuid(),
+  name                      text not null,
+  plan                      text not null default 'free' check (plan in ('free', 'pro')),
+  currency                  text not null default 'USD',
+  locale                    text not null default 'en-US',
+  google_calendar_id        text,
+  google_calendar_embed_url text,
+  google_refresh_token      text,
+  created_at                timestamptz default now(),
+  updated_at                timestamptz default now()
 );
 
--- Shareable invite tokens
-CREATE TABLE invites (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id   UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  token       TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(24), 'base64url'),
-  created_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  used_at     TIMESTAMPTZ,
-  used_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at  TIMESTAMPTZ DEFAULT now()
+-- user_families: many-to-many users <-> families
+-- The second FK to profiles is required for PostgREST to resolve
+-- .select('user_id, role, profiles(name, email, avatar_url)') joins.
+create table user_families (
+  user_id   uuid not null references auth.users(id) on delete cascade,
+  family_id uuid not null references families(id)   on delete cascade,
+  role      text not null default 'member' check (role in ('owner', 'member')),
+  joined_at timestamptz default now(),
+  primary key (user_id, family_id),
+  constraint user_families_profile_fkey
+    foreign key (user_id) references profiles(id) on delete cascade
 );
 
--- ============================================================
--- SPACES (board columns: person or location)
--- ============================================================
-
-CREATE TABLE spaces (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id           UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  name                TEXT NOT NULL,
-  color               TEXT,                          -- OKLCH string e.g. 'oklch(0.72 0.20 15)'
-  type                TEXT NOT NULL CHECK (type IN ('person', 'location')),
-  sort_order          INTEGER NOT NULL DEFAULT 0,
-  -- Controls whether this space appears in expense pickers
-  -- person + true  → shows in "Paid by" dropdown
-  -- location + true → shows in "Location" dropdown
-  -- either + false  → board column only (e.g. "Backyard" chore column)
-  show_in_expenses    BOOLEAN NOT NULL DEFAULT true,
-  -- Location spaces can be assigned to a person for accountability
-  assigned_person_id  UUID REFERENCES spaces(id) ON DELETE SET NULL,
-  deleted_at          TIMESTAMPTZ,                   -- soft delete; never hard-delete if expenses reference
-  created_at          TIMESTAMPTZ DEFAULT now(),
-  updated_at          TIMESTAMPTZ DEFAULT now()
+-- Shareable invite links; token is the secret passed in the URL
+create table invites (
+  token       uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  accepted_at timestamptz,
+  created_at  timestamptz default now()
 );
 
--- ============================================================
--- CATEGORIES
--- ============================================================
-
-CREATE TABLE categories (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id   UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  name        TEXT NOT NULL,
-  color       TEXT,                                  -- OKLCH string
-  icon        TEXT,                                  -- Lucide icon name e.g. 'ShoppingCart'
-  sort_order  INTEGER NOT NULL DEFAULT 0,
-  deleted_at  TIMESTAMPTZ,                           -- soft delete; see deletion policy in SPEC.md
-  created_at  TIMESTAMPTZ DEFAULT now(),
-  updated_at  TIMESTAMPTZ DEFAULT now()
+-- Board columns: person (paid-by / chore assignee) or store (grocery list) or chore
+create table spaces (
+  id                 uuid primary key default gen_random_uuid(),
+  family_id          uuid not null references families(id) on delete cascade,
+  name               text not null,
+  color              text not null default 'oklch(0.7 0.15 250)',
+  type               text not null default 'store' check (type in ('person', 'store', 'chore')),
+  sort_order         integer not null default 0,
+  show_in_expenses   boolean not null default true,
+  assigned_person_id uuid references spaces(id) on delete set null,
+  -- person spaces auto-created on join are system spaces — cannot be deleted
+  is_system          boolean not null default false,
+  -- links a person space back to the family member it represents
+  linked_user_id     uuid references auth.users(id) on delete set null,
+  deleted_at         timestamptz,
+  created_at         timestamptz default now(),
+  updated_at         timestamptz default now()
 );
 
--- ============================================================
--- EXPENSES
--- ============================================================
-
-CREATE TABLE expenses (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id    UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  amount       NUMERIC(12, 2) NOT NULL,
-  -- All three FKs use ON DELETE SET NULL — deleting a category/space never destroys expense records.
-  -- UI renders "(Uncategorized)", "(Unknown location)", "(Unknown member)" for null FKs.
-  category_id  UUID REFERENCES categories(id) ON DELETE SET NULL,
-  location_id  UUID REFERENCES spaces(id) ON DELETE SET NULL,   -- must be type='location'
-  paid_by_id   UUID REFERENCES spaces(id) ON DELETE SET NULL,   -- must be type='person' + show_in_expenses=true
-  date         DATE NOT NULL,
-  description  TEXT,
-  created_at   TIMESTAMPTZ DEFAULT now(),
-  updated_at   TIMESTAMPTZ DEFAULT now()
+-- Expense categories per family; soft-deleted to preserve history
+create table categories (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references families(id) on delete cascade,
+  name       text not null,
+  color      text,
+  icon       text,
+  sort_order integer not null default 0,
+  deleted_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
--- ============================================================
--- INCOME
--- ============================================================
+-- All three FKs use ON DELETE SET NULL — deleting a space/category
+-- never destroys expense records. UI shows "(Unknown)" for null FKs.
+create table expenses (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  amount      numeric(12, 2) not null,
+  category_id uuid references categories(id) on delete set null,
+  location_id uuid references spaces(id) on delete set null,   -- type='store'
+  paid_by_id  uuid references spaces(id) on delete set null,   -- type='person'
+  date        date not null,
+  description text,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
 
--- Recurring / expected income sources (wage, side gig, etc.)
-CREATE TABLE income_sources (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id   UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  person_id   UUID REFERENCES spaces(id) ON DELETE SET NULL,    -- person type space; null = family-wide
-  name        TEXT NOT NULL,                                    -- e.g. 'Salary', 'Freelance', 'Rental'
-  type        TEXT CHECK (type IN ('wage', 'side_gig', 'other')),
-  amount      NUMERIC(12, 2) NOT NULL,                          -- expected amount per frequency
-  frequency   TEXT CHECK (frequency IN ('weekly', 'biweekly', 'monthly', 'yearly')),
-  start_date  DATE,
-  end_date    DATE,
-  created_at  TIMESTAMPTZ DEFAULT now(),
-  updated_at  TIMESTAMPTZ DEFAULT now()
+-- Recurring / expected income sources
+create table income_sources (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references families(id) on delete cascade,
+  person_id  uuid references spaces(id) on delete set null,
+  name       text not null,
+  type       text check (type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
+  amount     numeric(12, 2) not null,
+  frequency  text check (frequency in ('weekly', 'biweekly', 'monthly', 'yearly')),
+  start_date date,
+  end_date   date,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 -- Actual logged income entries
-CREATE TABLE income_entries (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id        UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  income_source_id UUID REFERENCES income_sources(id) ON DELETE SET NULL,
-  person_id        UUID REFERENCES spaces(id) ON DELETE SET NULL,
-  amount           NUMERIC(12, 2) NOT NULL,
-  date             DATE NOT NULL,
-  description      TEXT,
-  created_at       TIMESTAMPTZ DEFAULT now()
+create table income_entries (
+  id               uuid primary key default gen_random_uuid(),
+  family_id        uuid not null references families(id) on delete cascade,
+  income_source_id uuid references income_sources(id) on delete set null,
+  person_id        uuid references spaces(id) on delete set null,
+  amount           numeric(12, 2) not null,
+  date             date not null,
+  description      text,
+  created_at       timestamptz default now()
 );
 
--- ============================================================
--- BUDGETS
--- ============================================================
-
--- null person_id = family-wide budget
--- null category_id = overall spend budget (not per-category)
--- Both null = total family budget for the period
-CREATE TABLE budgets (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id    UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  person_id    UUID REFERENCES spaces(id) ON DELETE CASCADE,
-  category_id  UUID REFERENCES categories(id) ON DELETE CASCADE,
-  amount       NUMERIC(12, 2) NOT NULL,
-  period       TEXT NOT NULL CHECK (period IN ('monthly', 'yearly')),
-  created_at   TIMESTAMPTZ DEFAULT now(),
-  updated_at   TIMESTAMPTZ DEFAULT now()
+-- Budgets: null person_id = family-wide; null category_id = overall
+create table budgets (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  person_id   uuid references spaces(id) on delete cascade,
+  category_id uuid references categories(id) on delete cascade,
+  amount      numeric(12, 2) not null,
+  period      text not null check (period in ('monthly', 'yearly')),
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
 );
 
--- ============================================================
--- ITEMS (grocery / chore cards on the board)
--- ============================================================
-
-CREATE TABLE items (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  space_id        UUID NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
-  family_id       UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  title           TEXT NOT NULL,
-  description     TEXT,
-  quantity        TEXT,                                         -- e.g. '2x', '1 bag'
-  recurrence      TEXT CHECK (recurrence IN ('daily', 'weekly', 'monthly', 'yearly')),
-  sort_order      INTEGER NOT NULL DEFAULT 0,
-  start_date      TIMESTAMPTZ,                                  -- ISO with time; noon sentinel = date only
-  end_date        TIMESTAMPTZ,
-  completed       BOOLEAN NOT NULL DEFAULT false,
-  completed_at    TIMESTAMPTZ,
-  completed_by    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_by      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  google_event_id TEXT,
-  created_at      TIMESTAMPTZ DEFAULT now(),
-  updated_at      TIMESTAMPTZ DEFAULT now()
+-- Board task / grocery cards (no family_id — scoped via space → family)
+create table items (
+  id              uuid primary key default gen_random_uuid(),
+  space_id        uuid not null references spaces(id) on delete cascade,
+  title           text not null,
+  description     text,
+  quantity        text,
+  recurrence      text check (recurrence in ('daily', 'weekly', 'monthly', 'yearly')),
+  sort_order      integer not null default 0,
+  start_date      timestamptz,
+  end_date        timestamptz,
+  completed       boolean not null default false,
+  completed_at    timestamptz,
+  completed_by    uuid references auth.users(id) on delete set null,
+  created_by      uuid references auth.users(id) on delete set null,
+  google_event_id text,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
 );
 
--- ============================================================
--- TRACKERS (debt / savings / loans) — Pro feature
--- ============================================================
-
-CREATE TABLE trackers (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id       UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  title           TEXT NOT NULL,
-  description     TEXT,
-  initial_balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  current_balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  color           TEXT,
-  created_at      TIMESTAMPTZ DEFAULT now(),
-  updated_at      TIMESTAMPTZ DEFAULT now()
+-- Trackers: debt / savings / loans
+create table trackers (
+  id              uuid primary key default gen_random_uuid(),
+  family_id       uuid not null references families(id) on delete cascade,
+  title           text not null,
+  description     text,
+  initial_balance numeric(12, 2) not null default 0,
+  current_balance numeric(12, 2) not null default 0,
+  color           text,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
 );
 
-CREATE TABLE tracker_entries (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tracker_id  UUID NOT NULL REFERENCES trackers(id) ON DELETE CASCADE,
-  family_id   UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  date        DATE NOT NULL,
-  description TEXT,
-  debit       NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  credit      NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  balance     NUMERIC(12, 2) NOT NULL DEFAULT 0,
-  created_at  TIMESTAMPTZ DEFAULT now()
+create table tracker_entries (
+  id         uuid primary key default gen_random_uuid(),
+  tracker_id uuid not null references trackers(id) on delete cascade,
+  family_id  uuid not null references families(id) on delete cascade,
+  date       date not null,
+  description text,
+  debit      numeric(12, 2) not null default 0,
+  credit     numeric(12, 2) not null default 0,
+  balance    numeric(12, 2) not null default 0,
+  created_at timestamptz default now()
 );
 
--- ============================================================
--- TRIGGERS: updated_at
--- ============================================================
 
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- ----------------------------------------------------------------
+-- PART 3: GRANTS
+-- SQL-created tables start with no grants; RLS blocks everything
+-- before policies are evaluated without these.
+-- ----------------------------------------------------------------
 
-CREATE TRIGGER trg_families_updated_at        BEFORE UPDATE ON families        FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_profiles_updated_at        BEFORE UPDATE ON profiles        FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_spaces_updated_at          BEFORE UPDATE ON spaces          FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_categories_updated_at      BEFORE UPDATE ON categories      FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_expenses_updated_at        BEFORE UPDATE ON expenses        FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_income_sources_updated_at  BEFORE UPDATE ON income_sources  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_budgets_updated_at         BEFORE UPDATE ON budgets         FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_items_updated_at           BEFORE UPDATE ON items           FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER trg_trackers_updated_at        BEFORE UPDATE ON trackers        FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+grant usage on schema public to anon, authenticated;
 
--- ============================================================
--- TRIGGER: auto-create profile on signup
--- ============================================================
+grant select, insert, update, delete on profiles        to authenticated;
+grant select, insert, update, delete on families        to authenticated;
+grant select, insert, update, delete on user_families   to authenticated;
+grant select, insert, update, delete on spaces          to authenticated;
+grant select, insert, update, delete on categories      to authenticated;
+grant select, insert, update, delete on expenses        to authenticated;
+grant select, insert, update, delete on income_sources  to authenticated;
+grant select, insert, update, delete on income_entries  to authenticated;
+grant select, insert, update, delete on budgets         to authenticated;
+grant select, insert, update, delete on items           to authenticated;
+grant select, insert, update, delete on trackers        to authenticated;
+grant select, insert, update, delete on tracker_entries to authenticated;
+grant select                          on invites         to anon;
+grant select, insert, update          on invites         to authenticated;
 
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO profiles (id, name, email, avatar_url)
-  VALUES (
-    NEW.id,
-    COALESCE(
-      NEW.raw_user_meta_data->>'full_name',
-      NEW.raw_user_meta_data->>'name'
-    ),
-    NEW.email,
-    NEW.raw_user_meta_data->>'avatar_url'
+
+-- ----------------------------------------------------------------
+-- PART 4: UPDATED_AT TRIGGER
+-- ----------------------------------------------------------------
+
+create or replace function update_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger trg_profiles_updated_at        before update on profiles        for each row execute function update_updated_at();
+create trigger trg_families_updated_at        before update on families        for each row execute function update_updated_at();
+create trigger trg_spaces_updated_at          before update on spaces          for each row execute function update_updated_at();
+create trigger trg_categories_updated_at      before update on categories      for each row execute function update_updated_at();
+create trigger trg_expenses_updated_at        before update on expenses        for each row execute function update_updated_at();
+create trigger trg_income_sources_updated_at  before update on income_sources  for each row execute function update_updated_at();
+create trigger trg_budgets_updated_at         before update on budgets         for each row execute function update_updated_at();
+create trigger trg_items_updated_at           before update on items           for each row execute function update_updated_at();
+create trigger trg_trackers_updated_at        before update on trackers        for each row execute function update_updated_at();
+
+
+-- ----------------------------------------------------------------
+-- PART 5: SIGNUP TRIGGER
+-- Auto-creates a profile row whenever a user signs up.
+-- SECURITY DEFINER + search_path = public is required — without it
+-- the trigger runs in the auth schema and cannot find public.profiles.
+-- ----------------------------------------------------------------
+
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, name, email, avatar_url)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
+    new.email,
+    new.raw_user_meta_data->>'avatar_url'
   )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
 
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user();
 
--- ============================================================
--- INDEXES
--- ============================================================
 
--- expenses: monthly view (most common — "show me March 2026")
-CREATE INDEX idx_expenses_family_date
-  ON expenses (family_id, date DESC);
+-- ----------------------------------------------------------------
+-- PART 6: SET created_by TRIGGER ON ITEMS
+-- Auto-stamps created_by = auth.uid() on every new item row.
+-- ----------------------------------------------------------------
 
--- expenses: yearly analytics by month
-CREATE INDEX idx_expenses_family_year_month
-  ON expenses (family_id, EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int);
+create or replace function set_item_created_by()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.created_by := auth.uid();
+  return new;
+end;
+$$;
 
--- expenses: category filter & chart drilldown
-CREATE INDEX idx_expenses_family_category
-  ON expenses (family_id, category_id)
-  WHERE category_id IS NOT NULL;
+create trigger set_item_created_by_trigger
+  before insert on items
+  for each row execute function set_item_created_by();
 
--- expenses: paid_by filter (member split reports)
-CREATE INDEX idx_expenses_family_paid_by
-  ON expenses (family_id, paid_by_id)
-  WHERE paid_by_id IS NOT NULL;
 
--- expenses: location filter (store reports)
-CREATE INDEX idx_expenses_family_location
-  ON expenses (family_id, location_id)
-  WHERE location_id IS NOT NULL;
+-- ----------------------------------------------------------------
+-- PART 7: RLS HELPER FUNCTIONS
+-- SECURITY DEFINER lets them query user_families without going
+-- through RLS on that table (prevents infinite recursion).
+-- ----------------------------------------------------------------
 
--- spaces: board column fetch (active, ordered)
-CREATE INDEX idx_spaces_family_type_order
-  ON spaces (family_id, type, sort_order)
-  WHERE deleted_at IS NULL;
+create or replace function is_family_member(fid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1 from user_families where user_id = auth.uid() and family_id = fid
+  )
+$$;
 
--- spaces: expense picker dropdowns (active + visible)
-CREATE INDEX idx_spaces_expense_picker
-  ON spaces (family_id, type, show_in_expenses)
-  WHERE deleted_at IS NULL AND show_in_expenses = true;
+create or replace function is_family_owner(fid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1 from user_families
+    where user_id = auth.uid() and family_id = fid and role = 'owner'
+  )
+$$;
 
--- categories: picker + chart legend (active only)
-CREATE INDEX idx_categories_family_active
-  ON categories (family_id, sort_order)
-  WHERE deleted_at IS NULL;
+-- For items: checks membership via the parent space (items have no family_id)
+create or replace function item_is_family_member(sid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1
+    from spaces s
+    join user_families uf on uf.family_id = s.family_id
+    where s.id = sid and uf.user_id = auth.uid()
+  )
+$$;
 
--- items: board column (active, sorted)
-CREATE INDEX idx_items_space_active
-  ON items (space_id, sort_order)
-  WHERE completed = false;
+grant execute on function is_family_member(uuid)      to authenticated;
+grant execute on function is_family_owner(uuid)       to authenticated;
+grant execute on function item_is_family_member(uuid) to authenticated;
 
--- items: history tab (completed, most recent first)
-CREATE INDEX idx_items_space_completed
-  ON items (space_id, completed_at DESC)
-  WHERE completed = true;
 
--- items: activity feed across family
-CREATE INDEX idx_items_family_recent
-  ON items (family_id, updated_at DESC);
+-- ----------------------------------------------------------------
+-- PART 8: RPC FUNCTIONS
+-- Called via supabase.rpc() — never as direct table operations.
+-- ----------------------------------------------------------------
 
--- items: recurring item job
-CREATE INDEX idx_items_recurring
-  ON items (family_id, recurrence)
-  WHERE recurrence IS NOT NULL AND completed = false;
+-- Called on every login. Upserts the profile and returns the user's
+-- family, creating one (as owner) if they don't have one yet.
+-- Also ensures a system person space exists for this member.
+create or replace function find_or_create_family(p_user_id uuid)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_family    families%rowtype;
+  v_name      text;
+begin
+  insert into profiles (id, name, email, avatar_url)
+  select id, coalesce(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name'), email, raw_user_meta_data->>'avatar_url'
+  from auth.users where id = p_user_id
+  on conflict (id) do update
+    set name = excluded.name, email = excluded.email, avatar_url = excluded.avatar_url;
 
--- income: date range queries
-CREATE INDEX idx_income_entries_family_date
-  ON income_entries (family_id, date DESC);
+  select family_id into v_family_id
+  from user_families where user_id = p_user_id
+  order by joined_at asc limit 1;
 
-CREATE INDEX idx_income_entries_person_date
-  ON income_entries (person_id, date DESC)
-  WHERE person_id IS NOT NULL;
+  if v_family_id is not null then
+    -- Ensure system person space exists (idempotent)
+    select coalesce(p.name, u.email) into v_name
+    from auth.users u left join profiles p on p.id = u.id
+    where u.id = p_user_id;
 
--- trackers: entry history
-CREATE INDEX idx_tracker_entries_tracker_date
-  ON tracker_entries (tracker_id, date DESC);
+    insert into spaces (family_id, name, type, show_in_expenses, is_system, linked_user_id, sort_order)
+    select v_family_id, coalesce(v_name, 'Member'), 'person', true, true, p_user_id,
+           coalesce((select max(sort_order) + 1 from spaces where family_id = v_family_id), 0)
+    where not exists (
+      select 1 from spaces where family_id = v_family_id and linked_user_id = p_user_id and type = 'person'
+    );
 
--- family_members: user → their families lookup
-CREATE INDEX idx_family_members_user
-  ON family_members (user_id);
+    select * into v_family from families where id = v_family_id;
+    return row_to_json(v_family);
+  end if;
 
--- ============================================================
--- ROW LEVEL SECURITY
--- ============================================================
+  insert into families (name) values ('Our Family') returning * into v_family;
+  insert into user_families (user_id, family_id, role) values (p_user_id, v_family.id, 'owner');
 
-ALTER TABLE families        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE family_members  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE invites         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE spaces          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE categories      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE income_sources  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE income_entries  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE budgets         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE items           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE trackers        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tracker_entries ENABLE ROW LEVEL SECURITY;
+  -- Create owner's system person space
+  select coalesce(p.name, u.email) into v_name
+  from auth.users u left join profiles p on p.id = u.id
+  where u.id = p_user_id;
 
--- Reusable helpers (SECURITY DEFINER so they bypass RLS when called inside policies)
-CREATE OR REPLACE FUNCTION is_family_member(fid UUID)
-RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM family_members
-    WHERE family_id = fid AND user_id = auth.uid()
+  insert into spaces (family_id, name, type, show_in_expenses, is_system, linked_user_id, sort_order)
+  values (v_family.id, coalesce(v_name, 'Owner'), 'person', true, true, p_user_id, 0);
+
+  return row_to_json(v_family);
+end;
+$$;
+
+-- Called when a user accepts a family invite link.
+create or replace function accept_invite(p_token uuid, p_user_id uuid, p_family_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_name text;
+begin
+  insert into profiles (id, name, email, avatar_url)
+  select id, coalesce(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name'), email, raw_user_meta_data->>'avatar_url'
+  from auth.users where id = p_user_id
+  on conflict (id) do update
+    set name = excluded.name, email = excluded.email, avatar_url = excluded.avatar_url;
+
+  -- Delete solo families auto-created on signup (user is the only member)
+  delete from families
+  where id in (
+    select uf.family_id from user_families uf
+    where uf.user_id = p_user_id
+      and uf.family_id != p_family_id
+      and (select count(*) from user_families where family_id = uf.family_id) = 1
   );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
-CREATE OR REPLACE FUNCTION is_family_owner(fid UUID)
-RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM family_members
-    WHERE family_id = fid AND user_id = auth.uid() AND role = 'owner'
+  delete from user_families where user_id = p_user_id and family_id != p_family_id;
+
+  insert into user_families (user_id, family_id, role)
+  values (p_user_id, p_family_id, 'member')
+  on conflict (user_id, family_id) do nothing;
+
+  -- Create system person space for the new member (idempotent)
+  select coalesce(p.name, u.email) into v_name
+  from auth.users u left join profiles p on p.id = u.id
+  where u.id = p_user_id;
+
+  insert into spaces (family_id, name, type, show_in_expenses, is_system, linked_user_id, sort_order)
+  select p_family_id, coalesce(v_name, 'Member'), 'person', true, true, p_user_id,
+         coalesce((select max(sort_order) + 1 from spaces where family_id = p_family_id), 0)
+  where not exists (
+    select 1 from spaces where family_id = p_family_id and linked_user_id = p_user_id and type = 'person'
   );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- families
-CREATE POLICY "members can read their family"    ON families FOR SELECT USING (is_family_member(id));
-CREATE POLICY "owners can update their family"   ON families FOR UPDATE USING (is_family_owner(id));
-CREATE POLICY "authenticated users can create"   ON families FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+  update invites set accepted_at = now() where token = p_token;
+end;
+$$;
+
+grant execute on function find_or_create_family(uuid)     to authenticated;
+grant execute on function accept_invite(uuid, uuid, uuid) to authenticated;
+
+
+-- ----------------------------------------------------------------
+-- PART 9: ROW LEVEL SECURITY
+-- ----------------------------------------------------------------
+
+alter table profiles        enable row level security;
+alter table families        enable row level security;
+alter table user_families   enable row level security;
+alter table invites         enable row level security;
+alter table spaces          enable row level security;
+alter table categories      enable row level security;
+alter table expenses        enable row level security;
+alter table income_sources  enable row level security;
+alter table income_entries  enable row level security;
+alter table budgets         enable row level security;
+alter table items           enable row level security;
+alter table trackers        enable row level security;
+alter table tracker_entries enable row level security;
+
+
+-- ----------------------------------------------------------------
+-- PART 10: POLICIES
+-- INSERT on families/user_families goes through SECURITY DEFINER
+-- RPCs (find_or_create_family, accept_invite) — no direct insert policy needed.
+-- ----------------------------------------------------------------
 
 -- profiles
-CREATE POLICY "read profiles of family members"  ON profiles FOR SELECT USING (
-  id = auth.uid() OR
-  EXISTS (
-    SELECT 1 FROM family_members fm1
-    JOIN family_members fm2 ON fm1.family_id = fm2.family_id
-    WHERE fm1.user_id = auth.uid() AND fm2.user_id = profiles.id
-  )
-);
-CREATE POLICY "users can insert own profile"     ON profiles FOR INSERT WITH CHECK (id = auth.uid());
-CREATE POLICY "users can update own profile"     ON profiles FOR UPDATE USING (id = auth.uid());
+create policy "profiles_select" on profiles
+  for select to authenticated using (true);
+create policy "profiles_update" on profiles
+  for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
 
--- family_members
-CREATE POLICY "members can view roster"          ON family_members FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "users can join a family"          ON family_members FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "owners can remove members"        ON family_members FOR DELETE USING (is_family_owner(family_id));
+-- families
+create policy "families_select" on families
+  for select to authenticated using (is_family_member(id));
+create policy "families_update" on families
+  for update to authenticated
+  using (is_family_owner(id)) with check (is_family_owner(id));
+create policy "families_delete" on families
+  for delete to authenticated using (is_family_owner(id));
+
+-- user_families
+create policy "user_families_select" on user_families
+  for select to authenticated using (is_family_member(family_id));
+create policy "user_families_delete" on user_families
+  for delete to authenticated
+  using (user_id = auth.uid() or is_family_owner(family_id));
 
 -- invites
--- Token is the secret — anyone with the token can read it to accept the invite
-CREATE POLICY "members can read invites"         ON invites FOR SELECT USING (is_family_member(family_id) OR true);
-CREATE POLICY "owners can manage invites"        ON invites FOR INSERT WITH CHECK (is_family_owner(family_id));
-CREATE POLICY "owners can delete invites"        ON invites FOR DELETE USING (is_family_owner(family_id));
-CREATE POLICY "anyone can mark invite used"      ON invites FOR UPDATE USING (true) WITH CHECK (true);
+create policy "invites_select"  on invites for select using (true);
+create policy "invites_insert"  on invites
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "invites_update"  on invites
+  for update to authenticated using (true) with check (true);
 
 -- spaces
-CREATE POLICY "members can read spaces"          ON spaces FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create spaces"        ON spaces FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update spaces"        ON spaces FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "owners can delete spaces"         ON spaces FOR DELETE USING (is_family_owner(family_id));
+create policy "spaces_select" on spaces
+  for select to authenticated using (is_family_member(family_id));
+create policy "spaces_insert" on spaces
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "spaces_update" on spaces
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "spaces_delete" on spaces
+  for delete to authenticated using (is_family_member(family_id));
 
 -- categories
-CREATE POLICY "members can read categories"      ON categories FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create categories"    ON categories FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update categories"    ON categories FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "owners can delete categories"     ON categories FOR DELETE USING (is_family_owner(family_id));
+create policy "categories_select" on categories
+  for select to authenticated using (is_family_member(family_id));
+create policy "categories_insert" on categories
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "categories_update" on categories
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "categories_delete" on categories
+  for delete to authenticated using (is_family_member(family_id));
 
 -- expenses
-CREATE POLICY "members can read expenses"        ON expenses FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create expenses"      ON expenses FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update expenses"      ON expenses FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "members can delete expenses"      ON expenses FOR DELETE USING (is_family_member(family_id));
+create policy "expenses_select" on expenses
+  for select to authenticated using (is_family_member(family_id));
+create policy "expenses_insert" on expenses
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "expenses_update" on expenses
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "expenses_delete" on expenses
+  for delete to authenticated using (is_family_member(family_id));
 
 -- income_sources
-CREATE POLICY "members can read income_sources"  ON income_sources FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create income_sources" ON income_sources FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update income_sources" ON income_sources FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "members can delete income_sources" ON income_sources FOR DELETE USING (is_family_member(family_id));
+create policy "income_sources_select" on income_sources
+  for select to authenticated using (is_family_member(family_id));
+create policy "income_sources_insert" on income_sources
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "income_sources_update" on income_sources
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "income_sources_delete" on income_sources
+  for delete to authenticated using (is_family_member(family_id));
 
 -- income_entries
-CREATE POLICY "members can read income_entries"  ON income_entries FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create income_entries" ON income_entries FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update income_entries" ON income_entries FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "members can delete income_entries" ON income_entries FOR DELETE USING (is_family_member(family_id));
+create policy "income_entries_select" on income_entries
+  for select to authenticated using (is_family_member(family_id));
+create policy "income_entries_insert" on income_entries
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "income_entries_update" on income_entries
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "income_entries_delete" on income_entries
+  for delete to authenticated using (is_family_member(family_id));
 
 -- budgets
-CREATE POLICY "members can read budgets"         ON budgets FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create budgets"        ON budgets FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update budgets"        ON budgets FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "members can delete budgets"        ON budgets FOR DELETE USING (is_family_member(family_id));
+create policy "budgets_select" on budgets
+  for select to authenticated using (is_family_member(family_id));
+create policy "budgets_insert" on budgets
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "budgets_update" on budgets
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "budgets_delete" on budgets
+  for delete to authenticated using (is_family_member(family_id));
 
--- items
-CREATE POLICY "members can read items"           ON items FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create items"         ON items FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update items"         ON items FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "members can delete items"         ON items FOR DELETE USING (is_family_member(family_id));
+-- items (scoped via space → family, no family_id column on items)
+create policy "items_select" on items
+  for select to authenticated using (item_is_family_member(space_id));
+create policy "items_insert" on items
+  for insert to authenticated with check (item_is_family_member(space_id));
+create policy "items_update" on items
+  for update to authenticated
+  using (item_is_family_member(space_id)) with check (item_is_family_member(space_id));
+create policy "items_delete" on items
+  for delete to authenticated using (item_is_family_member(space_id));
 
 -- trackers
-CREATE POLICY "members can read trackers"        ON trackers FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create trackers"      ON trackers FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update trackers"      ON trackers FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "owners can delete trackers"       ON trackers FOR DELETE USING (is_family_owner(family_id));
+create policy "trackers_select" on trackers
+  for select to authenticated using (is_family_member(family_id));
+create policy "trackers_insert" on trackers
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "trackers_update" on trackers
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "trackers_delete" on trackers
+  for delete to authenticated using (is_family_owner(family_id));
 
 -- tracker_entries
-CREATE POLICY "members can read tracker_entries"   ON tracker_entries FOR SELECT USING (is_family_member(family_id));
-CREATE POLICY "members can create tracker_entries" ON tracker_entries FOR INSERT WITH CHECK (is_family_member(family_id));
-CREATE POLICY "members can update tracker_entries" ON tracker_entries FOR UPDATE USING (is_family_member(family_id));
-CREATE POLICY "members can delete tracker_entries" ON tracker_entries FOR DELETE USING (is_family_member(family_id));
+create policy "tracker_entries_select" on tracker_entries
+  for select to authenticated using (is_family_member(family_id));
+create policy "tracker_entries_insert" on tracker_entries
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "tracker_entries_update" on tracker_entries
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "tracker_entries_delete" on tracker_entries
+  for delete to authenticated using (is_family_member(family_id));
+
+
+-- ----------------------------------------------------------------
+-- PART 11: INDEXES
+-- ----------------------------------------------------------------
+
+-- expenses: monthly view
+create index idx_expenses_family_date
+  on expenses (family_id, date desc);
+
+-- expenses: yearly analytics by month
+create index idx_expenses_family_year_month
+  on expenses (family_id, cast(extract(year from date) as int), cast(extract(month from date) as int));
+
+-- expenses: category drilldown
+create index idx_expenses_family_category
+  on expenses (family_id, category_id)
+  where category_id is not null;
+
+-- expenses: paid_by split reports
+create index idx_expenses_family_paid_by
+  on expenses (family_id, paid_by_id)
+  where paid_by_id is not null;
+
+-- expenses: location reports
+create index idx_expenses_family_location
+  on expenses (family_id, location_id)
+  where location_id is not null;
+
+-- spaces: board fetch (active, ordered)
+create index idx_spaces_family_type_order
+  on spaces (family_id, type, sort_order)
+  where deleted_at is null;
+
+-- spaces: expense picker dropdowns
+create index idx_spaces_expense_picker
+  on spaces (family_id, type, show_in_expenses)
+  where deleted_at is null and show_in_expenses = true;
+
+-- categories: picker + chart (active only)
+create index idx_categories_family_active
+  on categories (family_id, sort_order)
+  where deleted_at is null;
+
+-- items: active board cards
+create index idx_items_space_active
+  on items (space_id, sort_order)
+  where completed = false;
+
+-- items: completed history (most recent first)
+create index idx_items_space_completed
+  on items (space_id, completed_at desc)
+  where completed = true;
+
+-- items: activity feed (recent items across spaces)
+create index idx_items_space_recent
+  on items (space_id, created_at desc);
+
+-- items: recurring job
+create index idx_items_recurring
+  on items (space_id, recurrence)
+  where recurrence is not null and completed = false;
+
+-- income entries: date range
+create index idx_income_entries_family_date
+  on income_entries (family_id, date desc);
+
+-- tracker entries: history
+create index idx_tracker_entries_tracker_date
+  on tracker_entries (tracker_id, date desc);
+
+-- user_families: user → their families
+create index idx_user_families_user
+  on user_families (user_id);

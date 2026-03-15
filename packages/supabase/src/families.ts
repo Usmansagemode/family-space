@@ -6,16 +6,24 @@ export type { Family, FamilyMember }
 function mapFamily(data: {
   id: string
   name: string
+  plan?: string | null
+  currency?: string | null
+  locale?: string | null
   google_calendar_id: string | null
   google_calendar_embed_url?: string | null
   created_at: string
+  updated_at?: string | null
 }): Family {
   return {
     id: data.id,
     name: data.name,
+    plan: (data.plan ?? 'free') as Family['plan'],
+    currency: data.currency ?? 'USD',
+    locale: data.locale ?? 'en-US',
     googleCalendarId: data.google_calendar_id ?? undefined,
     googleCalendarEmbedUrl: data.google_calendar_embed_url ?? undefined,
     createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at ?? data.created_at),
   }
 }
 
@@ -35,6 +43,8 @@ export async function updateFamily(
   id: string,
   input: {
     name?: string
+    currency?: string
+    locale?: string
     googleCalendarId?: string
     googleCalendarEmbedUrl?: string
   },
@@ -42,6 +52,8 @@ export async function updateFamily(
   const supabase = getSupabaseClient()
   const dbInput: Record<string, unknown> = {}
   if (input.name !== undefined) dbInput['name'] = input.name
+  if (input.currency !== undefined) dbInput['currency'] = input.currency
+  if (input.locale !== undefined) dbInput['locale'] = input.locale
   if (input.googleCalendarId !== undefined)
     dbInput['google_calendar_id'] = input.googleCalendarId || null
   if (input.googleCalendarEmbedUrl !== undefined)
@@ -77,7 +89,7 @@ export async function fetchFamilyMembers(
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('user_families')
-    .select('user_id, role, profiles(name, email, avatar_url)')
+    .select('user_id, role, joined_at, profiles(name, email, avatar_url)')
     .eq('family_id', familyId)
 
   if (error) throw error
@@ -90,7 +102,9 @@ export async function fetchFamilyMembers(
     } | null
     return {
       userId: row.user_id as string,
+      familyId,
       role: row.role as 'owner' | 'member',
+      joinedAt: new Date(row.joined_at as string),
       name: profile?.name ?? null,
       email: profile?.email ?? null,
       avatarUrl: profile?.avatar_url ?? null,
