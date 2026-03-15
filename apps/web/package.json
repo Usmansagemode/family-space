@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#/*": "./src/*"
+    "@/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3005",
+    "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -43,6 +43,8 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.561.0",
     "motion": "^12.35.2",
+    "recharts": "^2.15.0",
+    "xlsx": "^0.18.5",
     "next-themes": "^0.4.6",
     "nitro": "npm:nitro-nightly@latest",
     "radix-ui": "^1.4.3",

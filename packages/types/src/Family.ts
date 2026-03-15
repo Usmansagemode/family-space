@@ -1,15 +1,25 @@
+export type FamilyPlan = 'free' | 'pro'
+
 export type FamilyMember = {
   userId: string
+  familyId: string
   role: 'owner' | 'member'
   name: string | null
   email: string | null
   avatarUrl: string | null
+  joinedAt: Date
 }
 
 export type Family = {
   id: string
   name: string
+  plan: FamilyPlan
+  /** ISO 4217 currency code e.g. 'USD', 'GBP', 'PKR' */
+  currency: string
+  /** BCP 47 locale e.g. 'en-US', 'en-GB' */
+  locale: string
   googleCalendarId?: string
   googleCalendarEmbedUrl?: string
   createdAt: Date
+  updatedAt: Date
 }

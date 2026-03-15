@@ -8,8 +8,11 @@ function rowToSpace(row: {
   color: string
   type: string
   sort_order: number
+  show_in_expenses: boolean
   assigned_person_id: string | null
+  deleted_at: string | null
   created_at: string
+  updated_at: string
 }): Space {
   return {
     id: row.id,
@@ -18,8 +21,11 @@ function rowToSpace(row: {
     color: row.color,
     type: row.type as SpaceType,
     sortOrder: row.sort_order,
+    showInExpenses: row.show_in_expenses,
     assignedPersonId: row.assigned_person_id ?? null,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
     createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   }
 }
 
@@ -29,6 +35,26 @@ export async function fetchSpaces(familyId: string): Promise<Space[]> {
     .from('spaces')
     .select('*')
     .eq('family_id', familyId)
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+  return data.map(rowToSpace)
+}
+
+/** Spaces visible in expense pickers — active + show_in_expenses = true */
+export async function fetchExpensePickerSpaces(
+  familyId: string,
+  type: SpaceType,
+): Promise<Space[]> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('spaces')
+    .select('*')
+    .eq('family_id', familyId)
+    .eq('type', type)
+    .eq('show_in_expenses', true)
+    .is('deleted_at', null)
     .order('sort_order', { ascending: true })
 
   if (error) throw error
@@ -40,9 +66,10 @@ export async function createSpace(input: {
   name: string
   color: string
   type: SpaceType
+  showInExpenses?: boolean
 }): Promise<Space> {
-  const maxOrder = await fetchSpaces(input.familyId)
-    .then((spaces) => spaces.length)
+  const count = await fetchSpaces(input.familyId)
+    .then((s) => s.length)
     .catch(() => 0)
 
   const supabase = getSupabaseClient()
@@ -53,7 +80,8 @@ export async function createSpace(input: {
       name: input.name,
       color: input.color,
       type: input.type,
-      sort_order: maxOrder,
+      sort_order: count,
+      show_in_expenses: input.showInExpenses ?? true,
     })
     .select()
     .single()
@@ -67,15 +95,15 @@ export async function updateSpace(
   input: Partial<{
     name: string
     color: string
-    type: SpaceType
+    showInExpenses: boolean
     assignedPersonId: string | null
   }>,
 ): Promise<Space> {
-  const { assignedPersonId, ...rest } = input
-  const update: Record<string, unknown> = { ...rest }
-  if ('assignedPersonId' in input) {
-    update.assigned_person_id = assignedPersonId ?? null
-  }
+  const update: Record<string, unknown> = {}
+  if (input.name !== undefined) update.name = input.name
+  if (input.color !== undefined) update.color = input.color
+  if (input.showInExpenses !== undefined) update.show_in_expenses = input.showInExpenses
+  if ('assignedPersonId' in input) update.assigned_person_id = input.assignedPersonId ?? null
 
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
@@ -89,10 +117,37 @@ export async function updateSpace(
   return rowToSpace(data)
 }
 
+/** Soft delete — sets deleted_at. Use this instead of hard delete when expenses reference this space. */
+export async function archiveSpace(id: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('spaces')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/** Hard delete — only safe when no expenses reference this space. */
 export async function deleteSpace(id: string): Promise<void> {
   const supabase = getSupabaseClient()
   const { error } = await supabase.from('spaces').delete().eq('id', id)
   if (error) throw error
+}
+
+/** Count expenses referencing this space (for deletion dialog). */
+export async function countSpaceExpenses(spaceId: string): Promise<number> {
+  const supabase = getSupabaseClient()
+  const { count: loc, error: e1 } = await supabase
+    .from('expenses')
+    .select('id', { count: 'exact', head: true })
+    .eq('location_id', spaceId)
+  const { count: paid, error: e2 } = await supabase
+    .from('expenses')
+    .select('id', { count: 'exact', head: true })
+    .eq('paid_by_id', spaceId)
+  if (e1) throw e1
+  if (e2) throw e2
+  return (loc ?? 0) + (paid ?? 0)
 }
 
 export async function reorderSpaces(orderedIds: string[]): Promise<void> {
