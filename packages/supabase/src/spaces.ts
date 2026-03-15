@@ -8,6 +8,7 @@ function rowToSpace(row: {
   color: string
   type: string
   sort_order: number
+  assigned_person_id: string | null
   created_at: string
 }): Space {
   return {
@@ -17,6 +18,7 @@ function rowToSpace(row: {
     color: row.color,
     type: row.type as SpaceType,
     sortOrder: row.sort_order,
+    assignedPersonId: row.assigned_person_id ?? null,
     createdAt: new Date(row.created_at),
   }
 }
@@ -62,12 +64,23 @@ export async function createSpace(input: {
 
 export async function updateSpace(
   id: string,
-  input: Partial<{ name: string; color: string; type: SpaceType }>,
+  input: Partial<{
+    name: string
+    color: string
+    type: SpaceType
+    assignedPersonId: string | null
+  }>,
 ): Promise<Space> {
+  const { assignedPersonId, ...rest } = input
+  const update: Record<string, unknown> = { ...rest }
+  if ('assignedPersonId' in input) {
+    update.assigned_person_id = assignedPersonId ?? null
+  }
+
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('spaces')
-    .update(input)
+    .update(update)
     .eq('id', id)
     .select()
     .single()

@@ -35,6 +35,7 @@ export function useSpaceMutations(familyId: string) {
       name?: string
       color?: string
       type?: SpaceType
+      assignedPersonId?: string | null
     }) => updateSpace(id, input),
     onSuccess: () => {
       void invalidate()
@@ -42,6 +43,23 @@ export function useSpaceMutations(familyId: string) {
     },
     onError: () => {
       toast.error('Failed to update space')
+    },
+  })
+
+  const assign = useMutation({
+    mutationFn: ({
+      id,
+      assignedPersonId,
+    }: {
+      id: string
+      assignedPersonId: string | null
+    }) => updateSpace(id, { assignedPersonId }),
+    onSuccess: (_data, { assignedPersonId }) => {
+      void invalidate()
+      toast.success(assignedPersonId ? 'Store assigned' : 'Assignment removed')
+    },
+    onError: () => {
+      toast.error('Failed to update assignment')
     },
   })
 
@@ -66,5 +84,5 @@ export function useSpaceMutations(familyId: string) {
     },
   })
 
-  return { create, update, remove, reorder }
+  return { create, update, assign, remove, reorder }
 }

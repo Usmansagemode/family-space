@@ -13,6 +13,9 @@ import {
   History,
   GripVertical,
   Maximize2,
+  UserCheck,
+  UserX,
+  ShoppingBag,
 } from 'lucide-react'
 import { cn, extractHue } from '#/lib/utils'
 import { useIsDark } from '#/hooks/useIsDark'
@@ -27,6 +30,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -54,11 +60,13 @@ import type { Space } from '#/entities/Space'
 type Props = {
   space: Space
   familyId: string
+  allSpaces: Space[]
   isDropTarget?: boolean
   onFocus?: () => void
+  onShop?: (storeId: string) => void
 }
 
-export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
+export function SpaceColumn({ space, familyId, allSpaces, isDropTarget, onFocus, onShop }: Props) {
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editSpaceOpen, setEditSpaceOpen] = useState(false)
@@ -66,8 +74,16 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
 
   const { data: items, isLoading } = useItems(space.id)
   const { create: createItem } = useItemMutations(space.id)
-  const { update: updateSpace, remove: removeSpace } =
+  const { update: updateSpace, assign: assignSpace, remove: removeSpace } =
     useSpaceMutations(familyId)
+
+  const personSpaces = allSpaces.filter((s) => s.type === 'person')
+  const assignedPerson = space.type === 'store'
+    ? allSpaces.find((s) => s.id === space.assignedPersonId) ?? null
+    : null
+  const assignedStores = space.type === 'person'
+    ? allSpaces.filter((s) => s.type === 'store' && s.assignedPersonId === space.id)
+    : []
 
   const hue = extractHue(space.color)
   const isDark = useIsDark()
@@ -161,6 +177,22 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
               {space.name}
             </span>
 
+            {/* Assigned person chip — store columns only */}
+            {assignedPerson && (
+              <span
+                className="flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{
+                  background: isDark
+                    ? `oklch(0.28 0.07 ${extractHue(assignedPerson.color)})`
+                    : assignedPerson.color,
+                  opacity: 0.9,
+                }}
+              >
+                <User className="h-2.5 w-2.5" />
+                {assignedPerson.name}
+              </span>
+            )}
+
             {/* Pending count badge */}
             {!isLoading && pendingCount > 0 && (
               <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:bg-white/10">
@@ -209,6 +241,58 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
                     <Maximize2 className="size-3.5" />
                     Focus mode
                   </DropdownMenuItem>
+                )}
+                {/* Assign to person — store columns only */}
+                {space.type === 'store' && personSpaces.length > 0 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <UserCheck className="size-3.5" />
+                      Assign to person
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {personSpaces.map((person) => (
+                        <DropdownMenuItem
+                          key={person.id}
+                          onClick={() =>
+                            assignSpace.mutate({
+                              id: space.id,
+                              assignedPersonId:
+                                space.assignedPersonId === person.id
+                                  ? null
+                                  : person.id,
+                            })
+                          }
+                        >
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: person.color }}
+                          />
+                          {person.name}
+                          {space.assignedPersonId === person.id && (
+                            <span className="ml-auto text-[10px] text-muted-foreground">
+                              assigned
+                            </span>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                      {space.assignedPersonId && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() =>
+                              assignSpace.mutate({
+                                id: space.id,
+                                assignedPersonId: null,
+                              })
+                            }
+                          >
+                            <UserX className="size-3.5" />
+                            Remove assignment
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 )}
                 <DropdownMenuItem onClick={() => setEditSpaceOpen(true)}>
                   Edit space
@@ -282,6 +366,50 @@ export function SpaceColumn({ space, familyId, isDropTarget, onFocus }: Props) {
             )}
           </div>
         </div>
+
+        {/* Assigned stores — person columns only */}
+        {space.type === 'person' && assignedStores.length > 0 && (
+          <div className="px-3 pb-2">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Your stores
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {assignedStores.map((store) => {
+                const storeHue = extractHue(store.color)
+                return (
+                  <button
+                    key={store.id}
+                    type="button"
+                    onClick={() => onShop?.(store.id)}
+                    className="group/store flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                    style={{
+                      borderColor: isDark
+                        ? `oklch(0.32 0.06 ${storeHue})`
+                        : `oklch(0.84 0.07 ${storeHue})`,
+                      background: isDark
+                        ? `oklch(0.20 0.04 ${storeHue})`
+                        : `oklch(0.97 0.02 ${storeHue})`,
+                    }}
+                  >
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+                      style={{ background: store.color }}
+                    >
+                      <ShoppingCart className="h-3 w-3 text-white/80" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                      {store.name}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors group-hover/store:text-foreground">
+                      <ShoppingBag className="h-3 w-3" />
+                      Shop
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Add item — dashed card */}
         <div className="p-3 pt-1">

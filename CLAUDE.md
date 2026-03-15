@@ -255,6 +255,7 @@ create table spaces (
   color text not null,
   type text not null default 'store',   -- 'person' | 'store'
   sort_order integer not null default 0,
+  assigned_person_id uuid references spaces(id) on delete set null,  -- store → person assignment
   created_at timestamptz default now()
 );
 
@@ -313,6 +314,7 @@ alter table profiles enable row level security;
 
 `docs/` contains living documentation. When resolving bugs, setup issues, or deployment gotchas, **always update the relevant doc** in `docs/` to capture the fix:
 
+- `docs/database-migrations.md` — **always update** when adding/altering Supabase columns or tables. Include the SQL, what it does, and which code files changed.
 - `docs/deployment.md` — update when fixing environment setup, OAuth config, Supabase dashboard settings, Vercel config, EAS/Expo issues, or any "one-time step" that caused a problem
 - `docs/monorepo-migration.md` — update when fixing package resolution, Metro config, or Turborepo issues
 - `docs/react-native-guide.md` — update when discovering React Native behaviour that differs from what's documented

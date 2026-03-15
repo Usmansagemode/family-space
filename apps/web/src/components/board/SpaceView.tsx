@@ -233,6 +233,7 @@ export function SpaceView({ familyId, providerToken, calendarId, typeFilter }: P
                     key={space.id}
                     space={space}
                     familyId={familyId}
+                    allSpaces={spaces ?? []}
                     isDropTarget={
                       activeDragItem !== null &&
                       overSpaceId === space.id &&
@@ -241,6 +242,7 @@ export function SpaceView({ familyId, providerToken, calendarId, typeFilter }: P
                       )?.type === space.type
                     }
                     onFocus={() => setFocusedSpaceId(space.id)}
+                    onShop={(storeId) => setFocusedSpaceId(storeId)}
                   />
                 ))}
               </SortableContext>
@@ -293,9 +295,9 @@ export function SpaceView({ familyId, providerToken, calendarId, typeFilter }: P
         />
       </div>
 
-      {focusedSpaceId && filteredSpaces.find((s) => s.id === focusedSpaceId) && (
+      {focusedSpaceId && (spaces ?? []).find((s) => s.id === focusedSpaceId) && (
         <FocusOverlay
-          space={filteredSpaces.find((s) => s.id === focusedSpaceId)!}
+          space={(spaces ?? []).find((s) => s.id === focusedSpaceId)!}
           familyId={familyId}
           onClose={() => setFocusedSpaceId(null)}
         />

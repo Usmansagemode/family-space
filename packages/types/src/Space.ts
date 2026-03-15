@@ -7,5 +7,6 @@ export type Space = {
   color: string
   type: SpaceType
   sortOrder: number
+  assignedPersonId: string | null
   createdAt: Date
 }
