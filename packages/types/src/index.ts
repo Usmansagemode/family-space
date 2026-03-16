@@ -1,7 +1,7 @@
 export type { Space, SpaceType } from './Space'
 export type { Category } from './Category'
 export type { Expense, ExpenseWithNames } from './Expense'
-export type { IncomeSource, IncomeEntry, IncomeType, IncomeFrequency } from './Income'
+export type { IncomeEntry, IncomeType } from './Income'
 export type { Budget, BudgetPeriod } from './Budget'
 export type { Tracker, TrackerEntry } from './Tracker'
 export type { Item, Recurrence } from './Item'

@@ -99,7 +99,12 @@ function UploadStep() {
       const genModel = genAI.getGenerativeModel({ model })
 
       const bytes = await file.arrayBuffer()
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(bytes)))
+      const uint8 = new Uint8Array(bytes)
+      let binary = ''
+      for (let i = 0; i < uint8.length; i += 8192) {
+        binary += String.fromCharCode(...uint8.subarray(i, i + 8192))
+      }
+      const base64 = btoa(binary)
 
       const categoryList = categories.map((c) => `- ${c.name} (id: ${c.id})`).join('\n')
       const locationList = locationSpaces.map((s) => `- ${s.name} (id: ${s.id})`).join('\n')

@@ -1,27 +1,26 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '#/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+} from '#/components/ui/sheet'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import { cn } from '#/lib/utils'
+import { getCategoryIcon } from '#/lib/categoryIcons'
 import type { Category, Space, ExpenseWithNames } from '@family/types'
 
 const schema = z.object({
   date: z.string().min(1, 'Date is required'),
   amount: z.coerce.number().positive('Amount must be positive'),
   description: z.string().optional(),
-  categoryId: z.string().optional().nullable(),
-  locationId: z.string().optional().nullable(),
-  paidById: z.string().optional().nullable(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -43,6 +42,57 @@ type Props = {
     paidById?: string | null
   }) => void
   isSaving?: boolean
+  /** Increment to reset the form for a new entry without closing the sheet */
+  resetKey?: number
+}
+
+function ChipGroup<T extends { id: string }>({
+  label,
+  items,
+  selected,
+  onSelect,
+  renderChip,
+  selectedStyle,
+}: {
+  label: string
+  items: T[]
+  selected: string | null
+  onSelect: (id: string | null) => void
+  renderChip: (item: T, isSelected: boolean) => React.ReactNode
+  selectedStyle?: (item: T) => React.CSSProperties
+}) {
+  if (items.length === 0) return null
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => {
+          const isSelected = selected === item.id
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(isSelected ? null : item.id)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                isSelected
+                  ? 'border-transparent shadow-sm'
+                  : 'border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground',
+              )}
+              style={isSelected && selectedStyle ? selectedStyle(item) : undefined}
+            >
+              {renderChip(item, isSelected)}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function todayString() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export function ExpenseDialog({
@@ -54,174 +104,160 @@ export function ExpenseDialog({
   personSpaces,
   onSave,
   isSaving,
+  resetKey,
 }: Props) {
   const isEditing = !!expense
+
+  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [locationId, setLocationId] = useState<string | null>(null)
+  const [paidById, setPaidById] = useState<string | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { register, handleSubmit, reset, formState } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
-    defaultValues: {
-      date: '',
-      amount: undefined,
-      description: '',
-      categoryId: null,
-      locationId: null,
-      paidById: null,
-    },
+    defaultValues: { date: '', amount: undefined, description: '' },
   })
 
+  // Populate form when opening or switching expense
   useEffect(() => {
-    if (open) {
-      if (expense) {
-        reset({
-          date: expense.date,
-          amount: expense.amount,
-          description: expense.description ?? '',
-          categoryId: expense.categoryId ?? null,
-          locationId: expense.locationId ?? null,
-          paidById: expense.paidById ?? null,
-        })
-      } else {
-        const today = new Date()
-        const yyyy = today.getFullYear()
-        const mm = String(today.getMonth() + 1).padStart(2, '0')
-        const dd = String(today.getDate()).padStart(2, '0')
-        reset({
-          date: `${yyyy}-${mm}-${dd}`,
-          amount: undefined,
-          description: '',
-          categoryId: null,
-          locationId: null,
-          paidById: null,
-        })
-      }
+    if (!open) return
+    if (expense) {
+      reset({ date: expense.date, amount: expense.amount, description: expense.description ?? '' })
+      setCategoryId(expense.categoryId ?? null)
+      setLocationId(expense.locationId ?? null)
+      setPaidById(expense.paidById ?? null)
+    } else {
+      reset({ date: todayString(), amount: undefined, description: '' })
+      setCategoryId(null)
+      setLocationId(null)
+      setPaidById(null)
     }
   }, [open, expense, reset])
+
+  // Reset form for a new entry without closing (add-another flow)
+  useEffect(() => {
+    if (!open || isEditing || resetKey === undefined || resetKey === 0) return
+    reset({ date: todayString(), amount: undefined, description: '' })
+    setCategoryId(null)
+    setLocationId(null)
+    setPaidById(null)
+  }, [resetKey, open, isEditing, reset])
 
   function onSubmit(data: FormData) {
     onSave({
       amount: data.amount,
       date: data.date,
       description: data.description?.trim() || undefined,
-      categoryId: data.categoryId || null,
-      locationId: data.locationId || null,
-      paidById: data.paidById || null,
+      categoryId: categoryId || null,
+      locationId: locationId || null,
+      paidById: paidById || null,
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Expense' : 'Add Expense'}</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="sm:max-w-md flex flex-col gap-0 p-0">
+        <SheetHeader className="border-b px-6 py-4">
+          <SheetTitle>{isEditing ? 'Edit Expense' : 'Add Expense'}</SheetTitle>
+        </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="exp-date">Date</Label>
-              <Input
-                id="exp-date"
-                type="date"
-                {...register('date')}
-              />
-              {formState.errors.date && (
-                <p className="text-xs text-destructive">
-                  {formState.errors.date.message}
-                </p>
-              )}
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-1 flex-col overflow-y-auto"
+        >
+          <div className="flex flex-col gap-5 px-6 py-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="exp-date">Date</Label>
+                <Input id="exp-date" type="date" {...register('date')} />
+                {formState.errors.date && (
+                  <p className="text-xs text-destructive">{formState.errors.date.message}</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="exp-amount">Amount</Label>
+                <Input
+                  id="exp-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  autoFocus
+                  {...register('amount')}
+                />
+                {formState.errors.amount && (
+                  <p className="text-xs text-destructive">{formState.errors.amount.message}</p>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="exp-amount">Amount</Label>
-              <Input
-                id="exp-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...register('amount')}
-              />
-              {formState.errors.amount && (
-                <p className="text-xs text-destructive">
-                  {formState.errors.amount.message}
-                </p>
-              )}
+              <Label htmlFor="exp-desc">Description</Label>
+              <Input id="exp-desc" placeholder="What was this for?" {...register('description')} />
             </div>
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="exp-desc">Description</Label>
-            <Input
-              id="exp-desc"
-              placeholder="What was this for?"
-              {...register('description')}
+            <ChipGroup
+              label="Paid by"
+              items={personSpaces}
+              selected={paidById}
+              onSelect={setPaidById}
+              selectedStyle={(s) => ({ background: s.color + '33', color: 'inherit' })}
+              renderChip={(space, isSelected) => (
+                <>
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
+                  {space.name}
+                  {isSelected && <Check className="h-3 w-3 shrink-0" />}
+                </>
+              )}
+            />
+
+            <ChipGroup
+              label="Category"
+              items={categories}
+              selected={categoryId}
+              onSelect={setCategoryId}
+              selectedStyle={(cat) => ({ background: (cat.color ?? '#888') + '33', color: 'inherit' })}
+              renderChip={(cat, isSelected) => {
+                const Icon = getCategoryIcon(cat.icon)
+                return (
+                  <>
+                    <span
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
+                      style={{ background: (cat.color ?? '#888') + '26' }}
+                    >
+                      <Icon className="h-2.5 w-2.5" style={{ color: cat.color ?? undefined }} />
+                    </span>
+                    {cat.name}
+                    {isSelected && <Check className="h-3 w-3 shrink-0" />}
+                  </>
+                )
+              }}
+            />
+
+            <ChipGroup
+              label="Location"
+              items={locationSpaces}
+              selected={locationId}
+              onSelect={setLocationId}
+              selectedStyle={(s) => ({ background: s.color + '33', color: 'inherit' })}
+              renderChip={(space, isSelected) => (
+                <>
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
+                  {space.name}
+                  {isSelected && <Check className="h-3 w-3 shrink-0" />}
+                </>
+              )}
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="exp-category">Category</Label>
-            <select
-              id="exp-category"
-              {...register('categoryId')}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">(None)</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="exp-location">Location</Label>
-            <select
-              id="exp-location"
-              {...register('locationId')}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">(None)</option>
-              {locationSpaces.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="exp-paidby">Paid by</Label>
-            <select
-              id="exp-paidby"
-              {...register('paidById')}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">(None)</option>
-              {personSpaces.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <DialogFooter className="mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
+          <SheetFooter className="border-t px-6 py-4">
+            <Button type="submit" className="w-full" disabled={isSaving}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'Save' : 'Add'}
+              {isEditing ? 'Save changes' : 'Add expense'}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

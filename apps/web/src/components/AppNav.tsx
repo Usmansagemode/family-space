@@ -38,14 +38,14 @@ export function AppNav() {
   }
 
   const items: NavItem[] = [
-    { kind: 'link', to: '/', exact: true, search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
-    { kind: 'link', to: '/', exact: true, search: { tab: 'chores' }, label: 'Chores', icon: CheckCheck },
-    { kind: 'link', to: '/', exact: true, search: { tab: 'calendar' }, label: 'Calendar', icon: CalendarDays },
-    { kind: 'separator' },
-    { kind: 'link', to: '/expenses', exact: false, label: 'Expenses', icon: Receipt },
     { kind: 'link', to: '/charts', exact: false, label: 'Charts', icon: BarChart3 },
-    { kind: 'link', to: '/trackers', exact: false, label: 'Trackers', icon: TrendingUp },
+    { kind: 'link', to: '/expenses', exact: false, label: 'Expenses', icon: Receipt },
     { kind: 'link', to: '/import', exact: false, label: 'Import', icon: Upload },
+    { kind: 'link', to: '/trackers', exact: false, label: 'Tracker', icon: TrendingUp },
+    { kind: 'separator' },
+    { kind: 'link', to: '/', exact: true, search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
+    { kind: 'link', to: '/', exact: true, search: { tab: 'chores' }, label: 'Tasks', icon: CheckCheck },
+    { kind: 'link', to: '/', exact: true, search: { tab: 'calendar' }, label: 'Calendar', icon: CalendarDays },
     { kind: 'separator' },
     { kind: 'button', label: 'Search', icon: Search, onClick: () => setSearchOpen(true) },
     { kind: 'link', to: '/settings', exact: false, label: 'Settings', icon: Settings },
@@ -116,11 +116,11 @@ export function AppNav() {
       {/* Mobile: fixed bottom bar */}
       <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border/40 bg-background/95 backdrop-blur-sm print:hidden sm:hidden">
         {[
-          { to: '/', search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
-          { to: '/', search: { tab: 'chores' }, label: 'Chores', icon: CheckCheck },
-          { to: '/expenses', label: 'Expenses', icon: Receipt },
-          { to: '/trackers', label: 'Trackers', icon: TrendingUp },
           { to: '/charts', label: 'Charts', icon: BarChart3 },
+          { to: '/expenses', label: 'Expenses', icon: Receipt },
+          { to: '/', search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
+          { to: '/', search: { tab: 'chores' }, label: 'Tasks', icon: CheckCheck },
+          { to: '/', search: { tab: 'calendar' }, label: 'Calendar', icon: CalendarDays },
         ].map((item) => {
           const active = item.to === '/'
             ? pathname === '/' && ((search as Record<string, string>).tab ?? 'lists') === item.search?.tab

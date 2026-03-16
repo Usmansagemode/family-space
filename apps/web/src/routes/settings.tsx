@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import {
   Brain,
   Check,
@@ -38,6 +35,13 @@ import { Switch } from '#/components/ui/switch'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Badge } from '#/components/ui/badge'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -51,27 +55,19 @@ import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
 import { useCategories } from '#/hooks/categories/useCategories'
 import { useCategoriesMutations } from '#/hooks/categories/useCategoriesMutations'
-import { useIncomeSources } from '#/hooks/income/useIncomeSources'
-import { useIncomeMutations } from '#/hooks/income/useIncomeMutations'
 import { useBudgets } from '#/hooks/budgets/useBudgets'
 import { useBudgetMutations } from '#/hooks/budgets/useBudgetMutations'
 import { createInvite } from '#/lib/supabase/invites'
 import { updateFamily, removeFamilyMember } from '#/lib/supabase/families'
 import { cn, formatCurrency } from '#/lib/utils'
-import {
-  INCOME_TYPES,
-  FREQUENCIES,
-  getIncomeTypeDef,
-  toMonthly,
-} from '#/lib/incomeTypes'
-import type { Space, Category, IncomeSource, IncomeType, IncomeFrequency, BudgetPeriod } from '@family/types'
+import type { Space, Category, Budget, BudgetPeriod } from '@family/types'
 
 export const Route = createFileRoute('/settings')({
   validateSearch: (s: Record<string, unknown>) => ({
     tab: (
-      ['family', 'members', 'locations', 'categories', 'budgets', 'integrations'] as const
-    ).includes(s.tab as 'family' | 'members' | 'locations' | 'categories' | 'budgets' | 'integrations')
-      ? (s.tab as 'family' | 'members' | 'locations' | 'categories' | 'budgets' | 'integrations')
+      ['family', 'members', 'locations', 'categories', 'integrations'] as const
+    ).includes(s.tab as 'family' | 'members' | 'locations' | 'categories' | 'integrations')
+      ? (s.tab as 'family' | 'members' | 'locations' | 'categories' | 'integrations')
       : 'family',
   }),
   component: SettingsPage,
@@ -82,7 +78,6 @@ const TABS = [
   { id: 'members', label: 'Members' },
   { id: 'locations', label: 'Locations' },
   { id: 'categories', label: 'Categories' },
-  { id: 'budgets', label: 'Budgets' },
   { id: 'integrations', label: 'Integrations' },
 ] as const
 
@@ -152,9 +147,6 @@ function SettingsPage() {
         {tab === 'categories' && familyId && (
           <CategoriesTab familyId={familyId} />
         )}
-        {tab === 'budgets' && familyId && (
-          <BudgetsTab familyId={familyId} currency={family?.currency} locale={family?.locale} />
-        )}
         {tab === 'integrations' && (
           <IntegrationsTab />
         )}
@@ -219,30 +211,30 @@ function FamilyTab({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fam-currency">Currency</Label>
-            <select
-              id="fam-currency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <Label>Currency</Label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fam-locale">Locale</Label>
-            <select
-              id="fam-locale"
-              value={locale}
-              onChange={(e) => setLocale(e.target.value)}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {LOCALES.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
+            <Label>Locale</Label>
+            <Select value={locale} onValueChange={setLocale}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCALES.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -281,15 +273,6 @@ function FamilyTab({
 
 // ─── Members Tab ─────────────────────────────────────────────────────────────
 
-const incomeSourceSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  type: z.string().min(1),
-  amount: z.coerce.number().positive('Amount must be positive'),
-  frequency: z.string().min(1),
-  personId: z.string().optional().nullable(),
-})
-type IncomeSourceForm = z.infer<typeof incomeSourceSchema>
-
 function MembersTab({
   familyId,
   currentUserId,
@@ -304,16 +287,16 @@ function MembersTab({
   const queryClient = useQueryClient()
   const { data: members, isLoading } = useFamilyMembers(familyId)
   const { data: spaces } = useSpaces(familyId)
-  const { data: sources } = useIncomeSources(familyId)
-  const mutations = useIncomeMutations(familyId)
+  const { data: budgets } = useBudgets(familyId)
+  const budgetMutations = useBudgetMutations(familyId)
+
+  const [budgetEditingUserId, setBudgetEditingUserId] = useState<string | null>(null)
+  const [budgetDraftAmount, setBudgetDraftAmount] = useState('')
+  const [budgetDraftPeriod, setBudgetDraftPeriod] = useState<BudgetPeriod>('monthly')
 
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogPersonId, setDialogPersonId] = useState<string | null>(null)
-  const [dialogPersonName, setDialogPersonName] = useState<string>('')
-  const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
   const isOwner = members?.find((m) => m.userId === currentUserId)?.role === 'owner'
 
@@ -356,55 +339,28 @@ function MembersTab({
     })
   }
 
-  const form = useForm<IncomeSourceForm>({
-    resolver: zodResolver(incomeSourceSchema) as any,
-    defaultValues: { name: '', type: 'salary', amount: undefined as any, frequency: 'monthly', personId: null },
-  })
-
-  function openAddSource(personSpaceId: string | null, personName: string) {
-    setEditingSource(null)
-    setDialogPersonId(personSpaceId)
-    setDialogPersonName(personName)
-    form.reset({
-      name: '',
-      type: 'salary',
-      amount: undefined as any,
-      frequency: 'monthly',
-      personId: personSpaceId,
-    })
-    setDialogOpen(true)
+  function openBudgetEdit(userId: string, budget: Budget) {
+    setBudgetEditingUserId(userId)
+    setBudgetDraftAmount(String(budget.amount))
+    setBudgetDraftPeriod(budget.period)
   }
 
-  function openEditSource(source: IncomeSource, personName: string) {
-    setEditingSource(source)
-    setDialogPersonId(source.personId)
-    setDialogPersonName(personName)
-    form.reset({
-      name: source.name,
-      type: source.type,
-      amount: source.amount,
-      frequency: source.frequency,
-      personId: source.personId,
-    })
-    setDialogOpen(true)
+  function openBudgetNew(userId: string) {
+    setBudgetEditingUserId(userId)
+    setBudgetDraftAmount('')
+    setBudgetDraftPeriod('monthly')
   }
 
-  function handleSourceSubmit(data: IncomeSourceForm) {
-    const payload = {
-      name: data.name,
-      type: data.type as IncomeType,
-      amount: data.amount,
-      frequency: data.frequency as IncomeFrequency,
-      personId: dialogPersonId,
-    }
-    if (editingSource) {
-      mutations.updateSource.mutate(
-        { id: editingSource.id, ...payload },
-        { onSuccess: () => setDialogOpen(false) },
-      )
-    } else {
-      mutations.createSource.mutate(payload, { onSuccess: () => setDialogOpen(false) })
-    }
+  function handleSaveBudget() {
+    if (!budgetEditingUserId) return
+    const personSpace = personSpaces.find((s) => s.linkedUserId === budgetEditingUserId)
+    if (!personSpace) return
+    const amount = parseFloat(budgetDraftAmount)
+    if (isNaN(amount) || amount <= 0) return
+    budgetMutations.upsert.mutate(
+      { personId: personSpace.id, categoryId: null, amount, period: budgetDraftPeriod },
+      { onSuccess: () => setBudgetEditingUserId(null) },
+    )
   }
 
   return (
@@ -465,9 +421,6 @@ function MembersTab({
               {(members ?? []).map((member) => {
                 const personSpace = personSpaces.find(
                   (s) => s.linkedUserId === member.userId,
-                )
-                const memberSources = (sources ?? []).filter(
-                  (src) => src.personId === personSpace?.id,
                 )
                 const isExpanded = expandedIds.has(member.userId)
 
@@ -534,84 +487,124 @@ function MembersTab({
                       ) : null}
                     </div>
 
-                    {/* Expanded: income sources */}
+                    {/* Expanded: budget */}
                     {isExpanded && (
                       <div className="border-t border-border px-3 pb-3 pt-2">
-                        <div className="flex flex-col gap-1.5">
-                          {memberSources.length === 0 ? (
-                            <p className="py-1 text-xs text-muted-foreground">No income sources yet.</p>
-                          ) : (
-                            memberSources.map((src) => {
-                              const def = getIncomeTypeDef(src.type)
-                              const Icon = def.icon
-                              const freq = FREQUENCIES.find((f) => f.id === src.frequency)
-                              const monthly = toMonthly(src.amount, src.frequency)
-                              return (
-                                <div
-                                  key={src.id}
-                                  className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2"
-                                >
-                                  <span
-                                    className={cn(
-                                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
-                                      def.color,
-                                    )}
-                                  >
-                                    <Icon className="h-3.5 w-3.5" />
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-medium">{src.name}</p>
-                                    <div className="mt-0.5 flex items-center gap-1.5">
-                                      <Badge variant="secondary" className="text-[10px]">
-                                        {def.label}
-                                      </Badge>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {formatCurrency(src.amount, currency, locale)} / {freq?.label.toLowerCase()}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="shrink-0 text-right">
-                                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                      {formatCurrency(monthly, currency, locale)}
-                                      <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
-                                    </p>
+                        {(() => {
+                          const memberBudget = (budgets ?? []).find(
+                            (b) => b.personId === personSpace?.id && b.categoryId === null,
+                          )
+                          const isEditingBudget = budgetEditingUserId === member.userId
+                          return (
+                            <div className="mt-3 border-t border-border pt-3">
+                              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                                Spending budget
+                              </p>
+                              {isEditingBudget ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={budgetDraftAmount}
+                                    onChange={(e) => setBudgetDraftAmount(e.target.value)}
+                                    placeholder="0.00"
+                                    className="h-7 w-28 text-xs"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveBudget()
+                                      if (e.key === 'Escape') setBudgetEditingUserId(null)
+                                    }}
+                                  />
+                                  <div className="flex overflow-hidden rounded-md border border-border text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => setBudgetDraftPeriod('monthly')}
+                                      className={cn(
+                                        'px-2 py-1 transition',
+                                        budgetDraftPeriod === 'monthly'
+                                          ? 'bg-muted font-medium'
+                                          : 'text-muted-foreground hover:text-foreground',
+                                      )}
+                                    >
+                                      Monthly
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBudgetDraftPeriod('yearly')}
+                                      className={cn(
+                                        'border-l border-border px-2 py-1 transition',
+                                        budgetDraftPeriod === 'yearly'
+                                          ? 'bg-muted font-medium'
+                                          : 'text-muted-foreground hover:text-foreground',
+                                      )}
+                                    >
+                                      Yearly
+                                    </button>
                                   </div>
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      openEditSource(src, personSpace?.name ?? member.name ?? 'Member')
-                                    }
+                                    onClick={handleSaveBudget}
+                                    disabled={budgetMutations.upsert.isPending}
                                     className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                                    title="Save"
+                                  >
+                                    {budgetMutations.upsert.isPending ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setBudgetEditingUserId(null)}
+                                    className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                                    title="Cancel"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : memberBudget ? (
+                                <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                                  <Wallet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  <span className="flex-1 text-xs">
+                                    {formatCurrency(memberBudget.amount, currency, locale)}
+                                    <span className="ml-1 text-muted-foreground">
+                                      / {memberBudget.period}
+                                    </span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => openBudgetEdit(member.userId, memberBudget)}
+                                    className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                                    title="Edit budget"
                                   >
                                     <Pencil className="h-3 w-3" />
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => mutations.removeSource.mutate(src.id)}
+                                    onClick={() => budgetMutations.remove.mutate(memberBudget.id)}
+                                    disabled={budgetMutations.remove.isPending}
                                     className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                                    title="Remove budget"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
                                 </div>
-                              )
-                            })
-                          )}
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="mt-1 self-start gap-1.5 text-xs"
-                            onClick={() =>
-                              openAddSource(
-                                personSpace?.id ?? null,
-                                personSpace?.name ?? member.name ?? 'Member',
-                              )
-                            }
-                          >
-                            <Plus className="h-3 w-3" />
-                            Add income source
-                          </Button>
-                        </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-xs"
+                                  onClick={() => openBudgetNew(member.userId)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  Set spending budget
+                                </Button>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
@@ -621,115 +614,6 @@ function MembersTab({
           )}
         </div>
       </div>
-
-      {/* Add/Edit income source dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {editingSource ? 'Edit income source' : 'Add income source'}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={form.handleSubmit(handleSourceSubmit)} className="flex flex-col gap-4">
-            {/* Person label (read-only, pre-filled) */}
-            {dialogPersonName && (
-              <div className="flex flex-col gap-1.5">
-                <Label>Person</Label>
-                <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
-                  {dialogPersonName}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Name</Label>
-              <Input
-                {...form.register('name')}
-                placeholder="e.g. Main Job, Airbnb"
-                autoFocus
-              />
-              {form.formState.errors.name && (
-                <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Type</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {INCOME_TYPES.map((t) => {
-                  const Icon = t.icon
-                  const selected = form.watch('type') === t.id
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => form.setValue('type', t.id)}
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition',
-                        selected
-                          ? 'border-foreground bg-muted font-medium'
-                          : 'border-border text-muted-foreground hover:border-border hover:text-foreground',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
-                          t.color,
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      {t.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Amount</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...form.register('amount')}
-                  placeholder="0.00"
-                />
-                {form.formState.errors.amount && (
-                  <p className="text-xs text-destructive">{form.formState.errors.amount.message}</p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Frequency</Label>
-                <select
-                  {...form.register('frequency')}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {FREQUENCIES.map((f) => (
-                    <option key={f.id} value={f.id}>{f.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={mutations.createSource.isPending || mutations.updateSource.isPending}
-              >
-                {(mutations.createSource.isPending || mutations.updateSource.isPending) && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                {editingSource ? 'Save' : 'Add'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -1070,203 +954,6 @@ function CategoriesTab({ familyId }: { familyId: string }) {
   )
 }
 
-// ─── Budgets Tab ─────────────────────────────────────────────────────────────
-
-const budgetSchema = z.object({
-  categoryId: z.string().nullable(),
-  personId: z.string().nullable(),
-  amount: z.coerce.number().positive('Amount must be positive'),
-  period: z.enum(['monthly', 'yearly']),
-})
-type BudgetForm = z.infer<typeof budgetSchema>
-
-function BudgetsTab({
-  familyId,
-  currency,
-  locale,
-}: {
-  familyId: string
-  currency?: string
-  locale?: string
-}) {
-  const { data: budgets, isLoading } = useBudgets(familyId)
-  const { data: categories } = useCategories(familyId)
-  const { data: spaces } = useSpaces(familyId)
-  const mutations = useBudgetMutations(familyId)
-
-  const personSpaces = (spaces ?? []).filter((s) => s.type === 'person')
-
-  const [dialogOpen, setDialogOpen] = useState(false)
-
-  const form = useForm<BudgetForm>({
-    resolver: zodResolver(budgetSchema) as any,
-    defaultValues: { categoryId: null, personId: null, amount: undefined as any, period: 'monthly' },
-  })
-
-  function openAdd() {
-    form.reset({ categoryId: null, personId: null, amount: undefined as any, period: 'monthly' })
-    setDialogOpen(true)
-  }
-
-  function handleSubmit(data: BudgetForm) {
-    mutations.upsert.mutate(
-      {
-        categoryId: data.categoryId || null,
-        personId: data.personId || null,
-        amount: data.amount,
-        period: data.period as BudgetPeriod,
-      },
-      { onSuccess: () => setDialogOpen(false) },
-    )
-  }
-
-  function getCategoryName(id: string | null, cats: Category[]) {
-    if (!id) return 'Overall (all categories)'
-    return cats.find((c) => c.id === id)?.name ?? '(Deleted)'
-  }
-
-  function getPersonName(id: string | null, persons: Space[]) {
-    if (!id) return 'Family-wide'
-    return persons.find((p) => p.id === id)?.name ?? '(Deleted)'
-  }
-
-  return (
-    <div className="mx-auto max-w-lg px-6 py-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Spending budgets</p>
-            <p className="text-xs text-muted-foreground">
-              Set limits per category or person. Leave category blank for an overall budget.
-            </p>
-          </div>
-          <Button size="sm" variant="outline" onClick={openAdd}>
-            <Plus className="h-3.5 w-3.5" />
-            Add budget
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <div className="flex flex-col gap-2">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
-          </div>
-        ) : (budgets ?? []).length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <Wallet className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">No budgets set yet.</p>
-            <Button onClick={openAdd}>
-              <Plus className="h-4 w-4" />
-              Add budget
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {(budgets ?? []).map((b) => (
-              <div
-                key={b.id}
-                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {getCategoryName(b.categoryId, categories ?? [])}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {getPersonName(b.personId, personSpaces)}
-                  </p>
-                </div>
-                <p className="shrink-0 text-sm font-semibold">
-                  {formatCurrency(b.amount, currency, locale)}
-                </p>
-                <Badge variant="secondary" className="shrink-0 text-[10px]">{b.period}</Badge>
-                <button
-                  type="button"
-                  onClick={() => mutations.remove.mutate(b.id)}
-                  className="shrink-0 text-muted-foreground transition hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Add budget</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Category</Label>
-              <select
-                {...form.register('categoryId')}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">Overall (all categories)</option>
-                {(categories ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {personSpaces.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <Label>Person</Label>
-                <select
-                  {...form.register('personId')}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Family-wide</option>
-                  {personSpaces.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Amount</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...form.register('amount')}
-                  placeholder="0.00"
-                />
-                {form.formState.errors.amount && (
-                  <p className="text-xs text-destructive">{form.formState.errors.amount.message}</p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Period</Label>
-                <select
-                  {...form.register('period')}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={mutations.upsert.isPending}>
-                {mutations.upsert.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
 // ─── Integrations Tab ─────────────────────────────────────────────────────────
 
 function IntegrationsTab() {
@@ -1332,19 +1019,17 @@ function IntegrationsTab() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="gemini-model">Model</Label>
-              <select
-                id="gemini-model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {GEMINI_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+              <Label>Model</Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GEMINI_MODELS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

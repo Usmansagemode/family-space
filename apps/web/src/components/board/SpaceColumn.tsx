@@ -142,12 +142,10 @@ export function SpaceColumn({ space, familyId, allSpaces, isDropTarget, onFocus,
           />
         )}
 
-        {/* Colored header — takes on the space's pastel in light, deep tint in dark */}
+        {/* Colored header — always dark text since pastel bg is light in both modes */}
         <div
           className="rounded-t-xl"
-          style={{
-            background: isDark ? `oklch(0.22 0.05 ${hue})` : space.color,
-          }}
+          style={{ background: space.color, color: '#000' }}
         >
           <div className="flex items-center gap-1.5 px-3 py-2.5">
             {/* Drag handle — hidden until hover */}
@@ -195,7 +193,7 @@ export function SpaceColumn({ space, familyId, allSpaces, isDropTarget, onFocus,
 
             {/* Pending count badge */}
             {!isLoading && pendingCount > 0 && (
-              <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums dark:bg-white/10">
+              <span className="shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
                 <NumberTicker value={pendingCount} />
               </span>
             )}

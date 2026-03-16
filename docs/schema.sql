@@ -25,7 +25,6 @@ drop table if exists tracker_entries  cascade;
 drop table if exists trackers         cascade;
 drop table if exists budgets          cascade;
 drop table if exists income_entries   cascade;
-drop table if exists income_sources   cascade;
 drop table if exists expenses         cascade;
 drop table if exists items            cascade;
 drop table if exists invites          cascade;
@@ -132,31 +131,16 @@ create table expenses (
   updated_at  timestamptz default now()
 );
 
--- Recurring / expected income sources
-create table income_sources (
-  id         uuid primary key default gen_random_uuid(),
-  family_id  uuid not null references families(id) on delete cascade,
-  person_id  uuid references spaces(id) on delete set null,
-  name       text not null,
-  type       text check (type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
-  amount     numeric(12, 2) not null,
-  frequency  text check (frequency in ('weekly', 'biweekly', 'monthly', 'yearly')),
-  start_date date,
-  end_date   date,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
--- Actual logged income entries
+-- Logged income entries (variable / actual amounts per date)
 create table income_entries (
-  id               uuid primary key default gen_random_uuid(),
-  family_id        uuid not null references families(id) on delete cascade,
-  income_source_id uuid references income_sources(id) on delete set null,
-  person_id        uuid references spaces(id) on delete set null,
-  amount           numeric(12, 2) not null,
-  date             date not null,
-  description      text,
-  created_at       timestamptz default now()
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  person_id   uuid references spaces(id) on delete set null,
+  type        text check (type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
+  amount      numeric(12, 2) not null,
+  date        date not null,
+  description text,
+  created_at  timestamptz default now()
 );
 
 -- Budgets: null person_id = family-wide; null category_id = overall
@@ -168,7 +152,8 @@ create table budgets (
   amount      numeric(12, 2) not null,
   period      text not null check (period in ('monthly', 'yearly')),
   created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  updated_at  timestamptz default now(),
+  unique (family_id, person_id, category_id, period)
 );
 
 -- Board task / grocery cards (no family_id — scoped via space → family)
@@ -231,7 +216,6 @@ grant select, insert, update, delete on user_families   to authenticated;
 grant select, insert, update, delete on spaces          to authenticated;
 grant select, insert, update, delete on categories      to authenticated;
 grant select, insert, update, delete on expenses        to authenticated;
-grant select, insert, update, delete on income_sources  to authenticated;
 grant select, insert, update, delete on income_entries  to authenticated;
 grant select, insert, update, delete on budgets         to authenticated;
 grant select, insert, update, delete on items           to authenticated;
@@ -258,7 +242,6 @@ create trigger trg_families_updated_at        before update on families        f
 create trigger trg_spaces_updated_at          before update on spaces          for each row execute function update_updated_at();
 create trigger trg_categories_updated_at      before update on categories      for each row execute function update_updated_at();
 create trigger trg_expenses_updated_at        before update on expenses        for each row execute function update_updated_at();
-create trigger trg_income_sources_updated_at  before update on income_sources  for each row execute function update_updated_at();
 create trigger trg_budgets_updated_at         before update on budgets         for each row execute function update_updated_at();
 create trigger trg_items_updated_at           before update on items           for each row execute function update_updated_at();
 create trigger trg_trackers_updated_at        before update on trackers        for each row execute function update_updated_at();
@@ -399,6 +382,17 @@ begin
   insert into spaces (family_id, name, type, show_in_expenses, is_system, linked_user_id, sort_order)
   values (v_family.id, coalesce(v_name, 'Owner'), 'person', true, true, p_user_id, 0);
 
+  -- Seed default categories for new families
+  insert into categories (family_id, name, color, icon, sort_order) values
+    (v_family.id, 'Grocery',   'oklch(0.60 0.18 30)',  'shopping-cart', 0),
+    (v_family.id, 'Misc',      'oklch(0.60 0.15 200)', 'circle-help',   1),
+    (v_family.id, 'Takeout',   'oklch(0.60 0.18 30)',  'utensils',      2),
+    (v_family.id, 'Shopping',  'oklch(0.50 0.15 0)',   'shirt',         3),
+    (v_family.id, 'Car',       'oklch(0.60 0.18 60)',  'car',           4),
+    (v_family.id, 'Travel',    'oklch(0.60 0.18 145)', 'plane',         5),
+    (v_family.id, 'Utilities', 'oklch(0.60 0.18 320)', 'zap',           6),
+    (v_family.id, 'Rent',      'oklch(0.55 0.18 80)',  'home',          7);
+
   return row_to_json(v_family);
 end;
 $$;
@@ -461,7 +455,6 @@ alter table invites         enable row level security;
 alter table spaces          enable row level security;
 alter table categories      enable row level security;
 alter table expenses        enable row level security;
-alter table income_sources  enable row level security;
 alter table income_entries  enable row level security;
 alter table budgets         enable row level security;
 alter table items           enable row level security;
@@ -538,16 +531,6 @@ create policy "expenses_update" on expenses
 create policy "expenses_delete" on expenses
   for delete to authenticated using (is_family_member(family_id));
 
--- income_sources
-create policy "income_sources_select" on income_sources
-  for select to authenticated using (is_family_member(family_id));
-create policy "income_sources_insert" on income_sources
-  for insert to authenticated with check (is_family_member(family_id));
-create policy "income_sources_update" on income_sources
-  for update to authenticated
-  using (is_family_member(family_id)) with check (is_family_member(family_id));
-create policy "income_sources_delete" on income_sources
-  for delete to authenticated using (is_family_member(family_id));
 
 -- income_entries
 create policy "income_entries_select" on income_entries

@@ -1,39 +1,11 @@
-import type { IncomeEntry, IncomeFrequency, IncomeSource, IncomeType } from '@family/types'
+import type { IncomeEntry, IncomeType } from '@family/types'
 import { getSupabaseClient } from './client'
-
-function rowToSource(row: {
-  id: string
-  family_id: string
-  person_id: string | null
-  name: string
-  type: string
-  amount: number
-  frequency: string
-  start_date: string | null
-  end_date: string | null
-  created_at: string
-  updated_at: string
-}): IncomeSource {
-  return {
-    id: row.id,
-    familyId: row.family_id,
-    personId: row.person_id,
-    name: row.name,
-    type: row.type as IncomeType,
-    amount: row.amount,
-    frequency: row.frequency as IncomeFrequency,
-    startDate: row.start_date ?? undefined,
-    endDate: row.end_date ?? undefined,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
-  }
-}
 
 function rowToEntry(row: {
   id: string
   family_id: string
-  income_source_id: string | null
   person_id: string | null
+  type: string | null
   amount: number
   date: string
   description: string | null
@@ -42,92 +14,13 @@ function rowToEntry(row: {
   return {
     id: row.id,
     familyId: row.family_id,
-    incomeSourceId: row.income_source_id,
     personId: row.person_id,
+    type: (row.type as IncomeType) ?? null,
     amount: row.amount,
     date: row.date,
     description: row.description ?? undefined,
     createdAt: new Date(row.created_at),
   }
-}
-
-export async function fetchIncomeSources(familyId: string): Promise<IncomeSource[]> {
-  const supabase = getSupabaseClient()
-  const { data, error } = await supabase
-    .from('income_sources')
-    .select('*')
-    .eq('family_id', familyId)
-    .order('created_at', { ascending: true })
-
-  if (error) throw error
-  return data.map(rowToSource)
-}
-
-export async function createIncomeSource(input: {
-  familyId: string
-  personId?: string | null
-  name: string
-  type: IncomeType
-  amount: number
-  frequency: IncomeFrequency
-  startDate?: string
-  endDate?: string
-}): Promise<IncomeSource> {
-  const supabase = getSupabaseClient()
-  const { data, error } = await supabase
-    .from('income_sources')
-    .insert({
-      family_id: input.familyId,
-      person_id: input.personId ?? null,
-      name: input.name,
-      type: input.type,
-      amount: input.amount,
-      frequency: input.frequency,
-      start_date: input.startDate ?? null,
-      end_date: input.endDate ?? null,
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-  return rowToSource(data)
-}
-
-export async function updateIncomeSource(
-  id: string,
-  input: Partial<{
-    name: string
-    type: IncomeType
-    amount: number
-    frequency: IncomeFrequency
-    startDate: string | null
-    endDate: string | null
-  }>,
-): Promise<IncomeSource> {
-  const update: Record<string, unknown> = {}
-  if (input.name !== undefined) update.name = input.name
-  if (input.type !== undefined) update.type = input.type
-  if (input.amount !== undefined) update.amount = input.amount
-  if (input.frequency !== undefined) update.frequency = input.frequency
-  if ('startDate' in input) update.start_date = input.startDate
-  if ('endDate' in input) update.end_date = input.endDate
-
-  const supabase = getSupabaseClient()
-  const { data, error } = await supabase
-    .from('income_sources')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) throw error
-  return rowToSource(data)
-}
-
-export async function deleteIncomeSource(id: string): Promise<void> {
-  const supabase = getSupabaseClient()
-  const { error } = await supabase.from('income_sources').delete().eq('id', id)
-  if (error) throw error
 }
 
 export async function fetchIncomeEntries(
@@ -136,38 +29,34 @@ export async function fetchIncomeEntries(
   month?: number,
 ): Promise<IncomeEntry[]> {
   const supabase = getSupabaseClient()
-  let query = supabase
-    .from('income_entries')
-    .select('*')
-    .eq('family_id', familyId)
-    .gte('date', `${year}-01-01`)
-    .lt('date', `${year + 1}-01-01`)
-    .order('date', { ascending: false })
+
+  let gte = `${year}-01-01`
+  let lt = `${year + 1}-01-01`
 
   if (month !== undefined) {
-    const start = `${year}-${String(month).padStart(2, '0')}-01`
-    const end =
+    gte = `${year}-${String(month).padStart(2, '0')}-01`
+    lt =
       month === 12
         ? `${year + 1}-01-01`
         : `${year}-${String(month + 1).padStart(2, '0')}-01`
-    query = supabase
-      .from('income_entries')
-      .select('*')
-      .eq('family_id', familyId)
-      .gte('date', start)
-      .lt('date', end)
-      .order('date', { ascending: false })
   }
 
-  const { data, error } = await query
+  const { data, error } = await supabase
+    .from('income_entries')
+    .select('id, family_id, person_id, type, amount, date, description, created_at')
+    .eq('family_id', familyId)
+    .gte('date', gte)
+    .lt('date', lt)
+    .order('date', { ascending: false })
+
   if (error) throw error
   return data.map(rowToEntry)
 }
 
 export async function createIncomeEntry(input: {
   familyId: string
-  incomeSourceId?: string | null
   personId?: string | null
+  type?: IncomeType | null
   amount: number
   date: string
   description?: string
@@ -177,13 +66,36 @@ export async function createIncomeEntry(input: {
     .from('income_entries')
     .insert({
       family_id: input.familyId,
-      income_source_id: input.incomeSourceId ?? null,
       person_id: input.personId ?? null,
+      type: input.type ?? null,
       amount: input.amount,
       date: input.date,
       description: input.description ?? null,
     })
-    .select()
+    .select('id, family_id, person_id, type, amount, date, description, created_at')
+    .single()
+
+  if (error) throw error
+  return rowToEntry(data)
+}
+
+export async function updateIncomeEntry(
+  id: string,
+  input: Partial<{ personId: string | null; type: IncomeType | null; amount: number; date: string; description: string | null }>,
+): Promise<IncomeEntry> {
+  const update: Record<string, unknown> = {}
+  if ('personId' in input) update.person_id = input.personId
+  if ('type' in input) update.type = input.type
+  if (input.amount !== undefined) update.amount = input.amount
+  if (input.date !== undefined) update.date = input.date
+  if ('description' in input) update.description = input.description
+
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('income_entries')
+    .update(update)
+    .eq('id', id)
+    .select('id, family_id, person_id, type, amount, date, description, created_at')
     .single()
 
   if (error) throw error

@@ -87,5 +87,29 @@ export function useExpenseMutations(
     },
   })
 
-  return { create, update, remove, removeMany }
+  const updateMany = useMutation({
+    mutationFn: ({
+      ids,
+      patch,
+    }: {
+      ids: string[]
+      patch: {
+        categoryId?: string | null
+        locationId?: string | null
+        paidById?: string | null
+        description?: string
+        date?: string
+        amount?: number
+      }
+    }) => Promise.all(ids.map((id) => updateExpense(id, patch))),
+    onSuccess: (_, { ids }) => {
+      void invalidate()
+      toast.success(`Updated ${ids.length} expense${ids.length !== 1 ? 's' : ''}`)
+    },
+    onError: () => {
+      toast.error('Failed to bulk update expenses')
+    },
+  })
+
+  return { create, update, remove, removeMany, updateMany }
 }

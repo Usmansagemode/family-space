@@ -15,7 +15,7 @@ export function useSpaceMutations(familyId: string) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key })
 
   const create = useMutation({
-    mutationFn: (input: { name: string; color: string; type: SpaceType }) =>
+    mutationFn: (input: { name: string; color: string; type: SpaceType; showInExpenses?: boolean }) =>
       createSpace({ familyId, ...input }),
     onSuccess: () => {
       void invalidate()
@@ -35,6 +35,7 @@ export function useSpaceMutations(familyId: string) {
       name?: string
       color?: string
       type?: SpaceType
+      showInExpenses?: boolean
       assignedPersonId?: string | null
     }) => updateSpace(id, input),
     onSuccess: () => {

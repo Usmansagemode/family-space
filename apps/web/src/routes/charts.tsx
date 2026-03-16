@@ -4,6 +4,8 @@ import { ChevronDown, FileSpreadsheet, Printer } from 'lucide-react'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useYearlyExpenses } from '#/hooks/expenses/useYearlyExpenses'
+import { useBudgets } from '#/hooks/budgets/useBudgets'
+import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { CategoryFilter } from '#/components/charts/CategoryFilter'
 import { ChartsGrid } from '#/components/charts/ChartsGrid'
 import { LocationFilter } from '#/components/charts/LocationFilter'
@@ -37,6 +39,8 @@ function ChartsPage() {
   const [selectedPaidBy, setSelectedPaidBy] = useState<string[]>([])
 
   const { data: expenses, isLoading } = useYearlyExpenses(familyId, year)
+  const { data: budgets } = useBudgets(familyId)
+  const { data: spaces } = useSpaces(familyId)
 
   const expenseList = expenses ?? []
   const currency = family?.currency
@@ -223,6 +227,8 @@ function ChartsPage() {
           currency={currency}
           locale={locale}
           year={year}
+          budgets={budgets}
+          spaces={spaces}
         />
       )}
     </div>

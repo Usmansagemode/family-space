@@ -133,12 +133,12 @@ export function autoMapWideFormat(csvHeaders: string[]): WideFormatMapping {
 // Gemini config from localStorage
 export const GEMINI_LS_KEY_API = 'family_gemini_api_key'
 export const GEMINI_LS_KEY_MODEL = 'family_gemini_model'
-export const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash'
+export const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash'
 export const GEMINI_MODELS = [
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (recommended)' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (recommended)' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
   { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
 ]
 
 export function getGeminiApiKey(): string {

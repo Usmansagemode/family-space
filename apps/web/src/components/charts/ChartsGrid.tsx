@@ -17,7 +17,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
-import type { ExpenseWithNames } from '@family/types'
+import type { Budget, ExpenseWithNames, Space } from '@family/types'
+import { MemberBudgetProgress } from '#/components/charts/MemberBudgetProgress'
 import { CategoryAverageChart } from '#/components/charts/CategoryAverageChart'
 import { CategoryByMonthChart } from '#/components/charts/CategoryByMonthChart'
 import { CategoryMemberBreakdownChart } from '#/components/charts/CategoryMemberBreakdownChart'
@@ -68,6 +69,8 @@ interface ChartsGridProps {
   currency?: string
   locale?: string
   year: number
+  budgets?: Budget[]
+  spaces?: Space[]
 }
 
 interface ChartConfig {
@@ -132,12 +135,12 @@ function ChartTitle({ title }: { title: string }) {
   )
 }
 
-export function ChartsGrid({ expenses, currency, locale, year }: ChartsGridProps) {
+export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }: ChartsGridProps) {
   const [order, setOrder] = useState<string[]>(loadOrder)
   // Track active tab so charts only mount when their tab is visible.
   // This prevents Recharts ResponsiveContainer from measuring width=0 inside
   // Radix's `hidden` (display:none) inactive TabsContent.
-  const [activeTab, setActiveTab] = useState('trends')
+  const [activeTab, setActiveTab] = useState('budget')
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -271,12 +274,26 @@ export function ChartsGrid({ expenses, currency, locale, year }: ChartsGridProps
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList className="print:hidden">
+        <TabsTrigger value="budget">Budget</TabsTrigger>
         <TabsTrigger value="trends">Trends</TabsTrigger>
         <TabsTrigger value="breakdowns">Breakdowns</TabsTrigger>
         <TabsTrigger value="people">People</TabsTrigger>
         <TabsTrigger value="top">Top</TabsTrigger>
         <TabsTrigger value="all">All</TabsTrigger>
       </TabsList>
+
+      <TabsContent value="budget" className="mt-4">
+        {activeTab === 'budget' && (
+          <MemberBudgetProgress
+            budgets={budgets ?? []}
+            expenses={expenses}
+            spaces={spaces ?? []}
+            currency={currency}
+            locale={locale}
+            year={year}
+          />
+        )}
+      </TabsContent>
 
       <TabsContent value="trends" className="mt-4">
         {activeTab === 'trends' && renderStaticGrid(trendIds)}

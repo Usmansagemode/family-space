@@ -10,8 +10,6 @@ import {
 import { Skeleton } from '#/components/ui/skeleton'
 import { ItemCard } from './ItemCard'
 import { useItems } from '#/hooks/items/useItems'
-import { useIsDark } from '#/hooks/useIsDark'
-import { extractHue } from '#/lib/utils'
 import type { Space } from '#/entities/Space'
 
 type Props = {
@@ -22,8 +20,6 @@ type Props = {
 
 export function FocusOverlay({ space, familyId, onClose }: Props) {
   const { data: items, isLoading } = useItems(space.id)
-  const hue = extractHue(space.color)
-  const isDark = useIsDark()
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -48,7 +44,7 @@ export function FocusOverlay({ space, familyId, onClose }: Props) {
       {/* Header */}
       <div
         className="flex shrink-0 items-center gap-2.5 px-4 py-3"
-        style={{ background: isDark ? `oklch(0.22 0.05 ${hue})` : space.color }}
+        style={{ background: space.color, color: '#000' }}
       >
         {space.type === 'person' ? (
           <User className="h-4 w-4 shrink-0 opacity-60" />
@@ -61,7 +57,7 @@ export function FocusOverlay({ space, familyId, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full opacity-60 transition hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full opacity-60 transition hover:bg-black/10 hover:opacity-100"
             >
               <X className="h-4 w-4" />
             </button>

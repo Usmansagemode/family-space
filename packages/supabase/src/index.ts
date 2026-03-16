@@ -33,12 +33,9 @@ export {
 } from './expenses'
 
 export {
-  fetchIncomeSources,
-  createIncomeSource,
-  updateIncomeSource,
-  deleteIncomeSource,
   fetchIncomeEntries,
   createIncomeEntry,
+  updateIncomeEntry,
   deleteIncomeEntry,
 } from './income'
 
