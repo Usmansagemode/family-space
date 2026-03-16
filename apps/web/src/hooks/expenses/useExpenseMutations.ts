@@ -111,5 +111,25 @@ export function useExpenseMutations(
     },
   })
 
-  return { create, update, remove, removeMany, updateMany }
+  const updateBatch = useMutation({
+    mutationFn: (
+      updates: Array<{
+        id: string
+        patch: {
+          categoryId?: string | null
+          locationId?: string | null
+          paidById?: string | null
+        }
+      }>,
+    ) => Promise.all(updates.map(({ id, patch }) => updateExpense(id, patch))),
+    onSuccess: (_, updates) => {
+      void invalidate()
+      toast.success(`Saved ${updates.length} expense${updates.length !== 1 ? 's' : ''}`)
+    },
+    onError: () => {
+      toast.error('Failed to save expenses')
+    },
+  })
+
+  return { create, update, remove, removeMany, updateMany, updateBatch }
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -46,20 +46,28 @@ type Props = {
   resetKey?: number
 }
 
+function chipColor(color: string): React.CSSProperties {
+  return {
+    background: `color-mix(in srgb, ${color} 15%, transparent)`,
+    borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
+    color: 'inherit',
+  }
+}
+
 function ChipGroup<T extends { id: string }>({
   label,
   items,
   selected,
   onSelect,
+  getColor,
   renderChip,
-  selectedStyle,
 }: {
   label: string
   items: T[]
   selected: string | null
   onSelect: (id: string | null) => void
-  renderChip: (item: T, isSelected: boolean) => React.ReactNode
-  selectedStyle?: (item: T) => React.CSSProperties
+  getColor: (item: T) => string
+  renderChip: (item: T) => React.ReactNode
 }) {
   if (items.length === 0) return null
   return (
@@ -76,12 +84,12 @@ function ChipGroup<T extends { id: string }>({
               className={cn(
                 'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
                 isSelected
-                  ? 'border-transparent shadow-sm'
+                  ? 'shadow-sm'
                   : 'border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground',
               )}
-              style={isSelected && selectedStyle ? selectedStyle(item) : undefined}
+              style={isSelected ? chipColor(getColor(item)) : undefined}
             >
-              {renderChip(item, isSelected)}
+              {renderChip(item)}
             </button>
           )
         })}
@@ -201,12 +209,11 @@ export function ExpenseDialog({
               items={personSpaces}
               selected={paidById}
               onSelect={setPaidById}
-              selectedStyle={(s) => ({ background: s.color + '33', color: 'inherit' })}
-              renderChip={(space, isSelected) => (
+              getColor={(s) => s.color}
+              renderChip={(space) => (
                 <>
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
                   {space.name}
-                  {isSelected && <Check className="h-3 w-3 shrink-0" />}
                 </>
               )}
             />
@@ -216,19 +223,18 @@ export function ExpenseDialog({
               items={categories}
               selected={categoryId}
               onSelect={setCategoryId}
-              selectedStyle={(cat) => ({ background: (cat.color ?? '#888') + '33', color: 'inherit' })}
-              renderChip={(cat, isSelected) => {
+              getColor={(cat) => cat.color ?? '#888888'}
+              renderChip={(cat) => {
                 const Icon = getCategoryIcon(cat.icon)
                 return (
                   <>
                     <span
                       className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
-                      style={{ background: (cat.color ?? '#888') + '26' }}
+                      style={{ background: `color-mix(in srgb, ${cat.color ?? '#888888'} 20%, transparent)` }}
                     >
                       <Icon className="h-2.5 w-2.5" style={{ color: cat.color ?? undefined }} />
                     </span>
                     {cat.name}
-                    {isSelected && <Check className="h-3 w-3 shrink-0" />}
                   </>
                 )
               }}
@@ -239,12 +245,11 @@ export function ExpenseDialog({
               items={locationSpaces}
               selected={locationId}
               onSelect={setLocationId}
-              selectedStyle={(s) => ({ background: s.color + '33', color: 'inherit' })}
-              renderChip={(space, isSelected) => (
+              getColor={(s) => s.color}
+              renderChip={(space) => (
                 <>
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
                   {space.name}
-                  {isSelected && <Check className="h-3 w-3 shrink-0" />}
                 </>
               )}
             />

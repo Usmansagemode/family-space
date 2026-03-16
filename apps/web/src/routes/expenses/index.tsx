@@ -4,12 +4,12 @@ import {
   ArrowDownLeft,
   Briefcase,
   Building2,
-  Check,
   CircleDollarSign,
   Home,
   Loader2,
   Pencil,
   Plus,
+  ScanEye,
   Trash2,
   TrendingUp,
   Wallet,
@@ -28,6 +28,7 @@ import { MonthYearSelector } from '#/components/expenses/MonthYearSelector'
 import { ExpenseSummary } from '#/components/expenses/ExpenseSummary'
 import { ExpenseTable } from '#/components/expenses/ExpenseTable'
 import { ExpenseDialog } from '#/components/expenses/ExpenseDialog'
+import { FocusFillMode } from '#/components/expenses/FocusFillMode'
 import { FinancialsChart } from '#/components/expenses/FinancialsChart'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -72,6 +73,7 @@ function ExpensesPage() {
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<ExpenseWithNames | null>(null)
   const [expenseResetKey, setExpenseResetKey] = useState(0)
+  const [focusFillOpen, setFocusFillOpen] = useState(false)
 
   // income state
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false)
@@ -224,7 +226,13 @@ function ExpensesPage() {
 
           {/* Context-aware add button rendered outside TabsContent to keep it in the header row */}
           <div className="flex gap-2">
-            <TabsContent value="expenses" className="mt-0">
+            <TabsContent value="expenses" className="mt-0 flex gap-2">
+              {(expenses ?? []).length > 0 && (
+                <Button variant="outline" onClick={() => setFocusFillOpen(true)}>
+                  <ScanEye className="mr-1.5 h-4 w-4" />
+                  Quick Tag
+                </Button>
+              )}
               <Button onClick={openAddExpense}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 Add expense
@@ -352,6 +360,24 @@ function ExpensesPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Focus fill mode */}
+      <FocusFillMode
+        open={focusFillOpen}
+        onOpenChange={setFocusFillOpen}
+        expenses={expenses ?? []}
+        categories={categories ?? []}
+        locationSpaces={locationSpaces}
+        personSpaces={personSpaces}
+        currency={currency}
+        locale={locale}
+        onSave={(updates) => {
+          expenseMutations.updateBatch.mutate(updates, {
+            onSuccess: () => setFocusFillOpen(false),
+          })
+        }}
+        isSaving={expenseMutations.updateBatch.isPending}
+      />
+
       {/* Expense dialog */}
       <ExpenseDialog
         open={expenseDialogOpen}
@@ -393,19 +419,22 @@ function ExpensesPage() {
                         className={cn(
                           'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
                           selected
-                            ? 'border-transparent shadow-sm'
+                            ? 'shadow-sm'
                             : 'border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground',
                         )}
-                        style={selected ? { background: t.hex + '33', color: 'inherit' } : undefined}
+                        style={selected ? {
+                          background: `color-mix(in srgb, ${t.hex} 15%, transparent)`,
+                          borderColor: `color-mix(in srgb, ${t.hex} 45%, transparent)`,
+                          color: 'inherit',
+                        } : undefined}
                       >
                         <span
                           className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
-                          style={{ background: t.hex + '26' }}
+                          style={{ background: `color-mix(in srgb, ${t.hex} 20%, transparent)` }}
                         >
                           <Icon className="h-2.5 w-2.5" style={{ color: t.hex }} />
                         </span>
                         {t.label}
-                        {selected && <Check className="h-3 w-3 shrink-0" />}
                       </button>
                     )
                   })}
@@ -449,14 +478,17 @@ function ExpensesPage() {
                           className={cn(
                             'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
                             isSelected
-                              ? 'border-transparent shadow-sm'
+                              ? 'shadow-sm'
                               : 'border-border bg-background text-muted-foreground hover:text-foreground',
                           )}
-                          style={isSelected ? { background: p.color + '33', color: 'inherit' } : undefined}
+                          style={isSelected ? {
+                            background: `color-mix(in srgb, ${p.color} 15%, transparent)`,
+                            borderColor: `color-mix(in srgb, ${p.color} 45%, transparent)`,
+                            color: 'inherit',
+                          } : undefined}
                         >
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
                           {p.name}
-                          {isSelected && <Check className="h-3 w-3 shrink-0" />}
                         </button>
                       )
                     })}
