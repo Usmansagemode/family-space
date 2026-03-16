@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './client'
+import { logActivity } from './activity'
 
 export type InviteInfo = {
   familyId: string
@@ -49,4 +50,14 @@ export async function acceptInvite(
   })
 
   if (error) throw error
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name, email')
+    .eq('id', userId)
+    .maybeSingle()
+
+  void logActivity(familyId, 'member.joined', {
+    name: profile?.name ?? profile?.email ?? 'Someone',
+  })
 }

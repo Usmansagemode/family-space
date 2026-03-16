@@ -122,6 +122,16 @@ export async function archiveCategory(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Restore a soft-deleted category back to active. */
+export async function unarchiveCategory(id: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('categories')
+    .update({ deleted_at: null })
+    .eq('id', id)
+  if (error) throw error
+}
+
 /** Hard delete — only safe when countCategoryExpenses returns 0. */
 export async function deleteCategory(id: string): Promise<void> {
   const supabase = getSupabaseClient()

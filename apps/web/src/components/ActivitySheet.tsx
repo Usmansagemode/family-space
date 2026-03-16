@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from 'date-fns'
-import { CheckCheck, Plus } from 'lucide-react'
+import { CheckCheck, Plus, Receipt, Upload, Users } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -10,11 +10,89 @@ import {
 import { Skeleton } from '#/components/ui/skeleton'
 import { AnimatedList } from '#/components/ui/animated-list'
 import { useActivityFeed } from '#/hooks/family/useActivityFeed'
+import type { ActivityEvent } from '#/hooks/family/useActivityFeed'
+import type { ActivityEventType } from '@family/types'
+import { formatCurrency } from '#/lib/utils'
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   familyId: string | undefined
+}
+
+type EventMeta = {
+  icon: React.ReactNode
+  iconBg: string
+  text: (event: ActivityEvent) => React.ReactNode
+}
+
+function getEventMeta(event: ActivityEvent): EventMeta {
+  const p = event.payload
+  const actor = event.actorName
+
+  const metas: Record<ActivityEventType, EventMeta> = {
+    'item.added': {
+      icon: <Plus className="h-3 w-3 opacity-70" />,
+      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.5 0.15 240)',
+      text: () => (
+        <>
+          {actor && <span className="font-semibold">{actor} </span>}
+          <span className="text-muted-foreground">added </span>
+          <span className="font-medium">{p['title'] as string}</span>
+          <span className="text-muted-foreground"> in {p['space_name'] as string}</span>
+        </>
+      ),
+    },
+    'item.completed': {
+      icon: <CheckCheck className="h-3 w-3 opacity-70" />,
+      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.5 0.15 240)',
+      text: () => (
+        <>
+          {actor && <span className="font-semibold">{actor} </span>}
+          <span className="text-muted-foreground">completed </span>
+          <span className="font-medium">{p['title'] as string}</span>
+          <span className="text-muted-foreground"> in {p['space_name'] as string}</span>
+        </>
+      ),
+    },
+    'expense.added': {
+      icon: <Receipt className="h-3 w-3 opacity-70" />,
+      iconBg: 'oklch(0.55 0.18 145)',
+      text: () => (
+        <>
+          {actor && <span className="font-semibold">{actor} </span>}
+          <span className="text-muted-foreground">logged </span>
+          <span className="font-medium">{formatCurrency(p['amount'] as number)}</span>
+          {p['description'] && (
+            <span className="text-muted-foreground"> — {p['description'] as string}</span>
+          )}
+        </>
+      ),
+    },
+    'expenses.imported': {
+      icon: <Upload className="h-3 w-3 opacity-70" />,
+      iconBg: 'oklch(0.55 0.18 240)',
+      text: () => (
+        <>
+          {actor && <span className="font-semibold">{actor} </span>}
+          <span className="text-muted-foreground">imported </span>
+          <span className="font-medium">{p['count'] as number} expenses</span>
+        </>
+      ),
+    },
+    'member.joined': {
+      icon: <Users className="h-3 w-3 opacity-70" />,
+      iconBg: 'oklch(0.55 0.18 300)',
+      text: () => (
+        <>
+          <span className="font-semibold">{(p['name'] as string | undefined) ?? actor ?? 'Someone'}</span>
+          <span className="text-muted-foreground"> joined the family</span>
+        </>
+      ),
+    },
+  }
+
+  return metas[event.eventType]
 }
 
 export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
@@ -26,7 +104,7 @@ export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
         <SheetHeader className="border-b border-border px-6 py-4">
           <SheetTitle>Recent Activity</SheetTitle>
           <SheetDescription className="sr-only">
-            Items added and completed by family members in the last 14 days
+            Family activity from the last 14 days
           </SheetDescription>
         </SheetHeader>
 
@@ -49,52 +127,38 @@ export function ActivitySheet({ open, onOpenChange, familyId }: Props) {
                 No recent activity
               </p>
               <p className="text-xs text-muted-foreground/60">
-                Items added or completed by family members will appear here.
+                Actions by family members will appear here.
               </p>
             </div>
           ) : (
             <AnimatedList className="flex flex-col divide-y divide-border/40 gap-0">
-              {events.map((event) => (
-                <div
-                  key={event.key}
-                  className="flex items-start gap-3 px-6 py-3.5"
-                >
-                  {/* Event type icon tinted with space color */}
+              {events.map((event) => {
+                const meta = getEventMeta(event)
+                return (
                   <div
-                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-                    style={{ background: event.spaceColor }}
+                    key={event.id}
+                    className="flex items-start gap-3 px-6 py-3.5"
                   >
-                    {event.type === 'added' ? (
-                      <Plus className="h-3 w-3 opacity-70" />
-                    ) : (
-                      <CheckCheck className="h-3 w-3 opacity-70" />
-                    )}
-                  </div>
+                    <div
+                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: meta.iconBg }}
+                    >
+                      {meta.icon}
+                    </div>
 
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <p className="text-sm leading-snug">
-                      {event.actorName && (
-                        <span className="font-semibold">
-                          {event.actorName}{' '}
-                        </span>
-                      )}
-                      <span className="text-muted-foreground">
-                        {event.type === 'added' ? 'added ' : 'completed '}
-                      </span>
-                      <span className="font-medium">{event.itemTitle}</span>
-                      <span className="text-muted-foreground">
-                        {' '}
-                        in {event.spaceName}
-                      </span>
-                    </p>
-                    <p className="text-xs text-muted-foreground/50">
-                      {formatDistanceToNow(event.timestamp, {
-                        addSuffix: true,
-                      })}
-                    </p>
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <p className="text-sm leading-snug">
+                        {meta.text(event)}
+                      </p>
+                      <p className="text-xs text-muted-foreground/50">
+                        {formatDistanceToNow(event.timestamp, {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </AnimatedList>
           )}
         </div>

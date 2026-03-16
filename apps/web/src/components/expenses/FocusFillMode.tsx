@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Loader2, ScanEye, X } from 'lucide-react'
 import { Dialog, DialogContent } from '#/components/ui/dialog'
 import { Button } from '#/components/ui/button'
-import { cn, formatCurrency } from '#/lib/utils'
+import { formatCurrency } from '#/lib/utils'
+import { parseLocalDate } from '#/lib/date-utils'
 import { getCategoryIcon } from '#/lib/categoryIcons'
+import { ChipSelector } from '#/components/expenses/ChipSelector'
 import type { Category, ExpenseWithNames, Space } from '@family/types'
 
 type Patch = {
@@ -25,52 +28,18 @@ type Props = {
   isSaving?: boolean
 }
 
-function colorStyle(color: string): React.CSSProperties {
-  return {
-    background: `color-mix(in srgb, ${color} 15%, transparent)`,
-    borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
-    color: 'inherit',
-  }
+const cardVariants = {
+  initial: (dir: 'next' | 'prev') => ({ x: dir === 'next' ? 32 : -32, opacity: 0 }),
+  animate: { x: 0, opacity: 1 },
+  exit: (dir: 'next' | 'prev') => ({ x: dir === 'next' ? -32 : 32, opacity: 0 }),
 }
 
-function ChipRow<T extends { id: string }>({
-  items,
-  selected,
-  onSelect,
-  getColor,
-  renderLabel,
-}: {
-  items: T[]
-  selected: string | null
-  onSelect: (id: string | null) => void
-  getColor: (item: T) => string
-  renderLabel: (item: T) => React.ReactNode
-}) {
-  if (items.length === 0) return null
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) => {
-        const isSelected = selected === item.id
-        const color = getColor(item)
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(isSelected ? null : item.id)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
-              isSelected
-                ? 'shadow-sm'
-                : 'border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground',
-            )}
-            style={isSelected ? colorStyle(color) : undefined}
-          >
-            {renderLabel(item)}
-          </button>
-        )
-      })}
-    </div>
-  )
+function formatExpenseDate(dateStr: string): string {
+  return parseLocalDate(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 export function FocusFillMode({
@@ -87,14 +56,12 @@ export function FocusFillMode({
 }: Props) {
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState<'next' | 'prev'>('next')
-  const [animating, setAnimating] = useState(false)
   const [patches, setPatches] = useState<Map<string, Patch>>(new Map())
 
   useEffect(() => {
     if (open) {
       setIndex(0)
       setDirection('next')
-      setAnimating(false)
       setPatches(
         new Map(
           expenses.map((e) => [
@@ -124,15 +91,11 @@ export function FocusFillMode({
   const navigate = useCallback(
     (dir: 'next' | 'prev') => {
       const next = dir === 'next' ? index + 1 : index - 1
-      if (next < 0 || next >= expenses.length || animating) return
+      if (next < 0 || next >= expenses.length) return
       setDirection(dir)
-      setAnimating(true)
-      setTimeout(() => {
-        setIndex(next)
-        setAnimating(false)
-      }, 200)
+      setIndex(next)
     },
-    [index, expenses.length, animating],
+    [index, expenses.length],
   )
 
   useEffect(() => {
@@ -146,15 +109,23 @@ export function FocusFillMode({
   }, [open, navigate])
 
   function handleDone() {
-    const updates = expenses
-      .map((e) => ({ id: e.id, patch: patches.get(e.id) ?? {} }))
-      .filter(({ patch: p }) => p.categoryId !== undefined || p.locationId !== undefined || p.paidById !== undefined)
+    // Only submit expenses where something actually changed from the original
+    const updates = expenses.flatMap((e) => {
+      const p = patches.get(e.id)
+      if (!p) return []
+      const changed =
+        p.categoryId !== (e.categoryId ?? null) ||
+        p.locationId !== (e.locationId ?? null) ||
+        p.paidById !== (e.paidById ?? null)
+      if (!changed) return []
+      return [{ id: e.id, patch: p }]
+    })
     onSave(updates)
   }
 
   if (!expense) return null
 
-  const progress = expenses.length > 0 ? ((index + 1) / expenses.length) * 100 : 0
+  const progress = ((index + 1) / expenses.length) * 100
   const filled = [...patches.values()].filter(
     (p) => p.categoryId || p.locationId || p.paidById,
   ).length
@@ -196,92 +167,101 @@ export function FocusFillMode({
 
         {/* Card area */}
         <div className="flex flex-1 items-center justify-center overflow-hidden px-4 py-8">
-          <div
-            className={cn(
-              'w-full max-w-lg transition-all duration-200',
-              animating && direction === 'next' && 'translate-x-8 opacity-0',
-              animating && direction === 'prev' && '-translate-x-8 opacity-0',
-              !animating && 'translate-x-0 opacity-100',
-            )}
-          >
-            <div className="rounded-2xl border bg-card shadow-sm">
-              {/* Amount + meta */}
-              <div className="border-b px-6 py-5">
-                <p className="text-3xl font-bold tabular-nums">
-                  {formatCurrency(expense.amount, currency, locale)}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">{expense.date}</p>
-                {expense.description && (
-                  <p className="mt-2 text-base">{expense.description}</p>
-                )}
-              </div>
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={index}
+              custom={direction}
+              variants={cardVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="w-full max-w-lg"
+            >
+              <div className="rounded-2xl border bg-card shadow-sm">
+                {/* Amount + meta */}
+                <div className="border-b px-6 py-5">
+                  <p className="text-3xl font-bold tabular-nums">
+                    {formatCurrency(expense.amount, currency, locale)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatExpenseDate(expense.date)}
+                  </p>
+                  {expense.description && (
+                    <p className="mt-2 text-base">{expense.description}</p>
+                  )}
+                </div>
 
-              {/* Chip selectors */}
-              <div className="flex flex-col gap-5 px-6 py-5">
-                {personSpaces.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Paid by</p>
-                    <ChipRow
-                      items={personSpaces}
-                      selected={patch.paidById ?? null}
-                      onSelect={(id) => setPatch(expense.id, { paidById: id })}
-                      getColor={(s) => s.color}
-                      renderLabel={(space) => (
-                        <>
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
-                          {space.name}
-                        </>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {categories.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</p>
-                    <ChipRow
-                      items={categories}
-                      selected={patch.categoryId ?? null}
-                      onSelect={(id) => setPatch(expense.id, { categoryId: id })}
-                      getColor={(cat) => cat.color ?? '#888888'}
-                      renderLabel={(cat) => {
-                        const Icon = getCategoryIcon(cat.icon)
-                        return (
+                {/* Chip selectors */}
+                <div className="flex flex-col gap-5 px-6 py-5">
+                  {personSpaces.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Paid by</p>
+                      <ChipSelector
+                        items={personSpaces}
+                        selected={patch.paidById ?? null}
+                        onSelect={(id) => setPatch(expense.id, { paidById: id })}
+                        getColor={(s) => s.color}
+                        size="md"
+                        renderChip={(space) => (
                           <>
-                            <span
-                              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
-                              style={{ background: `color-mix(in srgb, ${cat.color ?? '#888888'} 20%, transparent)` }}
-                            >
-                              <Icon className="h-2.5 w-2.5" style={{ color: cat.color ?? undefined }} />
-                            </span>
-                            {cat.name}
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
+                            {space.name}
                           </>
-                        )
-                      }}
-                    />
-                  </div>
-                )}
+                        )}
+                      />
+                    </div>
+                  )}
 
-                {locationSpaces.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</p>
-                    <ChipRow
-                      items={locationSpaces}
-                      selected={patch.locationId ?? null}
-                      onSelect={(id) => setPatch(expense.id, { locationId: id })}
-                      getColor={(s) => s.color}
-                      renderLabel={(space) => (
-                        <>
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
-                          {space.name}
-                        </>
-                      )}
-                    />
-                  </div>
-                )}
+                  {categories.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</p>
+                      <ChipSelector
+                        items={categories}
+                        selected={patch.categoryId ?? null}
+                        onSelect={(id) => setPatch(expense.id, { categoryId: id })}
+                        getColor={(cat) => cat.color ?? '#888888'}
+                        size="md"
+                        renderChip={(cat) => {
+                          const Icon = getCategoryIcon(cat.icon)
+                          return (
+                            <>
+                              <span
+                                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
+                                style={{ background: `color-mix(in srgb, ${cat.color ?? '#888888'} 20%, transparent)` }}
+                              >
+                                <Icon className="h-2.5 w-2.5" style={{ color: cat.color ?? undefined }} />
+                              </span>
+                              {cat.name}
+                            </>
+                          )
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {locationSpaces.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</p>
+                      <ChipSelector
+                        items={locationSpaces}
+                        selected={patch.locationId ?? null}
+                        onSelect={(id) => setPatch(expense.id, { locationId: id })}
+                        getColor={(s) => s.color}
+                        size="md"
+                        renderChip={(space) => (
+                          <>
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
+                            {space.name}
+                          </>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Footer */}

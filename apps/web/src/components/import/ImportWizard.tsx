@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Brain, FileText, Loader2 } from 'lucide-react'
+import { Brain, FileText, Loader2, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { useCSVImport } from '#/contexts/csvImport'
@@ -8,6 +8,7 @@ import type { Step } from '#/contexts/csvImport'
 import { StandardFormatMapping } from '#/components/import/StandardFormatMapping'
 import { WideFormatMapping } from '#/components/import/WideFormatMapping'
 import { ImportPreviewTable } from '#/components/import/ImportPreviewTable'
+import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
@@ -69,7 +70,7 @@ function StepIndicator({ step }: { step: Step }) {
 
 type DocumentStyle = 'standard' | 'wide-format'
 
-function UploadStep() {
+function UploadStep({ canAiImport }: { canAiImport: boolean }) {
   const { documentStyle, setDocumentStyle, handleFile, setStep, setMappedData, categories, locationSpaces, personSpaces } =
     useCSVImport()
   const [isProcessingPDF, setIsProcessingPDF] = useState(false)
@@ -267,49 +268,73 @@ Rules:
 
         {/* PDF */}
         <div className="rounded-xl border bg-card p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-purple-500" />
-            <h3 className="font-semibold">AI PDF Processing</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-500" />
+              <h3 className="font-semibold">AI PDF Processing</h3>
+            </div>
+            {!canAiImport && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="h-3 w-3" /> Pro
+              </Badge>
+            )}
           </div>
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 px-3 py-2.5 text-sm text-blue-800 dark:text-blue-300">
             Upload your bank statement PDF and AI will automatically extract transactions from any bank format.
           </div>
 
-          {!geminiConfigured && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-300">
-              Gemini API key not configured. Go to{' '}
-              <a href="/settings?tab=integrations" className="underline font-medium">
-                Settings → Integrations
-              </a>{' '}
-              to add it.
+          {!canAiImport ? (
+            <div className="flex flex-col items-start gap-3">
+              <p className="text-muted-foreground text-sm">
+                AI PDF import is available on the Pro plan.
+              </p>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => toast.info('Pro upgrade coming soon!')}
+              >
+                Upgrade to Pro — $10/mo
+              </Button>
             </div>
-          )}
+          ) : (
+            <>
+              {!geminiConfigured && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+                  Gemini API key not configured. Go to{' '}
+                  <a href="/settings?tab=integrations" className="underline font-medium">
+                    Settings → Integrations
+                  </a>{' '}
+                  to add it.
+                </div>
+              )}
 
-          <div className="space-y-2">
-            <Label htmlFor="pdf-upload">Upload PDF Statement</Label>
-            <Input
-              id="pdf-upload"
-              type="file"
-              accept=".pdf"
-              onChange={onPDFChange}
-              disabled={isProcessingPDF || !geminiConfigured}
-            />
-          </div>
-
-          {isProcessingPDF && (
-            <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              <div>
-                <p className="text-sm font-medium">Processing PDF with AI</p>
-                <p className="text-muted-foreground text-xs">Extracting transactions from your statement…</p>
+              <div className="space-y-2">
+                <Label htmlFor="pdf-upload">Upload PDF Statement</Label>
+                <Input
+                  id="pdf-upload"
+                  type="file"
+                  accept=".pdf"
+                  onChange={onPDFChange}
+                  disabled={isProcessingPDF || !geminiConfigured}
+                />
               </div>
-            </div>
-          )}
 
-          <p className="text-muted-foreground text-xs">
-            AI will automatically extract date, amount, and description for each transaction.
-          </p>
+              {isProcessingPDF && (
+                <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Processing PDF with AI</p>
+                    <p className="text-muted-foreground text-xs">Extracting transactions from your statement…</p>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-muted-foreground text-xs">
+                AI will automatically extract date, amount, and description for each transaction.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -364,15 +389,16 @@ function PreviewStep({ currency, locale }: PreviewStepProps) {
 interface ImportWizardProps {
   currency?: string
   locale?: string
+  canAiImport?: boolean
 }
 
-export function ImportWizard({ currency, locale }: ImportWizardProps) {
+export function ImportWizard({ currency, locale, canAiImport = false }: ImportWizardProps) {
   const { step } = useCSVImport()
 
   return (
     <div className="space-y-6">
       <StepIndicator step={step} />
-      {step === 'upload' && <UploadStep />}
+      {step === 'upload' && <UploadStep canAiImport={canAiImport} />}
       {step === 'map' && <MappingStep />}
       {step === 'preview' && <PreviewStep currency={currency} locale={locale} />}
     </div>

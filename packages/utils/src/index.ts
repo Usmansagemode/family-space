@@ -1,5 +1,5 @@
 export { formatDate, formatDateFull, hasExplicitTime, formatTime } from './format'
 export { extractHue } from './color'
-export { getDateStatus, advanceDate } from './date'
+export { getDateStatus, advanceDate, parseLocalDate } from './date'
 export type { DateStatus } from './date'
 export { useDebounce } from './hooks'

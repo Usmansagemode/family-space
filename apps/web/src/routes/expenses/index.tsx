@@ -1,88 +1,92 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import {
-  ArrowDownLeft,
-  Briefcase,
-  Building2,
-  CircleDollarSign,
-  Home,
-  Loader2,
-  Pencil,
-  Plus,
-  ScanEye,
-  Trash2,
-  TrendingUp,
-  Wallet,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import type { IncomeType } from '@family/types'
+import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { ArrowDownLeft, CalendarClock, Pencil, Plus, RefreshCw, ScanEye, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { createExpense, createIncomeEntry, updateRecurringTransaction } from '@family/supabase'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useExpenses } from '#/hooks/expenses/useExpenses'
 import { useExpenseMutations } from '#/hooks/expenses/useExpenseMutations'
+import { useRecurringTransactions } from '#/hooks/expenses/useRecurringTransactions'
+import { useRecurringTransactionMutations } from '#/hooks/expenses/useRecurringTransactionMutations'
 import { useCategories } from '#/hooks/categories/useCategories'
+import { useAllCategories } from '#/hooks/categories/useAllCategories'
 import { useIncomeEntries } from '#/hooks/income/useIncomeEntries'
 import { useIncomeMutations } from '#/hooks/income/useIncomeMutations'
 import { MonthYearSelector } from '#/components/expenses/MonthYearSelector'
 import { ExpenseSummary } from '#/components/expenses/ExpenseSummary'
 import { ExpenseTable } from '#/components/expenses/ExpenseTable'
 import { ExpenseDialog } from '#/components/expenses/ExpenseDialog'
+import { IncomeDialog } from '#/components/expenses/IncomeDialog'
+import { RecurringTransactionDialog } from '#/components/expenses/RecurringTransactionDialog'
+import { CatchUpDialog } from '#/components/expenses/CatchUpDialog'
 import { FocusFillMode } from '#/components/expenses/FocusFillMode'
 import { FinancialsChart } from '#/components/expenses/FinancialsChart'
+import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '#/components/ui/sheet'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
-import { cn, formatCurrency } from '#/lib/utils'
-import type { ExpenseWithNames, IncomeEntry } from '@family/types'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '#/components/ui/alert-dialog'
+import { formatCurrency } from '#/lib/utils'
+import { buildCatchUpPlan, getMissedOccurrences, nextOccurrence } from '#/lib/recurringExpenses'
+import type { CatchUpItem } from '#/lib/recurringExpenses'
+import { INCOME_TYPES } from '#/lib/income-types'
+import type { ExpenseWithNames, IncomeEntry, IncomeType, RecurringTransaction } from '@family/types'
 
-type IncomeTypeDef = { id: IncomeType; label: string; icon: LucideIcon; hex: string }
-
-const INCOME_TYPES: IncomeTypeDef[] = [
-  { id: 'salary',     label: 'Salary',     icon: Briefcase,        hex: '#3b82f6' },
-  { id: 'side_gig',  label: 'Side Gig',   icon: CircleDollarSign, hex: '#8b5cf6' },
-  { id: 'freelance',  label: 'Freelance',  icon: Briefcase,        hex: '#f97316' },
-  { id: 'business',   label: 'Business',   icon: Building2,        hex: '#10b981' },
-  { id: 'rental',     label: 'Rental',     icon: Home,             hex: '#f59e0b' },
-  { id: 'investment', label: 'Investment', icon: TrendingUp,       hex: '#22c55e' },
-  { id: 'other',      label: 'Other',      icon: Wallet,           hex: '#6b7280' },
-]
+const now = new Date()
+const currentYear = now.getFullYear()
+const currentMonth = now.getMonth() + 1
 
 export const Route = createFileRoute('/expenses/')({
+  validateSearch: (s: Record<string, unknown>) => {
+    const year = Number(s.year)
+    const month = Number(s.month)
+    return {
+      year: year >= 2000 && year <= 2100 ? year : currentYear,
+      month: month >= 1 && month <= 12 ? month : currentMonth,
+    }
+  },
   component: ExpensesPage,
 })
 
 function ExpensesPage() {
   const { user } = useAuthContext()
   const { data: family } = useUserFamily(user?.id)
+  const { year, month } = Route.useSearch()
+  const navigate = useNavigate({ from: '/expenses/' })
 
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
-
-  // expense state
+  // expense dialog state
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<ExpenseWithNames | null>(null)
   const [expenseResetKey, setExpenseResetKey] = useState(0)
   const [focusFillOpen, setFocusFillOpen] = useState(false)
 
-  // income state
+  // income dialog state
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<IncomeEntry | null>(null)
-  const [incomeAmount, setIncomeAmount] = useState('')
-  const [incomeDate, setIncomeDate] = useState('')
-  const [incomePersonId, setIncomePersonId] = useState<string>('')
-  const [incomeType, setIncomeType] = useState<IncomeType | null>(null)
-  const [incomeDescription, setIncomeDescription] = useState('')
+  const [incomeResetKey, setIncomeResetKey] = useState(0)
+  const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null)
+
+  // recurring transaction dialog state
+  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false)
+  const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null)
+
+  // catch-up dialog state
+  const [catchUpOpen, setCatchUpOpen] = useState(false)
+  const [catchUpItems, setCatchUpItems] = useState<CatchUpItem[]>([])
+  const catchUpRan = useRef(false)
+  const queryClient = useQueryClient()
 
   const familyId = family?.id ?? ''
   const currency = family?.currency
@@ -94,6 +98,7 @@ function ExpensesPage() {
   const { data: expenses, isLoading: loadingExpenses } = useExpenses(familyId, year, month)
   const { data: prevExpenses } = useExpenses(familyId, prevYear, prevMonth)
   const { data: categories } = useCategories(familyId)
+  const { data: allCategories } = useAllCategories(familyId)
   const { data: spaces } = useSpaces(familyId)
   const expenseMutations = useExpenseMutations(familyId, year, month)
 
@@ -107,6 +112,70 @@ function ExpensesPage() {
 
   const incomeTotal = (incomeEntries ?? []).reduce((sum, e) => sum + e.amount, 0)
 
+  const { data: recurringTransactions } = useRecurringTransactions(familyId)
+  const recurringMutations = useRecurringTransactionMutations(familyId)
+
+  // Catch-up: run once per session when recurring transactions load
+  useEffect(() => {
+    if (!recurringTransactions || catchUpRan.current || !familyId) return
+    catchUpRan.current = true
+
+    const plan = buildCatchUpPlan(recurringTransactions)
+
+    // Auto-generate ≤2 missed silently
+    if (plan.autoGenerate.length > 0) {
+      void (async () => {
+        try {
+          for (const { recurring, missedDates } of plan.autoGenerate) {
+            await Promise.all(
+              missedDates.map((date) => {
+                if (recurring.direction === 'expense') {
+                  return createExpense({
+                    familyId,
+                    amount: recurring.amount,
+                    date,
+                    description: recurring.description,
+                    categoryId: recurring.categoryId,
+                    locationId: recurring.locationId,
+                    paidById: recurring.paidById,
+                    autoGenerated: true,
+                    recurringTransactionId: recurring.id,
+                  })
+                } else {
+                  return createIncomeEntry({
+                    familyId,
+                    amount: recurring.amount,
+                    date,
+                    description: recurring.description,
+                    personId: recurring.personId,
+                    type: recurring.incomeType,
+                    autoGenerated: true,
+                    recurringTransactionId: recurring.id,
+                  })
+                }
+              }),
+            )
+            const lastDate = missedDates[missedDates.length - 1]
+            await updateRecurringTransaction(recurring.id, {
+              nextDueDate: nextOccurrence(lastDate, recurring.frequency),
+            })
+          }
+          void queryClient.invalidateQueries({ queryKey: ['expenses', familyId] })
+          void queryClient.invalidateQueries({ queryKey: ['income-entries', familyId] })
+        } catch {
+          // Silent failure — don't disrupt the user
+        }
+      })()
+    }
+
+    // Surface ≥3 missed to user
+    if (plan.needsReview.length > 0) {
+      setCatchUpItems(plan.needsReview)
+      setCatchUpOpen(true)
+    }
+  }, [recurringTransactions, familyId])
+
+  // React rules of hooks require all hooks above this point before any conditional returns
   if (!user) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -149,63 +218,97 @@ function ExpensesPage() {
 
   function openAddIncome() {
     setEditingEntry(null)
-    setIncomeAmount('')
-    setIncomeDate(`${year}-${String(month).padStart(2, '0')}-01`)
-    setIncomePersonId('')
-    setIncomeType(null)
-    setIncomeDescription('')
     setIncomeDialogOpen(true)
   }
 
   function openEditIncome(entry: IncomeEntry) {
     setEditingEntry(entry)
-    setIncomeAmount(String(entry.amount))
-    setIncomeDate(entry.date)
-    setIncomePersonId(entry.personId ?? '')
-    setIncomeType(entry.type)
-    setIncomeDescription(entry.description ?? '')
     setIncomeDialogOpen(true)
   }
 
-  function handleSaveIncome() {
-    const amount = parseFloat(incomeAmount)
-    if (isNaN(amount) || amount <= 0 || !incomeDate) return
-    const payload = {
-      amount,
-      date: incomeDate,
-      personId: incomePersonId || null,
-      type: incomeType,
-      description: incomeDescription || undefined,
-    }
+  function handleSaveIncome(data: {
+    amount: number
+    date: string
+    description?: string
+    personId: string | null
+    type: IncomeType | null
+  }) {
     if (editingEntry) {
       incomeMutations.update.mutate(
-        { id: editingEntry.id, ...payload },
+        { id: editingEntry.id, ...data },
         { onSuccess: () => setIncomeDialogOpen(false) },
       )
     } else {
-      incomeMutations.create.mutate(payload, {
-        onSuccess: () => {
-          setIncomeAmount('')
-          setIncomeDate(`${year}-${String(month).padStart(2, '0')}-01`)
-          setIncomePersonId('')
-          setIncomeType(null)
-          setIncomeDescription('')
-        },
+      incomeMutations.create.mutate(data, {
+        onSuccess: () => setIncomeResetKey((k) => k + 1),
       })
+    }
+  }
+
+  // ── Recurring saved handler ───────────────────────────────────────────────
+
+  async function handleRecurringSaved(updated: RecurringTransaction) {
+    const missed = getMissedOccurrences(updated.nextDueDate, updated.frequency)
+    if (missed.length === 0) return
+
+    const item: CatchUpItem = { recurring: updated, missedDates: missed }
+
+    if (missed.length <= 2) {
+      try {
+        await Promise.all(
+          missed.map((date) => {
+            if (updated.direction === 'expense') {
+              return createExpense({
+                familyId,
+                amount: updated.amount,
+                date,
+                description: updated.description,
+                categoryId: updated.categoryId,
+                locationId: updated.locationId,
+                paidById: updated.paidById,
+                autoGenerated: true,
+                recurringTransactionId: updated.id,
+              })
+            } else {
+              return createIncomeEntry({
+                familyId,
+                amount: updated.amount,
+                date,
+                description: updated.description,
+                personId: updated.personId,
+                type: updated.incomeType,
+                autoGenerated: true,
+                recurringTransactionId: updated.id,
+              })
+            }
+          }),
+        )
+        await updateRecurringTransaction(updated.id, {
+          nextDueDate: nextOccurrence(missed[missed.length - 1], updated.frequency),
+        })
+        void queryClient.invalidateQueries({ queryKey: ['expenses', familyId] })
+        void queryClient.invalidateQueries({ queryKey: ['income-entries', familyId] })
+        void queryClient.invalidateQueries({ queryKey: ['recurring-transactions', familyId] })
+      } catch {
+        // Silent failure
+      }
+    } else {
+      setCatchUpItems([item])
+      setCatchUpOpen(true)
     }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full flex-col gap-4 p-6">
+    <div className="flex flex-col gap-4 p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">Finances</h1>
         <MonthYearSelector
           year={year}
           month={month}
-          onChange={(y, m) => { setYear(y); setMonth(m) }}
+          onChange={(y, m) => { void navigate({ search: { year: y, month: m }, replace: true }) }}
         />
       </div>
 
@@ -222,9 +325,17 @@ function ExpensesPage() {
           <TabsList>
             <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="income">Income</TabsTrigger>
+            <TabsTrigger value="recurring" className="gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Recurring
+              {(recurringTransactions ?? []).length > 0 && (
+                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                  {(recurringTransactions ?? []).length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
-          {/* Context-aware add button rendered outside TabsContent to keep it in the header row */}
           <div className="flex gap-2">
             <TabsContent value="expenses" className="mt-0 flex gap-2">
               {(expenses ?? []).length > 0 && (
@@ -242,6 +353,12 @@ function ExpensesPage() {
               <Button onClick={openAddIncome}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 Log income
+              </Button>
+            </TabsContent>
+            <TabsContent value="recurring" className="mt-0">
+              <Button onClick={() => { setEditingRecurring(null); setRecurringDialogOpen(true) }}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                New recurring
               </Button>
             </TabsContent>
           </div>
@@ -279,7 +396,11 @@ function ExpensesPage() {
                 onEdit={openEditExpense}
                 onDelete={(id) => expenseMutations.remove.mutate(id)}
                 onDeleteMany={(ids) => expenseMutations.removeMany.mutate(ids)}
-                onBulkUpdate={(ids, patch) => expenseMutations.updateMany.mutate({ ids, patch })}
+                onBulkUpdate={(ids, patch) => expenseMutations.bulkUpdateUniform.mutate({ ids, patch })}
+                onClickRecurring={(id) => {
+                  const t = (recurringTransactions ?? []).find((r) => r.id === id)
+                  if (t) { setEditingRecurring(t); setRecurringDialogOpen(true) }
+                }}
               />
             </>
           )}
@@ -327,9 +448,30 @@ function ExpensesPage() {
                       <Icon className="h-4 w-4" style={{ color: typeDef?.hex ?? '#10b981' }} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {entry.description || typeDef?.label || 'Income'}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        {entry.autoGenerated && (
+                          entry.recurringTransactionId ? (
+                            <button
+                              type="button"
+                              title="Auto-generated from recurring transaction — click to edit"
+                              className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+                              onClick={() => {
+                                const t = (recurringTransactions ?? []).find((r) => r.id === entry.recurringTransactionId)
+                                if (t) { setEditingRecurring(t); setRecurringDialogOpen(true) }
+                              }}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </button>
+                          ) : (
+                            <span title="Auto-generated (template deleted)">
+                              <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+                            </span>
+                          )
+                        )}
+                        <p className="truncate text-sm font-medium">
+                          {entry.description || typeDef?.label || 'Income'}
+                        </p>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {entry.date}
                         {person && <span className="ml-2">· {person.name}</span>}
@@ -347,7 +489,7 @@ function ExpensesPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => incomeMutations.remove.mutate(entry.id)}
+                      onClick={() => setDeletingIncomeId(entry.id)}
                       className="shrink-0 text-muted-foreground transition hover:text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -355,6 +497,66 @@ function ExpensesPage() {
                   </div>
                 )
               })}
+            </div>
+          )}
+        </TabsContent>
+        {/* ── Recurring tab ── */}
+        <TabsContent value="recurring" className="mt-4">
+          {(recurringTransactions ?? []).length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <CalendarClock className="h-10 w-10 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">No recurring transactions yet.</p>
+              <Button variant="outline" onClick={() => { setEditingRecurring(null); setRecurringDialogOpen(true) }}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                New recurring
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {(recurringTransactions ?? []).map((r) => {
+                const memberId = r.direction === 'expense' ? r.paidById : r.personId
+                const member = memberId ? personSpaces.find((s) => s.id === memberId) : null
+                return (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{r.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="capitalize">{r.direction}</span>
+                      {' · '}
+                      {r.frequency.charAt(0).toUpperCase() + r.frequency.slice(1)}
+                      {member && <span> · {member.name}</span>}
+                      {' · '}Next: {r.nextDueDate}
+                      {r.endDate && <span className="ml-1">· Ends {r.endDate}</span>}
+                    </p>
+                  </div>
+                  <p className={`shrink-0 text-sm font-semibold ${r.direction === 'income' ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                    {r.direction === 'income' ? '+' : ''}{formatCurrency(r.amount, currency, locale)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingRecurring(r); setRecurringDialogOpen(true) }}
+                    className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => recurringMutations.remove.mutate(r.id, {
+                      onSuccess: () => toast.success('Recurring transaction deleted'),
+                      onError: () => toast.error('Failed to delete'),
+                    })}
+                    className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )})}
             </div>
           )}
         </TabsContent>
@@ -371,20 +573,19 @@ function ExpensesPage() {
         currency={currency}
         locale={locale}
         onSave={(updates) => {
-          expenseMutations.updateBatch.mutate(updates, {
+          expenseMutations.bulkUpdatePerItem.mutate(updates, {
             onSuccess: () => setFocusFillOpen(false),
           })
         }}
-        isSaving={expenseMutations.updateBatch.isPending}
+        isSaving={expenseMutations.bulkUpdatePerItem.isPending}
       />
 
-      {/* Expense dialog */}
+      {/* Expense dialog — pass all categories when editing so archived selections are preserved */}
       <ExpenseDialog
         open={expenseDialogOpen}
         onOpenChange={setExpenseDialogOpen}
         expense={editingExpense}
-        familyId={familyId}
-        categories={categories ?? []}
+        categories={editingExpense ? (allCategories ?? []) : (categories ?? [])}
         locationSpaces={locationSpaces}
         personSpaces={personSpaces}
         onSave={handleSaveExpense}
@@ -392,139 +593,71 @@ function ExpensesPage() {
         resetKey={expenseResetKey}
       />
 
-      {/* Income sheet */}
-      <Sheet open={incomeDialogOpen} onOpenChange={(open) => {
-        setIncomeDialogOpen(open)
-        if (!open) setEditingEntry(null)
-      }}>
-        <SheetContent side="right" className="sm:max-w-md flex flex-col gap-0 p-0">
-          <SheetHeader className="border-b px-6 py-4">
-            <SheetTitle>{editingEntry ? 'Edit income' : 'Log income'}</SheetTitle>
-          </SheetHeader>
+      {/* Income dialog */}
+      <IncomeDialog
+        open={incomeDialogOpen}
+        onOpenChange={(o) => {
+          setIncomeDialogOpen(o)
+          if (!o) setEditingEntry(null)
+        }}
+        entry={editingEntry}
+        year={year}
+        month={month}
+        personSpaces={personSpaces}
+        onSave={handleSaveIncome}
+        isSaving={incomeMutations.create.isPending || incomeMutations.update.isPending}
+        resetKey={incomeResetKey}
+      />
 
-          <div className="flex flex-1 flex-col overflow-y-auto">
-            <div className="flex flex-col gap-5 px-6 py-5">
-              {/* Type chips */}
-              <div className="flex flex-col gap-2">
-                <Label>Type</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {INCOME_TYPES.map((t) => {
-                    const Icon = t.icon
-                    const selected = incomeType === t.id
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setIncomeType(selected ? null : t.id)}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
-                          selected
-                            ? 'shadow-sm'
-                            : 'border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground',
-                        )}
-                        style={selected ? {
-                          background: `color-mix(in srgb, ${t.hex} 15%, transparent)`,
-                          borderColor: `color-mix(in srgb, ${t.hex} 45%, transparent)`,
-                          color: 'inherit',
-                        } : undefined}
-                      >
-                        <span
-                          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
-                          style={{ background: `color-mix(in srgb, ${t.hex} 20%, transparent)` }}
-                        >
-                          <Icon className="h-2.5 w-2.5" style={{ color: t.hex }} />
-                        </span>
-                        {t.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+      {/* Recurring transaction dialog */}
+      <RecurringTransactionDialog
+        familyId={familyId}
+        categories={categories ?? []}
+        personSpaces={personSpaces}
+        locationSpaces={locationSpaces}
+        open={recurringDialogOpen}
+        onOpenChange={(o) => { setRecurringDialogOpen(o); if (!o) setEditingRecurring(null) }}
+        editing={editingRecurring ?? undefined}
+        onSaved={handleRecurringSaved}
+      />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label>Amount</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={incomeAmount}
-                    onChange={(e) => setIncomeAmount(e.target.value)}
-                    placeholder="0.00"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={incomeDate}
-                    onChange={(e) => setIncomeDate(e.target.value)}
-                  />
-                </div>
-              </div>
+      {/* Catch-up dialog */}
+      <CatchUpDialog
+        familyId={familyId}
+        items={catchUpItems}
+        open={catchUpOpen}
+        onOpenChange={setCatchUpOpen}
+        onDone={() => {
+          void queryClient.invalidateQueries({ queryKey: ['expenses', familyId] })
+          void queryClient.invalidateQueries({ queryKey: ['income-entries', familyId] })
+        }}
+      />
 
-              {personSpaces.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <Label>Person</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {personSpaces.map((p) => {
-                      const isSelected = incomePersonId === p.id
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setIncomePersonId(isSelected ? '' : p.id)}
-                          className={cn(
-                            'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
-                            isSelected
-                              ? 'shadow-sm'
-                              : 'border-border bg-background text-muted-foreground hover:text-foreground',
-                          )}
-                          style={isSelected ? {
-                            background: `color-mix(in srgb, ${p.color} 15%, transparent)`,
-                            borderColor: `color-mix(in srgb, ${p.color} 45%, transparent)`,
-                            color: 'inherit',
-                          } : undefined}
-                        >
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
-                          {p.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <Label>
-                  Note
-                  <span className="ml-1 text-xs text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  value={incomeDescription}
-                  onChange={(e) => setIncomeDescription(e.target.value)}
-                  placeholder="e.g. March salary, Client X"
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveIncome() }}
-                />
-              </div>
-            </div>
-
-            <SheetFooter className="border-t px-6 py-4">
-              <Button
-                className="w-full"
-                onClick={handleSaveIncome}
-                disabled={incomeMutations.create.isPending || incomeMutations.update.isPending}
-              >
-                {(incomeMutations.create.isPending || incomeMutations.update.isPending) && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {editingEntry ? 'Save changes' : 'Log income'}
-              </Button>
-            </SheetFooter>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Income delete confirmation */}
+      <AlertDialog open={!!deletingIncomeId} onOpenChange={(o) => { if (!o) setDeletingIncomeId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete income entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingIncomeId) {
+                  incomeMutations.remove.mutate(deletingIncomeId, {
+                    onSuccess: () => setDeletingIncomeId(null),
+                  })
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

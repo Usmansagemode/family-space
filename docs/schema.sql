@@ -16,11 +16,19 @@ drop function if exists handle_new_user()                    cascade;
 drop function if exists set_item_created_by()                cascade;
 drop function if exists find_or_create_family(uuid)          cascade;
 drop function if exists accept_invite(uuid, uuid, uuid)      cascade;
+drop function if exists get_plan_limits(text)                cascade;
 drop function if exists is_family_member(uuid)               cascade;
 drop function if exists is_family_owner(uuid)                cascade;
 drop function if exists item_is_family_member(uuid)          cascade;
+drop function if exists split_participant_is_family_member(uuid) cascade;
+drop function if exists split_share_is_family_member(uuid)   cascade;
 drop function if exists update_updated_at()                  cascade;
 
+drop table if exists split_shares      cascade;
+drop table if exists split_settlements cascade;
+drop table if exists split_expenses    cascade;
+drop table if exists split_participants cascade;
+drop table if exists split_groups      cascade;
 drop table if exists tracker_entries  cascade;
 drop table if exists trackers         cascade;
 drop table if exists budgets          cascade;
@@ -31,7 +39,6 @@ drop table if exists invites          cascade;
 drop table if exists categories       cascade;
 drop table if exists spaces           cascade;
 drop table if exists user_families    cascade;
-drop table if exists family_members   cascade;
 drop table if exists families         cascade;
 drop table if exists profiles         cascade;
 
@@ -51,16 +58,19 @@ create table profiles (
 );
 
 create table families (
-  id                        uuid primary key default gen_random_uuid(),
-  name                      text not null,
-  plan                      text not null default 'free' check (plan in ('free', 'pro')),
-  currency                  text not null default 'USD',
-  locale                    text not null default 'en-US',
-  google_calendar_id        text,
-  google_calendar_embed_url text,
-  google_refresh_token      text,
-  created_at                timestamptz default now(),
-  updated_at                timestamptz default now()
+  id                          uuid primary key default gen_random_uuid(),
+  name                        text not null,
+  plan                        text not null default 'free' check (plan in ('free', 'plus', 'pro')),
+  currency                    text not null default 'USD',
+  locale                      text not null default 'en-US',
+  google_calendar_id          text,
+  google_calendar_embed_url   text,
+  google_refresh_token        text,
+  stripe_customer_id          text,
+  stripe_subscription_id      text,
+  stripe_subscription_status  text,
+  created_at                  timestamptz default now(),
+  updated_at                  timestamptz default now()
 );
 
 -- user_families: many-to-many users <-> families
@@ -119,28 +129,32 @@ create table categories (
 -- All three FKs use ON DELETE SET NULL — deleting a space/category
 -- never destroys expense records. UI shows "(Unknown)" for null FKs.
 create table expenses (
-  id          uuid primary key default gen_random_uuid(),
-  family_id   uuid not null references families(id) on delete cascade,
-  amount      numeric(12, 2) not null,
-  category_id uuid references categories(id) on delete set null,
-  location_id uuid references spaces(id) on delete set null,   -- type='store'
-  paid_by_id  uuid references spaces(id) on delete set null,   -- type='person'
-  date        date not null,
-  description text,
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  id                       uuid primary key default gen_random_uuid(),
+  family_id                uuid not null references families(id) on delete cascade,
+  amount                   numeric(12, 2) not null,
+  category_id              uuid references categories(id) on delete set null,
+  location_id              uuid references spaces(id) on delete set null,   -- type='store'
+  paid_by_id               uuid references spaces(id) on delete set null,   -- type='person'
+  date                     date not null,
+  description              text,
+  auto_generated           boolean not null default false,
+  recurring_transaction_id uuid references recurring_transactions(id) on delete set null,
+  created_at               timestamptz default now(),
+  updated_at               timestamptz default now()
 );
 
 -- Logged income entries (variable / actual amounts per date)
 create table income_entries (
-  id          uuid primary key default gen_random_uuid(),
-  family_id   uuid not null references families(id) on delete cascade,
-  person_id   uuid references spaces(id) on delete set null,
-  type        text check (type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
-  amount      numeric(12, 2) not null,
-  date        date not null,
-  description text,
-  created_at  timestamptz default now()
+  id                       uuid primary key default gen_random_uuid(),
+  family_id                uuid not null references families(id) on delete cascade,
+  person_id                uuid references spaces(id) on delete set null,
+  type                     text check (type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
+  amount                   numeric(12, 2) not null,
+  date                     date not null,
+  description              text,
+  auto_generated           boolean not null default false,
+  recurring_transaction_id uuid references recurring_transactions(id) on delete set null,
+  created_at               timestamptz default now()
 );
 
 -- Budgets: null person_id = family-wide; null category_id = overall
@@ -203,6 +217,112 @@ create table tracker_entries (
 
 
 -- ----------------------------------------------------------------
+-- RECURRING TRANSACTIONS (Pro feature)
+-- Unified recurring template for both expenses and income.
+-- direction = 'expense' → generates into expenses table
+-- direction = 'income'  → generates into income_entries table
+-- next_due_date advances after each generation.
+-- ----------------------------------------------------------------
+
+create table recurring_transactions (
+  id            uuid primary key default gen_random_uuid(),
+  family_id     uuid not null references families(id) on delete cascade,
+  direction     text not null check (direction in ('expense', 'income')),
+  description   text not null,
+  amount        numeric(12, 2) not null,
+  frequency     text not null check (frequency in ('weekly', 'monthly', 'yearly')),
+  start_date    date not null,
+  next_due_date date not null,
+  end_date      date,
+  -- expense-only (null when direction = 'income')
+  category_id   uuid references categories(id) on delete set null,
+  location_id   uuid references spaces(id) on delete set null,
+  paid_by_id    uuid references spaces(id) on delete set null,
+  -- income-only (null when direction = 'expense')
+  person_id     uuid references spaces(id) on delete set null,
+  income_type   text check (income_type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
+  created_at    timestamptz default now()
+);
+
+
+
+-- ----------------------------------------------------------------
+-- SPLIT TRACKING (Splitwise-style)
+-- Groups, participants, expenses, shares, and settlements.
+-- Participants are freeform names — not linked to family members.
+-- Deleting a group hard-deletes everything via cascade.
+-- ----------------------------------------------------------------
+
+create table split_groups (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  name        text not null,
+  description text,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+create table split_participants (
+  id         uuid primary key default gen_random_uuid(),
+  group_id   uuid not null references split_groups(id) on delete cascade,
+  name       text not null,
+  created_at timestamptz default now()
+);
+
+create table split_expenses (
+  id                    uuid primary key default gen_random_uuid(),
+  group_id              uuid not null references split_groups(id) on delete cascade,
+  family_id             uuid not null references families(id) on delete cascade,
+  paid_by_participant_id uuid not null references split_participants(id) on delete cascade,
+  amount                numeric(12, 2) not null,
+  description           text,
+  date                  date not null,
+  split_type            text not null check (split_type in ('equal', 'shares', 'percentage')),
+  created_at            timestamptz default now(),
+  updated_at            timestamptz default now()
+);
+
+-- Stores the resolved dollar amount owed per participant per expense.
+-- Calculated by the app on save (equal/shares/percentage → always stored as $).
+create table split_shares (
+  id             uuid primary key default gen_random_uuid(),
+  expense_id     uuid not null references split_expenses(id) on delete cascade,
+  participant_id uuid not null references split_participants(id) on delete cascade,
+  amount         numeric(12, 2) not null,
+  created_at     timestamptz default now(),
+  unique (expense_id, participant_id)
+);
+
+create table split_settlements (
+  id                   uuid primary key default gen_random_uuid(),
+  group_id             uuid not null references split_groups(id) on delete cascade,
+  family_id            uuid not null references families(id) on delete cascade,
+  from_participant_id  uuid not null references split_participants(id) on delete cascade,
+  to_participant_id    uuid not null references split_participants(id) on delete cascade,
+  amount               numeric(12, 2) not null,
+  note                 text,
+  date                 date not null,
+  created_at           timestamptz default now()
+);
+
+-- Activity log: family-wide event stream
+-- event_type: 'item.added' | 'item.completed' | 'expense.added' | 'expenses.imported' | 'member.joined'
+-- payload:
+--   item.*         → { title, space_name, space_color }
+--   expense.added  → { amount, description? }
+--   expenses.imported → { count }
+--   member.joined  → { name }
+create table activity_log (
+  id         uuid primary key default gen_random_uuid(),
+  family_id  uuid not null references families(id) on delete cascade,
+  actor_id   uuid references auth.users(id) on delete set null,
+  event_type text not null,
+  payload    jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+
+
+-- ----------------------------------------------------------------
 -- PART 3: GRANTS
 -- SQL-created tables start with no grants; RLS blocks everything
 -- before policies are evaluated without these.
@@ -215,14 +335,21 @@ grant select, insert, update, delete on families        to authenticated;
 grant select, insert, update, delete on user_families   to authenticated;
 grant select, insert, update, delete on spaces          to authenticated;
 grant select, insert, update, delete on categories      to authenticated;
+grant select, insert, update, delete on recurring_transactions to authenticated;
 grant select, insert, update, delete on expenses        to authenticated;
 grant select, insert, update, delete on income_entries  to authenticated;
 grant select, insert, update, delete on budgets         to authenticated;
 grant select, insert, update, delete on items           to authenticated;
 grant select, insert, update, delete on trackers        to authenticated;
 grant select, insert, update, delete on tracker_entries to authenticated;
-grant select                          on invites         to anon;
-grant select, insert, update          on invites         to authenticated;
+grant select                          on invites              to anon;
+grant select, insert, update          on invites              to authenticated;
+grant select, insert, update, delete  on split_groups         to authenticated;
+grant select, insert, update, delete  on split_participants   to authenticated;
+grant select, insert, update, delete  on split_expenses       to authenticated;
+grant select, insert, update, delete  on split_shares         to authenticated;
+grant select, insert, update, delete  on split_settlements    to authenticated;
+grant select, insert                  on activity_log         to authenticated;
 
 
 -- ----------------------------------------------------------------
@@ -245,6 +372,8 @@ create trigger trg_expenses_updated_at        before update on expenses        f
 create trigger trg_budgets_updated_at         before update on budgets         for each row execute function update_updated_at();
 create trigger trg_items_updated_at           before update on items           for each row execute function update_updated_at();
 create trigger trg_trackers_updated_at        before update on trackers        for each row execute function update_updated_at();
+create trigger trg_split_groups_updated_at    before update on split_groups    for each row execute function update_updated_at();
+create trigger trg_split_expenses_updated_at  before update on split_expenses  for each row execute function update_updated_at();
 
 
 -- ----------------------------------------------------------------
@@ -293,6 +422,64 @@ create trigger set_item_created_by_trigger
 
 
 -- ----------------------------------------------------------------
+-- PART 6b: ACTIVITY LOG TRIGGERS FOR ITEMS
+-- Write item.added / item.completed events to activity_log.
+-- ----------------------------------------------------------------
+
+create or replace function log_item_added()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_space_name text;
+  v_space_color text;
+begin
+  select family_id, name, color into v_family_id, v_space_name, v_space_color
+  from spaces where id = NEW.space_id;
+
+  insert into activity_log (family_id, actor_id, event_type, payload)
+  values (
+    v_family_id,
+    auth.uid(),
+    'item.added',
+    jsonb_build_object('title', NEW.title, 'space_name', v_space_name, 'space_color', v_space_color)
+  );
+  return NEW;
+end;
+$$;
+
+create trigger log_item_added_trigger
+  after insert on items
+  for each row execute function log_item_added();
+
+create or replace function log_item_completed()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_family_id uuid;
+  v_space_name text;
+  v_space_color text;
+begin
+  if NEW.completed = true and (OLD.completed = false or OLD.completed is null) then
+    select family_id, name, color into v_family_id, v_space_name, v_space_color
+    from spaces where id = NEW.space_id;
+
+    insert into activity_log (family_id, actor_id, event_type, payload)
+    values (
+      v_family_id,
+      auth.uid(),
+      'item.completed',
+      jsonb_build_object('title', NEW.title, 'space_name', v_space_name, 'space_color', v_space_color)
+    );
+  end if;
+  return NEW;
+end;
+$$;
+
+create trigger log_item_completed_trigger
+  after update on items
+  for each row execute function log_item_completed();
+
+
+-- ----------------------------------------------------------------
 -- PART 7: RLS HELPER FUNCTIONS
 -- SECURITY DEFINER lets them query user_families without going
 -- through RLS on that table (prevents infinite recursion).
@@ -324,9 +511,33 @@ returns boolean language sql security definer set search_path = public stable as
   )
 $$;
 
-grant execute on function is_family_member(uuid)      to authenticated;
-grant execute on function is_family_owner(uuid)       to authenticated;
-grant execute on function item_is_family_member(uuid) to authenticated;
+-- For split_participants: checks membership via parent split_group
+create or replace function split_participant_is_family_member(gid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1
+    from split_groups g
+    join user_families uf on uf.family_id = g.family_id
+    where g.id = gid and uf.user_id = auth.uid()
+  )
+$$;
+
+-- For split_shares: checks membership via parent split_expense
+create or replace function split_share_is_family_member(eid uuid)
+returns boolean language sql security definer set search_path = public stable as $$
+  select exists(
+    select 1
+    from split_expenses e
+    join user_families uf on uf.family_id = e.family_id
+    where e.id = eid and uf.user_id = auth.uid()
+  )
+$$;
+
+grant execute on function is_family_member(uuid)                    to authenticated;
+grant execute on function is_family_owner(uuid)                     to authenticated;
+grant execute on function item_is_family_member(uuid)               to authenticated;
+grant execute on function split_participant_is_family_member(uuid)  to authenticated;
+grant execute on function split_share_is_family_member(uuid)        to authenticated;
 
 
 -- ----------------------------------------------------------------
@@ -401,8 +612,28 @@ $$;
 create or replace function accept_invite(p_token uuid, p_user_id uuid, p_family_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  v_name text;
+  v_name         text;
+  v_plan         text;
+  v_member_count int;
+  v_member_limit int;
 begin
+  -- Enforce member limits based on the family's plan
+  select plan into v_plan from families where id = p_family_id;
+
+  v_member_limit := case v_plan
+    when 'free' then 3
+    when 'plus' then 5
+    else null  -- pro = unlimited
+  end;
+
+  if v_member_limit is not null then
+    select count(*) into v_member_count
+    from user_families where family_id = p_family_id;
+
+    if v_member_count >= v_member_limit then
+      raise exception 'member_limit_reached: this family has reached the % member limit for the % plan', v_member_limit, v_plan;
+    end if;
+  end if;
   insert into profiles (id, name, email, avatar_url)
   select id, coalesce(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name'), email, raw_user_meta_data->>'avatar_url'
   from auth.users where id = p_user_id
@@ -440,8 +671,24 @@ begin
 end;
 $$;
 
+-- Returns the member limit for a given plan (null = unlimited)
+create or replace function get_plan_limits(p_plan text)
+returns json language sql stable as $$
+  select json_build_object(
+    'member_limit', case p_plan
+      when 'free' then 3
+      when 'plus' then 5
+      else null
+    end,
+    'analytics',   p_plan in ('plus', 'pro'),
+    'export',      p_plan in ('plus', 'pro'),
+    'ai_import',   p_plan = 'pro'
+  )
+$$;
+
 grant execute on function find_or_create_family(uuid)     to authenticated;
 grant execute on function accept_invite(uuid, uuid, uuid) to authenticated;
+grant execute on function get_plan_limits(text)           to authenticated;
 
 
 -- ----------------------------------------------------------------
@@ -458,8 +705,13 @@ alter table expenses        enable row level security;
 alter table income_entries  enable row level security;
 alter table budgets         enable row level security;
 alter table items           enable row level security;
-alter table trackers        enable row level security;
-alter table tracker_entries enable row level security;
+alter table trackers             enable row level security;
+alter table tracker_entries      enable row level security;
+alter table split_groups         enable row level security;
+alter table split_participants   enable row level security;
+alter table split_expenses       enable row level security;
+alter table split_shares         enable row level security;
+alter table split_settlements    enable row level security;
 
 
 -- ----------------------------------------------------------------
@@ -518,6 +770,18 @@ create policy "categories_update" on categories
   for update to authenticated
   using (is_family_member(family_id)) with check (is_family_member(family_id));
 create policy "categories_delete" on categories
+  for delete to authenticated using (is_family_member(family_id));
+
+-- recurring_transactions
+alter table recurring_transactions enable row level security;
+create policy "recurring_transactions_select" on recurring_transactions
+  for select to authenticated using (is_family_member(family_id));
+create policy "recurring_transactions_insert" on recurring_transactions
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "recurring_transactions_update" on recurring_transactions
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "recurring_transactions_delete" on recurring_transactions
   for delete to authenticated using (is_family_member(family_id));
 
 -- expenses
@@ -587,6 +851,68 @@ create policy "tracker_entries_update" on tracker_entries
 create policy "tracker_entries_delete" on tracker_entries
   for delete to authenticated using (is_family_member(family_id));
 
+-- split_groups
+create policy "split_groups_select" on split_groups
+  for select to authenticated using (is_family_member(family_id));
+create policy "split_groups_insert" on split_groups
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "split_groups_update" on split_groups
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "split_groups_delete" on split_groups
+  for delete to authenticated using (is_family_member(family_id));
+
+-- split_participants (scoped via split_group)
+create policy "split_participants_select" on split_participants
+  for select to authenticated using (split_participant_is_family_member(group_id));
+create policy "split_participants_insert" on split_participants
+  for insert to authenticated with check (split_participant_is_family_member(group_id));
+create policy "split_participants_update" on split_participants
+  for update to authenticated
+  using (split_participant_is_family_member(group_id)) with check (split_participant_is_family_member(group_id));
+create policy "split_participants_delete" on split_participants
+  for delete to authenticated using (split_participant_is_family_member(group_id));
+
+-- split_expenses
+create policy "split_expenses_select" on split_expenses
+  for select to authenticated using (is_family_member(family_id));
+create policy "split_expenses_insert" on split_expenses
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "split_expenses_update" on split_expenses
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "split_expenses_delete" on split_expenses
+  for delete to authenticated using (is_family_member(family_id));
+
+-- split_shares (scoped via split_expense)
+create policy "split_shares_select" on split_shares
+  for select to authenticated using (split_share_is_family_member(expense_id));
+create policy "split_shares_insert" on split_shares
+  for insert to authenticated with check (split_share_is_family_member(expense_id));
+create policy "split_shares_update" on split_shares
+  for update to authenticated
+  using (split_share_is_family_member(expense_id)) with check (split_share_is_family_member(expense_id));
+create policy "split_shares_delete" on split_shares
+  for delete to authenticated using (split_share_is_family_member(expense_id));
+
+-- split_settlements
+create policy "split_settlements_select" on split_settlements
+  for select to authenticated using (is_family_member(family_id));
+create policy "split_settlements_insert" on split_settlements
+  for insert to authenticated with check (is_family_member(family_id));
+create policy "split_settlements_update" on split_settlements
+  for update to authenticated
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
+create policy "split_settlements_delete" on split_settlements
+  for delete to authenticated using (is_family_member(family_id));
+
+-- activity_log
+alter table activity_log enable row level security;
+create policy "activity_log_select" on activity_log
+  for select to authenticated using (is_family_member(family_id));
+create policy "activity_log_insert" on activity_log
+  for insert to authenticated with check (is_family_member(family_id));
+
 
 -- ----------------------------------------------------------------
 -- PART 11: INDEXES
@@ -644,6 +970,12 @@ create index idx_items_space_completed
 create index idx_items_space_recent
   on items (space_id, created_at desc);
 
+-- recurring_transactions: family list + due-date sweep
+create index idx_recurring_transactions_family
+  on recurring_transactions (family_id, created_at desc);
+create index idx_recurring_transactions_due
+  on recurring_transactions (family_id, next_due_date);
+
 -- items: recurring job
 create index idx_items_recurring
   on items (space_id, recurrence)
@@ -660,3 +992,31 @@ create index idx_tracker_entries_tracker_date
 -- user_families: user → their families
 create index idx_user_families_user
   on user_families (user_id);
+
+-- split_groups: family's groups
+create index idx_split_groups_family
+  on split_groups (family_id, created_at desc);
+
+-- split_participants: all participants in a group
+create index idx_split_participants_group
+  on split_participants (group_id);
+
+-- split_expenses: group expense list (most recent first)
+create index idx_split_expenses_group_date
+  on split_expenses (group_id, date desc);
+
+-- split_shares: shares per expense (for balance calc)
+create index idx_split_shares_expense
+  on split_shares (expense_id);
+
+-- split_shares: all expenses a participant is involved in
+create index idx_split_shares_participant
+  on split_shares (participant_id);
+
+-- split_settlements: settlement history per group
+create index idx_split_settlements_group_date
+  on split_settlements (group_id, date desc);
+
+-- activity_log: family feed (newest first)
+create index idx_activity_log_family_recent
+  on activity_log (family_id, created_at desc);

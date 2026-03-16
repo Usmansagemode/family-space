@@ -426,6 +426,10 @@ a {
   body {
     color: var(--foreground);
   }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 @media print {

@@ -1,9 +1,15 @@
+export type ActivityEventType =
+  | 'item.added'
+  | 'item.completed'
+  | 'expense.added'
+  | 'expenses.imported'
+  | 'member.joined'
+
 export type ActivityEvent = {
-  key: string
-  type: 'added' | 'completed'
-  itemTitle: string
-  spaceName: string
-  spaceColor: string
+  id: string
+  eventType: ActivityEventType
+  payload: Record<string, unknown>
+  actorId: string | null
   actorName: string | null
   timestamp: Date
 }

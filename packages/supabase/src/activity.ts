@@ -1,48 +1,50 @@
+import type { ActivityEventType } from '@family/types'
 import { getSupabaseClient } from './client'
 
-export type RawActivityItem = {
+export type RawActivityLog = {
   id: string
-  title: string
+  eventType: ActivityEventType
+  payload: Record<string, unknown>
+  actorId: string | null
   createdAt: Date
-  completedAt: Date | null
-  createdBy: string | null
-  spaceName: string
-  spaceColor: string
 }
 
-export async function fetchRecentActivity(
-  spaceIds: string[],
-): Promise<RawActivityItem[]> {
-  if (spaceIds.length === 0) return []
+export async function logActivity(
+  familyId: string,
+  eventType: ActivityEventType,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('activity_log')
+    .insert({ family_id: familyId, event_type: eventType, payload })
 
+  // Log silently — never block the primary action
+  if (error) console.error('[activity] failed to log', eventType, error)
+}
+
+export async function fetchActivityLog(
+  familyId: string,
+): Promise<RawActivityLog[]> {
   const supabase = getSupabaseClient()
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 14)
 
   const { data, error } = await supabase
-    .from('items')
-    .select(
-      'id, title, created_at, completed_at, created_by, spaces!inner(name, color)',
-    )
-    .in('space_id', spaceIds)
-    .or(
-      `created_at.gte.${cutoff.toISOString()},completed_at.gte.${cutoff.toISOString()}`,
-    )
+    .from('activity_log')
+    .select('id, event_type, payload, actor_id, created_at')
+    .eq('family_id', familyId)
+    .gte('created_at', cutoff.toISOString())
     .order('created_at', { ascending: false })
-    .limit(60)
+    .limit(50)
 
   if (error) throw error
 
-  return data.map((row) => {
-    const space = row.spaces as unknown as { name: string; color: string }
-    return {
-      id: row.id,
-      title: row.title,
-      createdAt: new Date(row.created_at),
-      completedAt: row.completed_at ? new Date(row.completed_at) : null,
-      createdBy: row.created_by as string | null,
-      spaceName: space.name,
-      spaceColor: space.color,
-    }
-  })
+  return data.map((row) => ({
+    id: row.id,
+    eventType: row.event_type as ActivityEventType,
+    payload: row.payload as Record<string, unknown>,
+    actorId: row.actor_id as string | null,
+    createdAt: new Date(row.created_at),
+  }))
 }

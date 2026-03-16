@@ -12,6 +12,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  RotateCcw,
   Trash2,
   User,
   UserPlus,
@@ -54,6 +55,7 @@ import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
 import { useCategories } from '#/hooks/categories/useCategories'
+import { useAllCategories } from '#/hooks/categories/useAllCategories'
 import { useCategoriesMutations } from '#/hooks/categories/useCategoriesMutations'
 import { useBudgets } from '#/hooks/budgets/useBudgets'
 import { useBudgetMutations } from '#/hooks/budgets/useBudgetMutations'
@@ -772,6 +774,8 @@ const PRESET_COLORS = [
 
 function CategoriesTab({ familyId }: { familyId: string }) {
   const { data: categories, isLoading } = useCategories(familyId)
+  const { data: allCategories } = useAllCategories(familyId)
+  const archivedCategories = (allCategories ?? []).filter((c) => c.deletedAt !== null)
   const mutations = useCategoriesMutations(familyId)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Category | null>(null)
@@ -869,6 +873,38 @@ function CategoriesTab({ familyId }: { familyId: string }) {
           </div>
         )}
       </div>
+
+      {/* Archived categories */}
+      {archivedCategories.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium text-muted-foreground">Archived</p>
+          {archivedCategories.map((cat) => {
+            const Icon = getCategoryIcon(cat.icon)
+            return (
+              <div
+                key={cat.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/10 px-3 py-2.5 opacity-60"
+              >
+                <div
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                  style={{ background: cat.color ?? PRESET_COLORS[0] }}
+                >
+                  <Icon className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="flex-1 text-sm">{cat.name}</span>
+                <button
+                  type="button"
+                  onClick={() => mutations.unarchive.mutate(cat.id)}
+                  className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                  title="Restore"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -13,7 +13,7 @@ import {
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
-import { cn } from '#/lib/utils'
+import { ChipSelector } from '#/components/expenses/ChipSelector'
 import { getCategoryIcon } from '#/lib/categoryIcons'
 import type { Category, Space, ExpenseWithNames } from '@family/types'
 
@@ -29,7 +29,6 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   expense?: ExpenseWithNames | null
-  familyId: string
   categories: Category[]
   locationSpaces: Space[]
   personSpaces: Space[]
@@ -44,58 +43,6 @@ type Props = {
   isSaving?: boolean
   /** Increment to reset the form for a new entry without closing the sheet */
   resetKey?: number
-}
-
-function chipColor(color: string): React.CSSProperties {
-  return {
-    background: `color-mix(in srgb, ${color} 15%, transparent)`,
-    borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
-    color: 'inherit',
-  }
-}
-
-function ChipGroup<T extends { id: string }>({
-  label,
-  items,
-  selected,
-  onSelect,
-  getColor,
-  renderChip,
-}: {
-  label: string
-  items: T[]
-  selected: string | null
-  onSelect: (id: string | null) => void
-  getColor: (item: T) => string
-  renderChip: (item: T) => React.ReactNode
-}) {
-  if (items.length === 0) return null
-  return (
-    <div className="flex flex-col gap-2">
-      <Label>{label}</Label>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((item) => {
-          const isSelected = selected === item.id
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSelect(isSelected ? null : item.id)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
-                isSelected
-                  ? 'shadow-sm'
-                  : 'border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground',
-              )}
-              style={isSelected ? chipColor(getColor(item)) : undefined}
-            >
-              {renderChip(item)}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
 }
 
 function todayString() {
@@ -120,9 +67,8 @@ export function ExpenseDialog({
   const [locationId, setLocationId] = useState<string | null>(null)
   const [paidById, setPaidById] = useState<string | null>(null)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { register, handleSubmit, reset, formState } = useForm<FormData>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema),
     defaultValues: { date: '', amount: undefined, description: '' },
   })
 
@@ -161,6 +107,9 @@ export function ExpenseDialog({
       paidById: paidById || null,
     })
   }
+
+  // Archived categories: show only when they are the current selection (read-only)
+  const isArchivedCategory = (cat: Category) => cat.deletedAt !== null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -204,55 +153,65 @@ export function ExpenseDialog({
               <Input id="exp-desc" placeholder="What was this for?" {...register('description')} />
             </div>
 
-            <ChipGroup
-              label="Paid by"
-              items={personSpaces}
-              selected={paidById}
-              onSelect={setPaidById}
-              getColor={(s) => s.color}
-              renderChip={(space) => (
-                <>
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
-                  {space.name}
-                </>
-              )}
-            />
-
-            <ChipGroup
-              label="Category"
-              items={categories}
-              selected={categoryId}
-              onSelect={setCategoryId}
-              getColor={(cat) => cat.color ?? '#888888'}
-              renderChip={(cat) => {
-                const Icon = getCategoryIcon(cat.icon)
-                return (
+            <div className="flex flex-col gap-2">
+              <Label>Paid by</Label>
+              <ChipSelector
+                items={personSpaces}
+                selected={paidById}
+                onSelect={setPaidById}
+                getColor={(s) => s.color}
+                renderChip={(space) => (
                   <>
-                    <span
-                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
-                      style={{ background: `color-mix(in srgb, ${cat.color ?? '#888888'} 20%, transparent)` }}
-                    >
-                      <Icon className="h-2.5 w-2.5" style={{ color: cat.color ?? undefined }} />
-                    </span>
-                    {cat.name}
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
+                    {space.name}
                   </>
-                )
-              }}
-            />
+                )}
+              />
+            </div>
 
-            <ChipGroup
-              label="Location"
-              items={locationSpaces}
-              selected={locationId}
-              onSelect={setLocationId}
-              getColor={(s) => s.color}
-              renderChip={(space) => (
-                <>
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
-                  {space.name}
-                </>
-              )}
-            />
+            <div className="flex flex-col gap-2">
+              <Label>Category</Label>
+              <ChipSelector
+                items={categories}
+                selected={categoryId}
+                onSelect={setCategoryId}
+                getColor={(cat) => cat.color ?? '#888888'}
+                getDisabled={isArchivedCategory}
+                renderChip={(cat) => {
+                  const Icon = getCategoryIcon(cat.icon)
+                  return (
+                    <>
+                      <span
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
+                        style={{ background: `color-mix(in srgb, ${cat.color ?? '#888888'} 20%, transparent)` }}
+                      >
+                        <Icon className="h-2.5 w-2.5" style={{ color: cat.color ?? undefined }} />
+                      </span>
+                      {cat.name}
+                      {cat.deletedAt && (
+                        <span className="text-muted-foreground">(archived)</span>
+                      )}
+                    </>
+                  )
+                }}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>Location</Label>
+              <ChipSelector
+                items={locationSpaces}
+                selected={locationId}
+                onSelect={setLocationId}
+                getColor={(s) => s.color}
+                renderChip={(space) => (
+                  <>
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: space.color }} />
+                    {space.name}
+                  </>
+                )}
+              />
+            </div>
           </div>
 
           <SheetFooter className="border-t px-6 py-4">

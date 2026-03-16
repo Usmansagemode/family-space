@@ -57,13 +57,17 @@ export function Header() {
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-[var(--header-bg)] px-4 backdrop-blur-md">
       {/* Title */}
-      <div className="flex items-center gap-2.5">
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="flex cursor-pointer items-center gap-2.5 rounded-md transition-opacity hover:opacity-75 active:opacity-50"
+      >
         <img
           src="/family-space-logo.jpg"
           alt="Family Space"
           className="h-7 w-7 shrink-0 rounded-lg object-cover"
         />
-        <div className="flex flex-col">
+        <div className="flex flex-col text-left">
           <span className="text-sm font-bold leading-none tracking-tight">
             Family Space
           </span>
@@ -75,7 +79,7 @@ export function Header() {
             </span>
           ) : null}
         </div>
-      </div>
+      </button>
 
       {/* Activity button */}
       {!!user && (

@@ -4,6 +4,7 @@ import {
   createCategory,
   updateCategory,
   archiveCategory,
+  unarchiveCategory,
   deleteCategory,
   reassignAndDeleteCategory,
   reorderCategories,
@@ -59,6 +60,17 @@ export function useCategoriesMutations(familyId: string) {
     },
   })
 
+  const unarchive = useMutation({
+    mutationFn: (id: string) => unarchiveCategory(id),
+    onSuccess: () => {
+      invalidate()
+      toast.success('Category restored')
+    },
+    onError: () => {
+      toast.error('Failed to restore category')
+    },
+  })
+
   const remove = useMutation({
     mutationFn: (id: string) => deleteCategory(id),
     onSuccess: () => {
@@ -92,5 +104,5 @@ export function useCategoriesMutations(familyId: string) {
     },
   })
 
-  return { create, update, archive, remove, reassignAndRemove, reorder }
+  return { create, update, archive, unarchive, remove, reassignAndRemove, reorder }
 }

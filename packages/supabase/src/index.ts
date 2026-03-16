@@ -18,6 +18,7 @@ export {
   updateCategory,
   countCategoryExpenses,
   archiveCategory,
+  unarchiveCategory,
   deleteCategory,
   reassignAndDeleteCategory,
   reorderCategories,
@@ -73,8 +74,33 @@ export {
   findOrCreateFamily,
 } from './families'
 
-export { fetchRecentActivity } from './activity'
-export type { RawActivityItem } from './activity'
+export {
+  fetchRecurringTransactions,
+  createRecurringTransaction,
+  updateRecurringTransaction,
+  deleteRecurringTransaction,
+} from './recurringTransactions'
+
+export { logActivity, fetchActivityLog } from './activity'
+export type { RawActivityLog } from './activity'
 
 export { createInvite, getInviteByToken, acceptInvite } from './invites'
 export type { InviteInfo } from './invites'
+
+export {
+  fetchSplitGroups,
+  fetchSplitGroup,
+  createSplitGroup,
+  updateSplitGroup,
+  deleteSplitGroup,
+  fetchSplitParticipants,
+  createSplitParticipant,
+  deleteSplitParticipant,
+  fetchSplitExpenses,
+  createSplitExpense,
+  updateSplitExpense,
+  deleteSplitExpense,
+  fetchSplitSettlements,
+  createSplitSettlement,
+  deleteSplitSettlement,
+} from './splits'

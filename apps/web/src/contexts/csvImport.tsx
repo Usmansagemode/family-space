@@ -1,7 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 import Papa from 'papaparse'
 import { toast } from 'sonner'
-import { createExpense } from '@family/supabase'
+import { createExpense, logActivity } from '@family/supabase'
 import type { Category, Space } from '@family/types'
 import {
   NONE_VALUE,
@@ -277,6 +277,7 @@ export function CSVImportProvider({
           paidById: expense.paidById,
         })
       }
+      void logActivity(familyId, 'expenses.imported', { count: mappedData.length })
       toast.success(`Successfully imported ${mappedData.length} expenses`)
       setMappedData([])
       setStep('upload')

@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { Search } from 'lucide-react'
 import { SpaceView } from '#/components/board/SpaceView'
 import { CalendarView } from '#/components/CalendarView'
 import { LoginPage } from '#/components/auth/LoginPage'
+import { SearchDialog } from '#/components/SearchDialog'
+import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
 import { cn } from '#/lib/utils'
 import { useAuthContext } from '#/contexts/auth'
@@ -55,17 +59,26 @@ function FamilyContent({
   embedUrl?: string
 }) {
   const { tab } = Route.useSearch()
+  const [searchOpen, setSearchOpen] = useState(false)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {tab === 'lists' && (
-        <div className="min-h-0 flex-1">
-          <SpaceView
-            familyId={familyId}
-            providerToken={providerToken}
-            calendarId={calendarId}
-            typeFilter="store"
-          />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center justify-end border-b border-border/40 px-4 py-2">
+            <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
+              <Search className="mr-1.5 h-3.5 w-3.5" />
+              Search
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1">
+            <SpaceView
+              familyId={familyId}
+              providerToken={providerToken}
+              calendarId={calendarId}
+              typeFilter="store"
+            />
+          </div>
         </div>
       )}
       {tab === 'chores' && (
@@ -81,6 +94,14 @@ function FamilyContent({
       <div className={cn('min-h-0 flex-1', tab !== 'calendar' && 'hidden')}>
         <CalendarView embedUrl={embedUrl} />
       </div>
+
+      <SearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        familyId={familyId}
+        providerToken={providerToken}
+        calendarId={calendarId}
+      />
     </div>
   )
 }

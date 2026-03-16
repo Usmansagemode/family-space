@@ -9,6 +9,14 @@ SaaS platform for families: grocery lists, chore management, and expense trackin
 - **daily-expenses** (`/Users/usmankhalid/Documents/Personal Projects/daily-expenses`)
   — Feature source. Expense table, yearly analytics (9 charts), trackers, CSV/PDF import wizard (Gemini AI).
 
+## Billing & Pricing
+
+See `docs/billing-gates.md` for:
+- Plan tiers (Free / Plus $5 / Pro $10) and feature gates
+- How `usePlan()` hook works and where each gate lives
+- Step-by-step Stripe setup (when ready to go live)
+- How to test plans locally without Stripe
+
 ## Project Specification
 
 See `SPEC.md` in this directory for the full project specification including:

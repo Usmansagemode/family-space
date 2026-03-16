@@ -18,7 +18,9 @@ import { Route as InviteRouteImport } from './routes/invite'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplitsIndexRouteImport } from './routes/splits/index'
 import { Route as ExpensesIndexRouteImport } from './routes/expenses/index'
+import { Route as SplitsGroupIdRouteImport } from './routes/splits/$groupId'
 import { Route as ExpensesImportRouteImport } from './routes/expenses/import'
 
 const TrackersRoute = TrackersRouteImport.update({
@@ -66,9 +68,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SplitsIndexRoute = SplitsIndexRouteImport.update({
+  id: '/splits/',
+  path: '/splits/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpensesIndexRoute = ExpensesIndexRouteImport.update({
   id: '/expenses/',
   path: '/expenses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplitsGroupIdRoute = SplitsGroupIdRouteImport.update({
+  id: '/splits/$groupId',
+  path: '/splits/$groupId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesImportRoute = ExpensesImportRouteImport.update({
@@ -88,7 +100,9 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/trackers': typeof TrackersRoute
   '/expenses/import': typeof ExpensesImportRoute
+  '/splits/$groupId': typeof SplitsGroupIdRoute
   '/expenses/': typeof ExpensesIndexRoute
+  '/splits/': typeof SplitsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,7 +115,9 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/trackers': typeof TrackersRoute
   '/expenses/import': typeof ExpensesImportRoute
+  '/splits/$groupId': typeof SplitsGroupIdRoute
   '/expenses': typeof ExpensesIndexRoute
+  '/splits': typeof SplitsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,7 +131,9 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/trackers': typeof TrackersRoute
   '/expenses/import': typeof ExpensesImportRoute
+  '/splits/$groupId': typeof SplitsGroupIdRoute
   '/expenses/': typeof ExpensesIndexRoute
+  '/splits/': typeof SplitsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,7 +148,9 @@ export interface FileRouteTypes {
     | '/terms'
     | '/trackers'
     | '/expenses/import'
+    | '/splits/$groupId'
     | '/expenses/'
+    | '/splits/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,7 +163,9 @@ export interface FileRouteTypes {
     | '/terms'
     | '/trackers'
     | '/expenses/import'
+    | '/splits/$groupId'
     | '/expenses'
+    | '/splits'
   id:
     | '__root__'
     | '/'
@@ -156,7 +178,9 @@ export interface FileRouteTypes {
     | '/terms'
     | '/trackers'
     | '/expenses/import'
+    | '/splits/$groupId'
     | '/expenses/'
+    | '/splits/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,7 +194,9 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   TrackersRoute: typeof TrackersRoute
   ExpensesImportRoute: typeof ExpensesImportRoute
+  SplitsGroupIdRoute: typeof SplitsGroupIdRoute
   ExpensesIndexRoute: typeof ExpensesIndexRoute
+  SplitsIndexRoute: typeof SplitsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -238,11 +264,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/splits/': {
+      id: '/splits/'
+      path: '/splits'
+      fullPath: '/splits/'
+      preLoaderRoute: typeof SplitsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expenses/': {
       id: '/expenses/'
       path: '/expenses'
       fullPath: '/expenses/'
       preLoaderRoute: typeof ExpensesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/splits/$groupId': {
+      id: '/splits/$groupId'
+      path: '/splits/$groupId'
+      fullPath: '/splits/$groupId'
+      preLoaderRoute: typeof SplitsGroupIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses/import': {
@@ -266,7 +306,9 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   TrackersRoute: TrackersRoute,
   ExpensesImportRoute: ExpensesImportRoute,
+  SplitsGroupIdRoute: SplitsGroupIdRoute,
   ExpensesIndexRoute: ExpensesIndexRoute,
+  SplitsIndexRoute: SplitsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

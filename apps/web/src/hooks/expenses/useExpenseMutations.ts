@@ -87,7 +87,8 @@ export function useExpenseMutations(
     },
   })
 
-  const updateMany = useMutation({
+  /** Apply the same patch to multiple expenses (e.g. bulk category assignment). */
+  const bulkUpdateUniform = useMutation({
     mutationFn: ({
       ids,
       patch,
@@ -107,11 +108,13 @@ export function useExpenseMutations(
       toast.success(`Updated ${ids.length} expense${ids.length !== 1 ? 's' : ''}`)
     },
     onError: () => {
+      void invalidate()
       toast.error('Failed to bulk update expenses')
     },
   })
 
-  const updateBatch = useMutation({
+  /** Apply a per-item patch to each expense (e.g. Quick Tag saves). */
+  const bulkUpdatePerItem = useMutation({
     mutationFn: (
       updates: Array<{
         id: string
@@ -127,9 +130,10 @@ export function useExpenseMutations(
       toast.success(`Saved ${updates.length} expense${updates.length !== 1 ? 's' : ''}`)
     },
     onError: () => {
+      void invalidate()
       toast.error('Failed to save expenses')
     },
   })
 
-  return { create, update, remove, removeMany, updateMany, updateBatch }
+  return { create, update, remove, removeMany, bulkUpdateUniform, bulkUpdatePerItem }
 }

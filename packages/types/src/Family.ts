@@ -1,4 +1,4 @@
-export type FamilyPlan = 'free' | 'pro'
+export type FamilyPlan = 'free' | 'plus' | 'pro'
 
 export type FamilyMember = {
   userId: string

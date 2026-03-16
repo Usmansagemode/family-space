@@ -1,20 +1,18 @@
-import { useState } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
   BarChart3,
   CalendarDays,
   CheckCheck,
   Receipt,
-  Search,
   Settings,
   ShoppingCart,
+  SplitSquareVertical,
   TrendingUp,
   Upload,
 } from 'lucide-react'
 import { cn } from '#/lib/utils'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
-import { SearchDialog } from '#/components/SearchDialog'
 
 type NavItem =
   | { kind: 'link'; to: string; search?: Record<string, string>; exact: boolean; label: string; icon: React.ElementType }
@@ -24,9 +22,8 @@ type NavItem =
 export function AppNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const search = useRouterState({ select: (s) => s.location.search as Record<string, string> })
-  const [searchOpen, setSearchOpen] = useState(false)
 
-  const { user, providerToken } = useAuthContext()
+  const { user } = useAuthContext()
   const { data: family } = useUserFamily(user?.id ?? '')
 
   function isActive(to: string, exact: boolean, searchParams?: Record<string, string>) {
@@ -42,12 +39,12 @@ export function AppNav() {
     { kind: 'link', to: '/expenses', exact: false, label: 'Expenses', icon: Receipt },
     { kind: 'link', to: '/import', exact: false, label: 'Import', icon: Upload },
     { kind: 'link', to: '/trackers', exact: false, label: 'Tracker', icon: TrendingUp },
+    { kind: 'link', to: '/splits', exact: false, label: 'Splits', icon: SplitSquareVertical },
     { kind: 'separator' },
     { kind: 'link', to: '/', exact: true, search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
     { kind: 'link', to: '/', exact: true, search: { tab: 'chores' }, label: 'Tasks', icon: CheckCheck },
     { kind: 'link', to: '/', exact: true, search: { tab: 'calendar' }, label: 'Calendar', icon: CalendarDays },
     { kind: 'separator' },
-    { kind: 'button', label: 'Search', icon: Search, onClick: () => setSearchOpen(true) },
     { kind: 'link', to: '/settings', exact: false, label: 'Settings', icon: Settings },
   ]
 
@@ -118,9 +115,9 @@ export function AppNav() {
         {[
           { to: '/charts', label: 'Charts', icon: BarChart3 },
           { to: '/expenses', label: 'Expenses', icon: Receipt },
+          { to: '/splits', label: 'Splits', icon: SplitSquareVertical },
           { to: '/', search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
           { to: '/', search: { tab: 'chores' }, label: 'Tasks', icon: CheckCheck },
-          { to: '/', search: { tab: 'calendar' }, label: 'Calendar', icon: CalendarDays },
         ].map((item) => {
           const active = item.to === '/'
             ? pathname === '/' && ((search as Record<string, string>).tab ?? 'lists') === item.search?.tab
@@ -152,15 +149,6 @@ export function AppNav() {
         })}
       </nav>
 
-      {family && (
-        <SearchDialog
-          open={searchOpen}
-          onOpenChange={setSearchOpen}
-          familyId={family.id}
-          providerToken={providerToken}
-          calendarId={family.googleCalendarId ?? null}
-        />
-      )}
     </>
   )
 }
