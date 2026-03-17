@@ -224,3 +224,118 @@ drop table recurring_expenses;
 - `apps/web/src/components/expenses/RecurringTransactionDialog.tsx` — new dialog with direction toggle + income fields
 - `apps/web/src/components/expenses/CatchUpDialog.tsx` — branches on `direction` for entry generation
 - `apps/web/src/routes/expenses/index.tsx` — all recurring references updated
+
+---
+
+## 004 — Admin portal (2026-03-16)
+
+Adds admin flag on profiles, suspension on families, an audit log table, a DB-backed
+feature-flag matrix (`plan_features`), and per-family overrides (`family_feature_overrides`).
+Also seeds the `plan_features` table to mirror the existing `PLAN_LIMITS` static lookup.
+
+```sql
+-- 004_admin_portal.sql
+
+-- 1. Admin flag on profiles
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS is_admin     BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS banned_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS banned_by    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS ban_reason   TEXT;
+
+-- 2. Suspension on families
+ALTER TABLE families
+  ADD COLUMN IF NOT EXISTS suspended_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS suspended_by    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS suspend_reason  TEXT;
+
+-- 3. Admin audit log
+CREATE TABLE admin_audit_log (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  action      TEXT NOT NULL,
+  target_type TEXT NOT NULL,   -- 'family' | 'user' | 'invite' | 'feature_flag'
+  target_id   UUID,
+  payload     JSONB NOT NULL DEFAULT '{}',
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_admin_audit_log_created_at ON admin_audit_log (created_at DESC);
+CREATE INDEX idx_admin_audit_log_target     ON admin_audit_log (target_type, target_id);
+
+-- 4. DB-backed feature matrix (Gating Option B)
+CREATE TABLE plan_features (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan        TEXT NOT NULL CHECK (plan IN ('free', 'plus', 'pro')),
+  feature_key TEXT NOT NULL,
+  value       JSONB NOT NULL,   -- {"enabled": bool} or {"limit": number|null}
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (plan, feature_key)
+);
+-- Seed: mirrors current PLAN_LIMITS in usePlan.ts
+INSERT INTO plan_features (plan, feature_key, value) VALUES
+  ('free', 'analytics',       '{"enabled": false}'),
+  ('free', 'export',          '{"enabled": false}'),
+  ('free', 'aiImport',        '{"enabled": false}'),
+  ('free', 'memberLimit',     '{"limit": 3}'),
+  ('free', 'splitGroupLimit', '{"limit": 1}'),
+  ('plus', 'analytics',       '{"enabled": true}'),
+  ('plus', 'export',          '{"enabled": true}'),
+  ('plus', 'aiImport',        '{"enabled": false}'),
+  ('plus', 'memberLimit',     '{"limit": 5}'),
+  ('plus', 'splitGroupLimit', '{"limit": null}'),
+  ('pro',  'analytics',       '{"enabled": true}'),
+  ('pro',  'export',          '{"enabled": true}'),
+  ('pro',  'aiImport',        '{"enabled": true}'),
+  ('pro',  'memberLimit',     '{"limit": null}'),
+  ('pro',  'splitGroupLimit', '{"limit": null}');
+
+-- RLS: authenticated users can read plan_features (needed by useDynamicPlan in web app)
+ALTER TABLE plan_features ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "plan_features: anyone can read"
+  ON plan_features FOR SELECT TO authenticated USING (true);
+
+-- 5. Per-family feature overrides
+CREATE TABLE family_feature_overrides (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id   UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  feature_key TEXT NOT NULL,
+  value       JSONB NOT NULL,
+  note        TEXT,
+  created_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (family_id, feature_key)
+);
+CREATE INDEX idx_family_feature_overrides_family ON family_feature_overrides (family_id);
+
+-- RLS: family members can read their own overrides
+ALTER TABLE family_feature_overrides ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "family_feature_overrides: member can read"
+  ON family_feature_overrides FOR SELECT TO authenticated
+  USING (is_family_member(family_id));
+
+-- 6. Indexes for admin list queries
+CREATE INDEX idx_families_plan       ON families (plan);
+CREATE INDEX idx_families_created_at ON families (created_at DESC);
+CREATE INDEX idx_profiles_is_admin   ON profiles (is_admin) WHERE is_admin = true;
+CREATE INDEX idx_profiles_banned     ON profiles (banned_at) WHERE banned_at IS NOT NULL;
+```
+
+**What it does**
+- `profiles.is_admin` — boolean flag; admin portal checks this immediately after session load and denies access if false
+- `profiles.banned_at / banned_by / ban_reason` — soft ban; web app checks `banned_at IS NOT NULL` and shows "Account suspended" page
+- `families.suspended_at / suspended_by / suspend_reason` — family suspension; web app shows full-screen overlay
+- `admin_audit_log` — append-only log of every privileged admin action (plan changes, bans, suspensions, feature-flag edits)
+- `plan_features` — DB-backed feature gate matrix replacing the static `PLAN_LIMITS` constant; seeded with identical values so behaviour is unchanged at rollout
+- `family_feature_overrides` — per-family overrides that win over the plan default (e.g. give one free family early access to analytics)
+
+**No back-fill needed** — all new columns default to `null` / `false`.
+
+**Related code changes**
+- `packages/types/src/Admin.ts` — new `AdminFamily`, `AdminProfile`, `AuditLogEntry`, `PlanFeature`, `FamilyFeatureOverride` types
+- `packages/supabase/src/admin.ts` — all admin query/mutation functions (uses service role key)
+- `packages/utils/src/mergePlanLimits.ts` — pure merge function: plan defaults + overrides → `PlanLimits`
+- `packages/hooks/src/family/useDynamicPlan.ts` — React Query hook that fetches `plan_features` + `family_feature_overrides` and merges them
+- `apps/admin/` — new admin portal app (TanStack Start, port 4000, service role key)
+- `apps/web/src/routes/charts.tsx` — swaps `usePlan` → `useDynamicPlan`; server loader adds `resolvePlanLimits` check
+- `apps/web/src/lib/server/resolvePlanLimits.ts` — server-only plan resolver used in loaders/actions

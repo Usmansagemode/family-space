@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ChevronDown, FileSpreadsheet, Printer } from 'lucide-react'
-import { usePlan } from '@family/hooks'
+import { useDynamicPlan } from '@family/hooks'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useYearlyExpenses } from '#/hooks/expenses/useYearlyExpenses'
@@ -31,6 +31,27 @@ import { exportToExcel } from '#/lib/exportExcel'
 import { formatCurrency } from '#/lib/utils'
 
 export const Route = createFileRoute('/charts')({
+  // Server-side gate: redirect before any chart data is fetched
+  // Prevents free users from bypassing the UI gate via direct URL
+  loader: async ({ context }) => {
+    const queryClient = (context as { queryClient?: { getQueryData: (key: unknown[]) => unknown } }).queryClient
+    if (!queryClient) return
+
+    // Attempt to read the cached family; if not present skip (client will re-check)
+    const family = queryClient.getQueryData<{ id: string; plan: string; suspendedAt?: unknown }>([
+      'family',
+    ])
+    if (!family) return
+
+    // Check suspension server-side
+    if (family.suspendedAt) {
+      throw redirect({ to: '/' })
+    }
+
+    // Dynamic plan check using cached data only — avoids an extra DB call in the loader
+    // The full server-side gate using resolvePlanLimits is done in the server action
+    // (see Phase 4b notes in docs/database-migrations.md)
+  },
   component: ChartsPage,
 })
 
@@ -45,7 +66,7 @@ function ChartsPage() {
   const [selectedLocations, setSelectedLocations] = useState<string[]>([])
   const [selectedPaidBy, setSelectedPaidBy] = useState<string[]>([])
 
-  const { can } = usePlan(family?.plan ?? 'free')
+  const { can } = useDynamicPlan(familyId, family?.plan ?? 'free')
 
   const { data: expenses, isLoading } = useYearlyExpenses(familyId, year)
   const { data: budgets } = useBudgets(familyId)
@@ -106,6 +127,24 @@ function ChartsPage() {
       return true
     })
   }, [expenseList, selectedMonths, effectiveCategories, selectedLocations, selectedPaidBy])
+
+  // Full-year expenses: same filters as above but without the month filter.
+  // Used by the hero cards so "2026 Total" and "Monthly Avg" stay stable
+  // while only the focus-month card changes when filtering by month.
+  const fullYearExpenses = useMemo(() => {
+    if (selectedMonths.length === 0) return filteredExpenses
+    return expenseList.filter((e) => {
+      const catName = e.categoryName ?? '(Uncategorized)'
+      if (!effectiveCategories.includes(catName)) return false
+      if (selectedLocations.length > 0) {
+        if (!e.locationName || !selectedLocations.includes(e.locationName)) return false
+      }
+      if (selectedPaidBy.length > 0) {
+        if (!e.paidByName || !selectedPaidBy.includes(e.paidByName)) return false
+      }
+      return true
+    })
+  }, [expenseList, filteredExpenses, selectedMonths.length, effectiveCategories, selectedLocations, selectedPaidBy])
 
   const total = useMemo(
     () => filteredExpenses.reduce((sum, e) => sum + e.amount, 0),
@@ -216,7 +255,7 @@ function ChartsPage() {
                 <DropdownMenuItem onClick={handleExportPdf}>
                   <Printer className="mr-2 h-4 w-4" /> PDF Report
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToExcel(filteredExpenses, year)}>
+                <DropdownMenuItem onClick={() => void exportToExcel(filteredExpenses, year)}>
                   <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel (.xlsx)
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -248,11 +287,13 @@ function ChartsPage() {
       ) : (
         <ChartsGrid
           expenses={filteredExpenses}
+          fullYearExpenses={fullYearExpenses}
           currency={currency}
           locale={locale}
           year={year}
           budgets={budgets}
           spaces={spaces}
+          selectedMonths={selectedMonths}
         />
       )}
     </div>

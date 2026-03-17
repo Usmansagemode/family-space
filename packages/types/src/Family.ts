@@ -20,6 +20,9 @@ export type Family = {
   locale: string
   googleCalendarId?: string
   googleCalendarEmbedUrl?: string
+  /** Set by an admin when the family account has been suspended */
+  suspendedAt?: Date | null
+  suspendReason?: string | null
   createdAt: Date
   updatedAt: Date
 }

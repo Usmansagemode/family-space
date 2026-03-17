@@ -11,6 +11,8 @@ function mapFamily(data: {
   locale?: string | null
   google_calendar_id: string | null
   google_calendar_embed_url?: string | null
+  suspended_at?: string | null
+  suspend_reason?: string | null
   created_at: string
   updated_at?: string | null
 }): Family {
@@ -22,6 +24,8 @@ function mapFamily(data: {
     locale: data.locale ?? 'en-US',
     googleCalendarId: data.google_calendar_id ?? undefined,
     googleCalendarEmbedUrl: data.google_calendar_embed_url ?? undefined,
+    suspendedAt: data.suspended_at ? new Date(data.suspended_at) : null,
+    suspendReason: data.suspend_reason ?? null,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at ?? data.created_at),
   }

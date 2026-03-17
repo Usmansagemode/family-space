@@ -10,3 +10,11 @@ export type { ActivityEvent, ActivityEventType } from './Activity'
 export type { SearchResult } from './Search'
 export type { SplitGroup, SplitParticipant, SplitExpense, SplitShare, SplitSettlement, SplitExpenseWithShares, SplitType } from './Split'
 export type { RecurringTransaction, RecurringFrequency } from './RecurringTransaction'
+export type {
+  AdminFamily,
+  AdminProfile,
+  AuditLogEntry,
+  PlanFeature,
+  FamilyFeatureOverride,
+  PlatformStats,
+} from './Admin'

@@ -43,18 +43,31 @@ export async function upsertBudget(input: {
   period: BudgetPeriod
 }): Promise<Budget> {
   const supabase = getSupabaseClient()
+
+  // Delete any existing budgets for this person/category regardless of period.
+  // This prevents duplicate rows when the period changes and cleans up any
+  // previously created duplicates.
+  let deleteQuery = supabase
+    .from('budgets')
+    .delete()
+    .eq('family_id', input.familyId)
+  deleteQuery = input.personId !== null
+    ? deleteQuery.eq('person_id', input.personId)
+    : deleteQuery.is('person_id', null)
+  deleteQuery = input.categoryId !== null
+    ? deleteQuery.eq('category_id', input.categoryId)
+    : deleteQuery.is('category_id', null)
+  await deleteQuery
+
   const { data, error } = await supabase
     .from('budgets')
-    .upsert(
-      {
-        family_id: input.familyId,
-        person_id: input.personId,
-        category_id: input.categoryId,
-        amount: input.amount,
-        period: input.period,
-      },
-      { onConflict: 'family_id,person_id,category_id,period' },
-    )
+    .insert({
+      family_id: input.familyId,
+      person_id: input.personId,
+      category_id: input.categoryId,
+      amount: input.amount,
+      period: input.period,
+    })
     .select()
     .single()
 

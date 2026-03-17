@@ -8,6 +8,7 @@ interface MemberBudgetProgressProps {
   currency?: string
   locale?: string
   year: number
+  selectedMonths?: number[]
 }
 
 export function MemberBudgetProgress({
@@ -17,6 +18,7 @@ export function MemberBudgetProgress({
   currency,
   locale,
   year,
+  selectedMonths,
 }: MemberBudgetProgressProps) {
   // Only per-member overall budgets (no category filter)
   const memberBudgets = budgets.filter((b) => b.personId !== null && b.categoryId === null)
@@ -33,7 +35,13 @@ export function MemberBudgetProgress({
   }
 
   const currentYear = new Date().getFullYear()
-  const currentMonth = new Date().getMonth() + 1 // 1–12
+  // If a single month is filtered, use that as the focus month; otherwise use today's month
+  const focusMonth = selectedMonths?.length === 1
+    ? selectedMonths[0]! + 1  // convert 0-indexed to 1-indexed
+    : new Date().getMonth() + 1 // 1–12
+  const focusMonthLabel = selectedMonths?.length === 1
+    ? ['January','February','March','April','May','June','July','August','September','October','November','December'][selectedMonths[0]!] ?? 'This month'
+    : 'This month'
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -56,7 +64,7 @@ export function MemberBudgetProgress({
         const showMonthly = budget.period === 'monthly' && year === currentYear
         const monthActual = showMonthly
           ? memberExpenses
-              .filter((e) => parseInt(e.date.slice(5, 7), 10) === currentMonth)
+              .filter((e) => parseInt(e.date.slice(5, 7), 10) === focusMonth)
               .reduce((sum, e) => sum + e.amount, 0)
           : 0
         const monthPct = showMonthly && budget.amount > 0 ? (monthActual / budget.amount) * 100 : 0
@@ -110,7 +118,7 @@ export function MemberBudgetProgress({
             {showMonthly && (
               <div className="flex flex-col gap-1 border-t border-border pt-3">
                 <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">This month</span>
+                  <span className="text-muted-foreground">{focusMonthLabel}</span>
                   <span className={cn('font-medium', monthOver ? 'text-destructive' : '')}>
                     {formatCurrency(monthActual, currency, locale)}
                     <span className="ml-1 font-normal text-muted-foreground">

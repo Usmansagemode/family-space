@@ -578,8 +578,8 @@ export function AddItemSheet({
             {isEditing && onComplete && (
               <Button
                 type="button"
-                variant="outline"
-                className="w-full border-green-200 text-green-600 hover:border-green-400 hover:bg-green-50 hover:text-green-600 dark:border-green-800 dark:hover:bg-green-950"
+                variant="success"
+                className="w-full"
                 onClick={handleComplete}
                 disabled={isPending}
               >

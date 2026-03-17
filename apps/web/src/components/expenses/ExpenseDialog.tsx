@@ -43,6 +43,8 @@ type Props = {
   isSaving?: boolean
   /** Increment to reset the form for a new entry without closing the sheet */
   resetKey?: number
+  /** Default date string (YYYY-MM-DD) for new expenses. Falls back to today. */
+  defaultDate?: string
 }
 
 function todayString() {
@@ -60,6 +62,7 @@ export function ExpenseDialog({
   onSave,
   isSaving,
   resetKey,
+  defaultDate,
 }: Props) {
   const isEditing = !!expense
 
@@ -81,7 +84,7 @@ export function ExpenseDialog({
       setLocationId(expense.locationId ?? null)
       setPaidById(expense.paidById ?? null)
     } else {
-      reset({ date: todayString(), amount: undefined, description: '' })
+      reset({ date: defaultDate ?? todayString(), amount: undefined, description: '' })
       setCategoryId(null)
       setLocationId(null)
       setPaidById(null)
@@ -91,7 +94,7 @@ export function ExpenseDialog({
   // Reset form for a new entry without closing (add-another flow)
   useEffect(() => {
     if (!open || isEditing || resetKey === undefined || resetKey === 0) return
-    reset({ date: todayString(), amount: undefined, description: '' })
+    reset({ date: defaultDate ?? todayString(), amount: undefined, description: '' })
     setCategoryId(null)
     setLocationId(null)
     setPaidById(null)

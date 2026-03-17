@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CalendarIcon } from 'lucide-react'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -7,6 +8,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '#/components/ui/tooltip'
 
 const MONTHS = [
   { value: 0, label: 'January', short: 'Jan' },
@@ -38,6 +44,8 @@ function getTriggerLabel(selectedMonths: number[]): string {
 }
 
 export function MonthFilter({ selectedMonths, onSelectionChange }: MonthFilterProps) {
+  const [open, setOpen] = useState(false)
+
   // "effective" selected set: empty means all are selected
   const effectiveSet = new Set(
     selectedMonths.length === 0 ? MONTHS.map((m) => m.value) : selectedMonths,
@@ -57,8 +65,13 @@ export function MonthFilter({ selectedMonths, onSelectionChange }: MonthFilterPr
     onSelectionChange(arr.length === 12 ? [] : arr)
   }
 
+  function selectOnly(value: number) {
+    onSelectionChange([value])
+    setOpen(false)
+  }
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <CalendarIcon className="h-3.5 w-3.5" />
@@ -73,32 +86,44 @@ export function MonthFilter({ selectedMonths, onSelectionChange }: MonthFilterPr
       <PopoverContent className="w-60 p-3" align="start">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium">Filter by Month</span>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="xs" onClick={() => onSelectionChange([])}>
-              Select All
-            </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              className="text-muted-foreground"
-              onClick={() => onSelectionChange([MONTHS[0]!.value])}
-            >
-              Clear
-            </Button>
-          </div>
+          <Button variant="ghost" size="xs" onClick={() => onSelectionChange([])}>
+            All
+          </Button>
         </div>
         <div className="grid grid-cols-3 gap-1">
           {MONTHS.map((month) => (
-            <label
+            <div
               key={month.value}
-              className="flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-sm hover:bg-accent"
+              className="flex items-center gap-1.5 rounded px-1.5 py-1 text-sm hover:bg-accent"
             >
-              <Checkbox
-                checked={effectiveSet.has(month.value)}
-                onCheckedChange={() => toggle(month.value)}
-              />
-              {month.short}
-            </label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <Checkbox
+                      id={`month-${month.value}`}
+                      checked={effectiveSet.has(month.value)}
+                      onCheckedChange={() => toggle(month.value)}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {effectiveSet.has(month.value) ? `Remove ${month.label}` : `Add ${month.label}`}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => selectOnly(month.value)}
+                    className="cursor-pointer text-left hover:text-primary hover:font-medium"
+                  >
+                    {month.short}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Show only {month.label}
+                </TooltipContent>
+              </Tooltip>
+            </div>
           ))}
         </div>
       </PopoverContent>

@@ -18,6 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import type { Budget, ExpenseWithNames, Space } from '@family/types'
+import { ChartsHero } from '#/components/charts/ChartsHero'
 import { MemberBudgetProgress } from '#/components/charts/MemberBudgetProgress'
 import { CategoryAverageChart } from '#/components/charts/CategoryAverageChart'
 import { CategoryByMonthChart } from '#/components/charts/CategoryByMonthChart'
@@ -66,11 +67,13 @@ function loadOrder(): string[] {
 
 interface ChartsGridProps {
   expenses: ExpenseWithNames[]
+  fullYearExpenses?: ExpenseWithNames[]
   currency?: string
   locale?: string
   year: number
   budgets?: Budget[]
   spaces?: Space[]
+  selectedMonths?: number[]
 }
 
 interface ChartConfig {
@@ -135,7 +138,7 @@ function ChartTitle({ title }: { title: string }) {
   )
 }
 
-export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }: ChartsGridProps) {
+export function ChartsGrid({ expenses, fullYearExpenses, currency, locale, year, budgets, spaces, selectedMonths }: ChartsGridProps) {
   const [order, setOrder] = useState<string[]>(loadOrder)
   // Track active tab so charts only mount when their tab is visible.
   // This prevents Recharts ResponsiveContainer from measuring width=0 inside
@@ -250,9 +253,8 @@ export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }
   }
 
   const trendIds = ['monthly-spending', 'category-by-month']
-  const breakdownIds = ['category-total', 'category-average', 'location-spending']
+  const breakdownIds = ['category-total', 'category-average', 'location-spending', 'top-expenses']
   const peopleIds = ['member-spending', 'category-member-breakdown', 'member-heatmap']
-  const topIds = ['top-expenses']
 
   function renderStaticGrid(ids: string[]) {
     return (
@@ -272,13 +274,22 @@ export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <>
+      <ChartsHero
+        expenses={expenses}
+        fullYearExpenses={fullYearExpenses ?? expenses}
+        currency={currency}
+        locale={locale}
+        year={year}
+        selectedMonths={selectedMonths}
+      />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList className="print:hidden">
         <TabsTrigger value="budget">Budget</TabsTrigger>
         <TabsTrigger value="trends">Trends</TabsTrigger>
         <TabsTrigger value="breakdowns">Breakdowns</TabsTrigger>
         <TabsTrigger value="people">People</TabsTrigger>
-        <TabsTrigger value="top">Top</TabsTrigger>
         <TabsTrigger value="all">All</TabsTrigger>
       </TabsList>
 
@@ -291,6 +302,7 @@ export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }
             currency={currency}
             locale={locale}
             year={year}
+            selectedMonths={selectedMonths}
           />
         )}
       </TabsContent>
@@ -305,10 +317,6 @@ export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }
 
       <TabsContent value="people" className="mt-4">
         {activeTab === 'people' && renderStaticGrid(peopleIds)}
-      </TabsContent>
-
-      <TabsContent value="top" className="mt-4">
-        {activeTab === 'top' && renderStaticGrid(topIds)}
       </TabsContent>
 
       <TabsContent value="all" className="mt-4">
@@ -345,5 +353,6 @@ export function ChartsGrid({ expenses, currency, locale, year, budgets, spaces }
         )}
       </TabsContent>
     </Tabs>
+    </>
   )
 }

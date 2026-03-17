@@ -591,6 +591,7 @@ function ExpensesPage() {
         onSave={handleSaveExpense}
         isSaving={expenseMutations.create.isPending || expenseMutations.update.isPending}
         resetKey={expenseResetKey}
+        defaultDate={`${year}-${String(month).padStart(2, '0')}-01`}
       />
 
       {/* Income dialog */}
