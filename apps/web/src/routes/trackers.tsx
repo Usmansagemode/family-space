@@ -63,7 +63,7 @@ function TrackersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold">Trackers</h1>
         <div className="ml-auto">

@@ -36,7 +36,7 @@ function ImportPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <CSVImportProvider
         familyId={familyId}
         categories={categories ?? []}

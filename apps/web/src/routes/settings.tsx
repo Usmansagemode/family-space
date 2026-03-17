@@ -199,7 +199,7 @@ function FamilyTab({
   })
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-6">
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="fam-name">Family name</Label>
@@ -366,7 +366,7 @@ function MembersTab({
   }
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-6">
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-col gap-6">
         {/* Invite */}
         <div className="flex flex-col gap-2">
@@ -654,7 +654,7 @@ function LocationsTab({ familyId }: { familyId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-6">
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
@@ -815,7 +815,7 @@ function CategoriesTab({ familyId }: { familyId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-6">
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
@@ -1007,7 +1007,7 @@ function IntegrationsTab() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-6">
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6">
       <div className="flex flex-col gap-6">
         {/* Gemini section */}
         <div className="flex flex-col gap-4">

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Sun, Moon, Settings, LogOut, User, Activity } from 'lucide-react'
+import { Sun, Moon, Settings, LogOut, User, Activity, Menu } from 'lucide-react'
 import type { Family } from '#/lib/supabase/families'
+import { useMobileNav } from '#/contexts/mobile-nav'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -33,6 +34,7 @@ export function Header() {
   const isDark = useIsDark()
   const navigate = useNavigate()
   const [activityOpen, setActivityOpen] = useState(false)
+  const { setOpen: setNavOpen } = useMobileNav()
 
   // Don't fetch here — just subscribe to the cache the board page populates.
   // This avoids a race where Header caches null (no membership yet) with
@@ -56,6 +58,18 @@ export function Header() {
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-[var(--header-bg)] px-4 backdrop-blur-md">
+      {/* Hamburger — mobile only */}
+      {!!user && (
+        <button
+          type="button"
+          onClick={() => setNavOpen(true)}
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground sm:hidden"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
+
       {/* Title */}
       <button
         type="button"

@@ -195,7 +195,7 @@ function ChartsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
       {/* Print-only title */}
       <div className="hidden print:block">
         <h1 className="text-2xl font-bold">Expense Analytics — {year}</h1>

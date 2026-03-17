@@ -13,6 +13,13 @@ import {
 import { cn } from '#/lib/utils'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
+import { useMobileNav } from '#/contexts/mobile-nav'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '#/components/ui/sheet'
 
 type NavItem =
   | { kind: 'link'; to: string; search?: Record<string, string>; exact: boolean; label: string; icon: React.ElementType }
@@ -25,6 +32,7 @@ export function AppNav() {
 
   const { user } = useAuthContext()
   const { data: family } = useUserFamily(user?.id ?? '')
+  const { open, setOpen } = useMobileNav()
 
   function isActive(to: string, exact: boolean, searchParams?: Record<string, string>) {
     if (pathname !== to && (exact || !pathname.startsWith(to + '/'))) return false
@@ -110,44 +118,55 @@ export function AppNav() {
         })}
       </nav>
 
-      {/* Mobile: fixed bottom bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border/40 bg-background/95 backdrop-blur-sm print:hidden sm:hidden">
-        {[
-          { to: '/charts', label: 'Charts', icon: BarChart3 },
-          { to: '/expenses', label: 'Expenses', icon: Receipt },
-          { to: '/splits', label: 'Splits', icon: SplitSquareVertical },
-          { to: '/', search: { tab: 'lists' }, label: 'Lists', icon: ShoppingCart },
-          { to: '/', search: { tab: 'chores' }, label: 'Tasks', icon: CheckCheck },
-        ].map((item) => {
-          const active = item.to === '/'
-            ? pathname === '/' && ((search as Record<string, string>).tab ?? 'lists') === item.search?.tab
-            : pathname === item.to || pathname.startsWith(item.to + '/')
-          return (
-            <Link
-              key={item.label}
-              to={item.to}
-              search={item.search}
-              style={{ color: 'inherit', textDecoration: 'none' }}
-              className={cn(
-                'flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium tracking-wide transition-colors',
-                active
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-muted-foreground',
-              )}
-            >
-              <span
-                className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-                  active && 'bg-emerald-500/10',
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-              </span>
-              {item.label}
-            </Link>
-          )
-        })}
-      </nav>
+      {/* Mobile: slide-in sheet drawer */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-64 gap-0 p-0 print:hidden sm:hidden" showCloseButton={false}>
+          <SheetHeader className="border-b border-border/40 px-4 py-3">
+            <SheetTitle className="text-sm font-semibold">Navigation</SheetTitle>
+          </SheetHeader>
+          <nav className="flex flex-col py-2">
+            {items.map((item, i) => {
+              if (item.kind === 'separator') {
+                return <div key={i} className="mx-4 my-1 border-t border-border/40" />
+              }
+
+              if (item.kind === 'button') {
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => { item.onClick(); setOpen(false) }}
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {item.label}
+                  </button>
+                )
+              }
+
+              const active = isBoardItemActive(item)
+              return (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  search={item.search}
+                  onClick={() => setOpen(false)}
+                  style={{ color: 'inherit', textDecoration: 'none' }}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+        </SheetContent>
+      </Sheet>
 
     </>
   )

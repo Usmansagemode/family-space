@@ -15,6 +15,7 @@ import { AuthProvider } from '#/contexts/auth'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useBannedCheck } from '#/hooks/auth/useBannedCheck'
+import { MobileNavProvider } from '#/contexts/mobile-nav'
 
 import TanStackQueryProvider from '#/integrations/tanstack-query/root-provider'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
@@ -179,7 +180,7 @@ function AuthedLayout({ children }: { children: React.ReactNode }) {
           </svg>
         </div>
       </div>
-      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain pb-16 sm:pb-0">
+      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain">
         {children}
       </main>
     </div>
@@ -197,10 +198,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <TanStackQueryProvider>
             <TooltipProvider>
-              <div className="flex h-screen flex-col overflow-hidden">
-                <Header />
-                <AuthedLayout>{children}</AuthedLayout>
-              </div>
+              <MobileNavProvider>
+                <div className="flex h-screen flex-col overflow-hidden">
+                  <Header />
+                  <AuthedLayout>{children}</AuthedLayout>
+                </div>
+              </MobileNavProvider>
             </TooltipProvider>
             <Toaster richColors position="bottom-right" />
             <TanStackDevtools

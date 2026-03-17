@@ -126,7 +126,7 @@ function GroupDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
