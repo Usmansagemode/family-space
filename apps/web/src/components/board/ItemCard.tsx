@@ -78,7 +78,7 @@ export function ItemCard({
 
   // Accent color for the checkmark tick (deeper/more vivid than card bg)
   const tickColor = isDark
-    ? `oklch(0.80 0.14 ${hue})`
+    ? `oklch(0.80 0.10 ${hue})`
     : `oklch(0.55 0.18 ${hue})`
 
   function handleCheck(checked: boolean) {
@@ -102,7 +102,7 @@ export function ItemCard({
       <div
         ref={setNodeRef}
         className={cn(
-          'rise-in group/card relative flex items-center gap-3 rounded-xl border px-3.5 py-3 shadow-sm transition-opacity',
+          'rise-in group/card relative flex items-center gap-2.5 rounded-xl border px-3 py-3 shadow-sm transition-opacity',
           isDragging && 'opacity-40',
           item.completed && 'opacity-55',
         )}
@@ -119,7 +119,7 @@ export function ItemCard({
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="cursor-grab touch-none opacity-20 transition-opacity group-hover/card:opacity-50 hover:opacity-80! active:cursor-grabbing"
+              className="shrink-0 cursor-grab touch-none p-0 opacity-20 transition-opacity group-hover/card:opacity-50 hover:opacity-80! active:cursor-grabbing"
               {...attributes}
               {...listeners}
             >

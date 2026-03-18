@@ -88,7 +88,7 @@ export function SpaceColumn({ space, familyId, allSpaces, isDropTarget, onFocus,
   const hue = extractHue(space.color)
   const isDark = useIsDark()
   const accentColor = isDark
-    ? `oklch(0.62 0.16 ${hue})`
+    ? `oklch(0.70 0.10 ${hue})`
     : `oklch(0.68 0.14 ${hue})`
 
   const today = new Date()

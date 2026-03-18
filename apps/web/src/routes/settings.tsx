@@ -11,15 +11,19 @@ import {
   Crown,
   Eye,
   EyeOff,
+  Home,
   Lock,
   Loader2,
+  MapPin,
   Pencil,
   Plus,
   RotateCcw,
+  Tag,
   Trash2,
   User,
   UserPlus,
   UserRoundPlus,
+  Users,
   Wallet,
   X,
   Zap,
@@ -89,13 +93,13 @@ export const Route = createFileRoute('/settings')({
 })
 
 const TABS = [
-  { id: 'account', label: 'Account' },
-  { id: 'family', label: 'Family' },
-  { id: 'billing', label: 'Plan' },
-  { id: 'members', label: 'Members' },
-  { id: 'locations', label: 'Locations' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'integrations', label: 'Integrations' },
+  { id: 'account', label: 'Account', Icon: User },
+  { id: 'family', label: 'Family', Icon: Home },
+  { id: 'billing', label: 'Plan', Icon: Crown },
+  { id: 'members', label: 'Members', Icon: Users },
+  { id: 'locations', label: 'Locations', Icon: MapPin },
+  { id: 'categories', label: 'Categories', Icon: Tag },
+  { id: 'integrations', label: 'Integrations', Icon: Zap },
 ] as const
 
 const CURRENCIES = ['USD', 'CAD', 'EUR', 'GBP', 'AUD', 'PKR', 'INR', 'AED']
@@ -128,51 +132,77 @@ function SettingsPage() {
         <h1 className="text-xl font-semibold">Settings</h1>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex border-b border-border px-6">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'relative px-4 py-2.5 text-sm font-medium transition-colors',
-              tab === t.id
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t.label}
-            {tab === t.id && (
-              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
-            )}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Sidebar (≥ md) ──────────────────────────────────────────── */}
+        <nav className="hidden w-48 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border p-3 md:flex">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors text-left',
+                tab === t.id
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+              )}
+            >
+              <t.Icon className="h-4 w-4 shrink-0" />
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {tab === 'account' && user && (
-          <AccountTab userId={user.id} />
-        )}
-        {tab === 'family' && family && (
-          <FamilyTab family={family} userId={user?.id ?? ''} />
-        )}
-        {tab === 'billing' && family && (
-          <BillingTab familyId={familyId} plan={family.plan} />
-        )}
-        {tab === 'members' && family && (
-          <MembersTab familyId={familyId} currentUserId={user?.id ?? ''} plan={family.plan} currency={family.currency} locale={family.locale} />
-        )}
-        {tab === 'locations' && familyId && (
-          <LocationsTab familyId={familyId} />
-        )}
-        {tab === 'categories' && familyId && (
-          <CategoriesTab familyId={familyId} />
-        )}
-        {tab === 'integrations' && (
-          <IntegrationsTab />
-        )}
+        {/* ── Right column: mobile tabs + content stacked ─────────────── */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Mobile scrollable tab bar (< md) */}
+          <div className="flex overflow-x-auto border-b border-border px-2 md:hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors',
+                  tab === t.id
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <t.Icon className="h-3.5 w-3.5" />
+                {t.label}
+                {tab === t.id && (
+                  <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto">
+            {tab === 'account' && user && (
+              <AccountTab userId={user.id} />
+            )}
+            {tab === 'family' && family && (
+              <FamilyTab family={family} userId={user?.id ?? ''} />
+            )}
+            {tab === 'billing' && family && (
+              <BillingTab familyId={familyId} plan={family.plan} />
+            )}
+            {tab === 'members' && family && (
+              <MembersTab familyId={familyId} currentUserId={user?.id ?? ''} plan={family.plan} currency={family.currency} locale={family.locale} />
+            )}
+            {tab === 'locations' && familyId && (
+              <LocationsTab familyId={familyId} />
+            )}
+            {tab === 'categories' && familyId && (
+              <CategoriesTab familyId={familyId} />
+            )}
+            {tab === 'integrations' && (
+              <IntegrationsTab />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1747,7 +1777,7 @@ function AccountTab({ userId }: { userId: string }) {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 max-w-md">
+      <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6 space-y-6">
         <Skeleton className="h-20 w-20 rounded-full" />
         <Skeleton className="h-9 w-full" />
       </div>
@@ -1762,7 +1792,7 @@ function AccountTab({ userId }: { userId: string }) {
     .toUpperCase()
 
   return (
-    <div className="p-6 space-y-8 max-w-md">
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6 space-y-8">
       {/* Avatar */}
       <div className="space-y-2">
         <Label>Profile picture</Label>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, RefreshCw, Trash2 } from 'lucide-react'
 import { detectDuplicates } from '#/lib/duplicate-detection'
 import type { DuplicateEntry } from '#/components/expenses/DuplicateExpenseDialog'
@@ -72,7 +73,6 @@ export function ExpenseTable({
       const dir = sortDir === 'asc' ? 1 : -1
       if (sortField === 'date') return a.date.localeCompare(b.date) * dir
       if (sortField === 'amount') return (a.amount - b.amount) * dir
-      // String fields — nulls sort last regardless of direction
       const strA = (
         sortField === 'description' ? a.description :
         sortField === 'category' ? a.categoryName :
@@ -117,10 +117,20 @@ export function ExpenseTable({
 
   if (expenses.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed py-16 text-muted-foreground">
+      <div className="flex items-center justify-center rounded-xl border border-dashed py-16 text-sm text-muted-foreground">
         No expenses this month. Add one to get started.
       </div>
     )
+  }
+
+  // ─── shared helper to build DuplicateEntry ────────────────────────────────
+  function toEntry(ex: ExpenseWithNames, reason?: DuplicateEntry['reason']): DuplicateEntry {
+    return {
+      id: ex.id, date: ex.date, amount: ex.amount,
+      description: ex.description, categoryName: ex.categoryName,
+      categoryColor: ex.categoryColor, locationName: ex.locationName,
+      paidByName: ex.paidByName, source: 'db', reason,
+    }
   }
 
   return (
@@ -131,73 +141,237 @@ export function ExpenseTable({
           categories={categories}
           locationSpaces={locationSpaces}
           personSpaces={personSpaces}
-          onApply={(patch) => {
-            onBulkUpdate(selectedIds, patch)
-            setSelected(new Set())
-          }}
-          onDelete={() => {
-            onDeleteMany(selectedIds)
-            setSelected(new Set())
-          }}
+          onApply={(patch) => { onBulkUpdate(selectedIds, patch); setSelected(new Set()) }}
+          onDelete={() => { onDeleteMany(selectedIds); setSelected(new Set()) }}
           onClear={() => setSelected(new Set())}
         />
       )}
 
-      <div className="overflow-x-auto rounded-lg border">
+      {/* ── Mobile card list (< md) ───────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {/* Mobile sort + select-all bar */}
+        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Sort:</span>
+            {(['date', 'amount'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => toggleSort(f)}
+                className={cn(
+                  'flex items-center gap-0.5 rounded px-2 py-1 text-xs font-medium transition-colors',
+                  sortField === f
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {f === 'date' ? 'Date' : 'Amount'}
+                {sortField === f && (sortDir === 'asc'
+                  ? <ArrowUp className="h-2.5 w-2.5" />
+                  : <ArrowDown className="h-2.5 w-2.5" />)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cards */}
+        <AnimatePresence initial={false}>
+          {sorted.map((expense, i) => {
+            const isSelected = selected.has(expense.id)
+            const d = parseLocalDate(expense.date)
+            const isDuplicate = duplicateMap.has(expense.id)
+            const categoryColor = expense.categoryColor ?? null
+
+            return (
+              <motion.div
+                key={expense.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.18, delay: i * 0.025, ease: 'easeOut' }}
+                onClick={() => onEdit(expense)}
+                className={cn(
+                  'group relative cursor-pointer overflow-hidden rounded-xl border bg-card transition-all duration-150',
+                  'hover:border-border/80 hover:shadow-sm',
+                  isSelected
+                    ? 'border-blue-400/60 bg-blue-50/40 shadow-sm dark:border-blue-500/40 dark:bg-blue-950/20'
+                    : 'border-border',
+                  isDuplicate && 'border-amber-300/60 dark:border-amber-600/40',
+                )}
+              >
+                {/* Category color accent bar */}
+                {categoryColor && (
+                  <div
+                    className="absolute inset-y-0 left-0 w-[3px] rounded-l-xl"
+                    style={{ background: categoryColor }}
+                  />
+                )}
+
+                <div className="flex items-start gap-3 py-3 pl-4 pr-3" style={{ paddingLeft: categoryColor ? 14 : 12 }}>
+                  {/* Checkbox */}
+                  <div
+                    className="mt-0.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleOne(expense.id)}
+                      aria-label="Select expense"
+                    />
+                  </div>
+
+                  {/* Main content */}
+                  <div className="min-w-0 flex-1">
+                    {/* Row 1: description + amount */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        {/* Icons */}
+                        {expense.autoGenerated && (
+                          expense.recurringTransactionId && onClickRecurring ? (
+                            <button
+                              type="button"
+                              title="Auto-generated from recurring transaction"
+                              className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+                              onClick={(e) => { e.stopPropagation(); onClickRecurring(expense.recurringTransactionId!) }}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </button>
+                          ) : (
+                            <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground/40" title="Auto-generated" />
+                          )
+                        )}
+                        {isDuplicate && onFlagClick && (
+                          <button
+                            type="button"
+                            title="Possible duplicate — click to review"
+                            aria-label="Possible duplicate"
+                            className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-amber-500 hover:text-amber-600 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const matchEntries = duplicateMap.get(expense.id)!
+                              const matches = matchEntries
+                                .map(({ id, reason }) => {
+                                  const ex = expenses.find((e) => e.id === id)
+                                  return ex ? toEntry(ex, reason) : null
+                                })
+                                .filter(Boolean) as DuplicateEntry[]
+                              onFlagClick(toEntry(expense), matches)
+                            }}
+                          >
+                            <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        )}
+                        <span className={cn(
+                          'block truncate text-sm font-medium',
+                          !expense.description && 'italic text-muted-foreground font-normal',
+                        )}>
+                          {expense.description ?? 'No description'}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {formatCurrency(expense.amount, currency, locale)}
+                      </span>
+                    </div>
+
+                    {/* Row 2: meta pills + date */}
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1">
+                        {expense.categoryName && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium"
+                            style={{
+                              background: categoryColor ? `${categoryColor}22` : 'var(--muted)',
+                              color: categoryColor ?? 'var(--muted-foreground)',
+                            }}
+                          >
+                            {categoryColor && (
+                              <span
+                                className="inline-block h-1.5 w-1.5 rounded-full"
+                                style={{ background: categoryColor }}
+                              />
+                            )}
+                            {expense.categoryName}
+                          </span>
+                        )}
+                        {expense.locationName && (
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {expense.locationName}
+                          </span>
+                        )}
+                        {expense.paidByName && (
+                          <>
+                            {expense.locationName && (
+                              <span className="text-[11px] text-muted-foreground/40">·</span>
+                            )}
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              {expense.paidByName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete */}
+                  <div
+                    className="mt-0.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onDelete(expense.id)}
+                      aria-label="Delete expense"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Desktop table (≥ md) ──────────────────────────────────────────── */}
+      <div className="hidden rounded-lg border md:block">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/30">
             <tr>
               <th className="w-10 px-4 py-3 text-left">
                 <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
               </th>
-              <th className="px-4 py-3 text-left">
-                <button
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-                  onClick={() => toggleSort('date')}
-                >
-                  Date <SortIcon field="date" />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left">
-                <button
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-                  onClick={() => toggleSort('description')}
-                >
-                  Description <SortIcon field="description" />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-right">
-                <button
-                  className="ml-auto flex items-center gap-1 text-xs font-medium text-muted-foreground"
-                  onClick={() => toggleSort('amount')}
-                >
-                  Amount <SortIcon field="amount" />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left">
-                <button
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-                  onClick={() => toggleSort('category')}
-                >
-                  Category <SortIcon field="category" />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left">
-                <button
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-                  onClick={() => toggleSort('location')}
-                >
-                  Location <SortIcon field="location" />
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left">
-                <button
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
-                  onClick={() => toggleSort('paidBy')}
-                >
-                  Paid by <SortIcon field="paidBy" />
-                </button>
-              </th>
+              {(
+                [
+                  { field: 'date', label: 'Date', align: 'left' },
+                  { field: 'description', label: 'Description', align: 'left' },
+                  { field: 'amount', label: 'Amount', align: 'right' },
+                  { field: 'category', label: 'Category', align: 'left' },
+                  { field: 'location', label: 'Location', align: 'left' },
+                  { field: 'paidBy', label: 'Paid by', align: 'left' },
+                ] as { field: SortField; label: string; align: 'left' | 'right' }[]
+              ).map(({ field, label, align }) => (
+                <th key={field} className={cn('px-4 py-3', align === 'right' ? 'text-right' : 'text-left')}>
+                  <button
+                    className={cn(
+                      'flex items-center gap-1 text-xs font-medium text-muted-foreground',
+                      align === 'right' && 'ml-auto',
+                    )}
+                    onClick={() => toggleSort(field)}
+                  >
+                    {label} <SortIcon field={field} />
+                  </button>
+                </th>
+              ))}
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -246,12 +420,6 @@ export function ExpenseTable({
                           className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-amber-500 transition-colors duration-150 hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                           onClick={(e) => {
                             e.stopPropagation()
-                            const toEntry = (ex: ExpenseWithNames, reason?: DuplicateEntry['reason']): DuplicateEntry => ({
-                              id: ex.id, date: ex.date, amount: ex.amount,
-                              description: ex.description, categoryName: ex.categoryName,
-                              categoryColor: ex.categoryColor, locationName: ex.locationName,
-                              paidByName: ex.paidByName, source: 'db', reason,
-                            })
                             const matchEntries = duplicateMap.get(expense.id)!
                             const matches = matchEntries
                               .map(({ id, reason }) => {

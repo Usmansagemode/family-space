@@ -152,6 +152,7 @@ export function AddSpaceSheet({
               style={{
                 background: color,
                 borderColor: `oklch(0.82 0.09 ${hue})`,
+                color: '#000',
               }}
             >
               <div className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-white" />
