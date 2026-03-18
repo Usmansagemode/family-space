@@ -163,12 +163,12 @@ function SplitsPage() {
   const { data: family } = useUserFamily(user?.id)
   const familyId = family?.id ?? ''
   const { data: groups, isLoading } = useSplitGroups(familyId)
-  const { splitGroupLimit } = useDynamicPlan(familyId, family?.plan ?? 'free')
+  const { splitGroupsLimit } = useDynamicPlan(familyId, family?.plan ?? 'free')
   const [createOpen, setCreateOpen] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const totalGroups = groups?.length ?? 0
-  const atLimit = splitGroupLimit !== null && totalGroups >= splitGroupLimit
+  const atLimit = splitGroupsLimit !== null && totalGroups >= splitGroupsLimit
 
   function handleNewGroup() {
     if (atLimit) return

@@ -1,7 +1,7 @@
 import { Pressable, View, Text } from 'react-native'
-import { LayoutGrid, CalendarDays, Search } from 'lucide-react-native'
+import { LayoutGrid, CalendarDays, Search, Receipt } from 'lucide-react-native'
 
-export type Tab = 'board' | 'calendar' | 'search'
+export type Tab = 'board' | 'calendar' | 'expenses' | 'search'
 
 type Props = {
   activeTab: Tab
@@ -11,6 +11,7 @@ type Props = {
 const TABS: { key: Tab; label: string; Icon: typeof LayoutGrid }[] = [
   { key: 'board', label: 'Board', Icon: LayoutGrid },
   { key: 'calendar', label: 'Calendar', Icon: CalendarDays },
+  { key: 'expenses', label: 'Expenses', Icon: Receipt },
   { key: 'search', label: 'Search', Icon: Search },
 ]
 

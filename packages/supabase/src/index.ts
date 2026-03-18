@@ -31,6 +31,7 @@ export {
 export {
   fetchExpensesByMonth,
   fetchExpensesByYear,
+  fetchExpensesByDateRange,
   createExpense,
   updateExpense,
   deleteExpense,

@@ -85,6 +85,25 @@ export async function fetchExpensesByMonth(
   return (data as Parameters<typeof rowToExpenseWithNames>[0][]).map(rowToExpenseWithNames)
 }
 
+/** Fetch expenses between two dates (inclusive), joined with display names. */
+export async function fetchExpensesByDateRange(
+  familyId: string,
+  startDate: string,
+  endDate: string,
+): Promise<ExpenseWithNames[]> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('expenses')
+    .select(`*, categories(name, color), location:location_id(name), paid_by:paid_by_id(name)`)
+    .eq('family_id', familyId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: false })
+
+  if (error) throw error
+  return (data as Parameters<typeof rowToExpenseWithNames>[0][]).map(rowToExpenseWithNames)
+}
+
 /** Fetch all expenses for a year (for yearly analytics). */
 export async function fetchExpensesByYear(
   familyId: string,

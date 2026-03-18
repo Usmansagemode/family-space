@@ -19,7 +19,7 @@ import type { Category, Space, ExpenseWithNames } from '@family/types'
 
 const schema = z.object({
   date: z.string().min(1, 'Date is required'),
-  amount: z.coerce.number().positive('Amount must be positive'),
+  amount: z.number({ message: 'Amount is required' }).refine((n) => n !== 0, 'Amount cannot be zero'),
   description: z.string().optional(),
 })
 
@@ -45,6 +45,8 @@ type Props = {
   resetKey?: number
   /** Default date string (YYYY-MM-DD) for new expenses. Falls back to today. */
   defaultDate?: string
+  /** Pre-select a paid-by person for new expenses (e.g. the current user's person space) */
+  defaultPaidById?: string | null
 }
 
 function todayString() {
@@ -63,6 +65,7 @@ export function ExpenseDialog({
   isSaving,
   resetKey,
   defaultDate,
+  defaultPaidById,
 }: Props) {
   const isEditing = !!expense
 
@@ -87,7 +90,7 @@ export function ExpenseDialog({
       reset({ date: defaultDate ?? todayString(), amount: undefined, description: '' })
       setCategoryId(null)
       setLocationId(null)
-      setPaidById(null)
+      setPaidById(defaultPaidById ?? null)
     }
   }, [open, expense, reset])
 
@@ -97,7 +100,7 @@ export function ExpenseDialog({
     reset({ date: defaultDate ?? todayString(), amount: undefined, description: '' })
     setCategoryId(null)
     setLocationId(null)
-    setPaidById(null)
+    setPaidById(defaultPaidById ?? null)
   }, [resetKey, open, isEditing, reset])
 
   function onSubmit(data: FormData) {
@@ -140,10 +143,9 @@ export function ExpenseDialog({
                   id="exp-amount"
                   type="number"
                   step="0.01"
-                  min="0"
                   placeholder="0.00"
                   autoFocus
-                  {...register('amount')}
+                  {...register('amount', { valueAsNumber: true })}
                 />
                 {formState.errors.amount && (
                   <p className="text-xs text-destructive">{formState.errors.amount.message}</p>

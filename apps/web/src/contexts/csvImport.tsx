@@ -1,8 +1,8 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import Papa from 'papaparse'
 import { toast } from 'sonner'
-import { createExpense, logActivity } from '@family/supabase'
-import type { Category, Space } from '@family/types'
+import { createExpense, fetchExpensesByDateRange, logActivity } from '@family/supabase'
+import type { Category, ExpenseWithNames, Space } from '@family/types'
 import {
   NONE_VALUE,
   autoMapStandardFields,
@@ -41,6 +41,7 @@ interface CSVImportContextType {
   defaultMonth: string
   defaultYear: string
   mappedData: ImportExpense[]
+  existingExpenses: ExpenseWithNames[]
   familyId: string
   categories: Category[]
   locationSpaces: Space[]
@@ -99,7 +100,22 @@ export function CSVImportProvider({
   )
   const [defaultYear, setDefaultYear] = useState<string>(String(now.getFullYear()))
   const [mappedData, setMappedData] = useState<ImportExpense[]>([])
+  const [existingExpenses, setExistingExpenses] = useState<ExpenseWithNames[]>([])
   const [isSaving, setIsSaving] = useState(false)
+
+  // When mappedData changes, fetch DB expenses in the same date range for duplicate detection
+  useEffect(() => {
+    if (mappedData.length === 0) {
+      setExistingExpenses([])
+      return
+    }
+    const dates = mappedData.map((e) => e.date).sort()
+    const startDate = dates[0]!
+    const endDate = dates[dates.length - 1]!
+    void fetchExpensesByDateRange(familyId, startDate, endDate)
+      .then(setExistingExpenses)
+      .catch(() => {/* silent — duplicate detection is best-effort */})
+  }, [mappedData, familyId])
 
   function resolveDate(dateStr: string): string {
     if (dateStr && dateStr.trim() !== '') {
@@ -345,6 +361,7 @@ export function CSVImportProvider({
     defaultMonth,
     defaultYear,
     mappedData,
+    existingExpenses,
     familyId,
     categories,
     locationSpaces,

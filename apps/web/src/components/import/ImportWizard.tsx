@@ -350,9 +350,10 @@ function MappingStep() {
 interface PreviewStepProps {
   currency?: string
   locale?: string
+  showDuplicates?: boolean
 }
 
-function PreviewStep({ currency, locale }: PreviewStepProps) {
+function PreviewStep({ currency, locale, showDuplicates }: PreviewStepProps) {
   const { mappedData, setStep, documentStyle, handleSave, isSaving } = useCSVImport()
 
   return (
@@ -364,7 +365,7 @@ function PreviewStep({ currency, locale }: PreviewStepProps) {
         </p>
       </div>
 
-      <ImportPreviewTable currency={currency} locale={locale} />
+      <ImportPreviewTable currency={currency} locale={locale} showDuplicates={showDuplicates} />
 
       <div className="flex items-center justify-between">
         <Button
@@ -389,9 +390,10 @@ interface ImportWizardProps {
   currency?: string
   locale?: string
   canAiImport?: boolean
+  showDuplicates?: boolean
 }
 
-export function ImportWizard({ currency, locale, canAiImport = false }: ImportWizardProps) {
+export function ImportWizard({ currency, locale, canAiImport = false, showDuplicates = false }: ImportWizardProps) {
   const { step } = useCSVImport()
 
   return (
@@ -399,7 +401,7 @@ export function ImportWizard({ currency, locale, canAiImport = false }: ImportWi
       <StepIndicator step={step} />
       {step === 'upload' && <UploadStep canAiImport={canAiImport} />}
       {step === 'map' && <MappingStep />}
-      {step === 'preview' && <PreviewStep currency={currency} locale={locale} />}
+      {step === 'preview' && <PreviewStep currency={currency} locale={locale} showDuplicates={showDuplicates} />}
     </div>
   )
 }

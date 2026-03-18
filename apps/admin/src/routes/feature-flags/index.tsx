@@ -36,7 +36,7 @@ function FeatureFlagsPage() {
           <p className="font-medium text-foreground">How this works</p>
           <ul className="mt-2 list-disc pl-4 space-y-1">
             <li>
-              <strong>Toggle cells</strong> flip boolean features (analytics, export, aiImport).
+              <strong>Toggle cells</strong> flip boolean features (charts, charts.export, import.ai, expenses.duplicates).
             </li>
             <li>
               <strong>Number cells</strong> set member/group limits. Blank = unlimited (null).

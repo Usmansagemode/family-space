@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { createExpense, createIncomeEntry, updateRecurringTransaction } from '@family/supabase'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
+import { useDynamicPlan } from '@family/hooks'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useExpenses } from '#/hooks/expenses/useExpenses'
 import { useExpenseMutations } from '#/hooks/expenses/useExpenseMutations'
@@ -22,6 +23,8 @@ import { ExpenseDialog } from '#/components/expenses/ExpenseDialog'
 import { IncomeDialog } from '#/components/expenses/IncomeDialog'
 import { RecurringTransactionDialog } from '#/components/expenses/RecurringTransactionDialog'
 import { CatchUpDialog } from '#/components/expenses/CatchUpDialog'
+import { DuplicateExpenseDialog } from '#/components/expenses/DuplicateExpenseDialog'
+import type { DuplicateEntry } from '#/components/expenses/DuplicateExpenseDialog'
 import { FocusFillMode } from '#/components/expenses/FocusFillMode'
 import { FinancialsChart } from '#/components/expenses/FinancialsChart'
 import { Badge } from '#/components/ui/badge'
@@ -82,6 +85,11 @@ function ExpensesPage() {
   const [recurringDialogOpen, setRecurringDialogOpen] = useState(false)
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null)
 
+  // duplicate dialog state
+  const [dupOpen, setDupOpen] = useState(false)
+  const [dupFlagged, setDupFlagged] = useState<DuplicateEntry | null>(null)
+  const [dupMatches, setDupMatches] = useState<DuplicateEntry[]>([])
+
   // catch-up dialog state
   const [catchUpOpen, setCatchUpOpen] = useState(false)
   const [catchUpItems, setCatchUpItems] = useState<CatchUpItem[]>([])
@@ -91,6 +99,7 @@ function ExpensesPage() {
   const familyId = family?.id ?? ''
   const currency = family?.currency
   const locale = family?.locale
+  const { can } = useDynamicPlan(familyId, family?.plan ?? 'free')
 
   const prevMonth = month === 1 ? 12 : month - 1
   const prevYear = month === 1 ? year - 1 : year
@@ -109,6 +118,7 @@ function ExpensesPage() {
 
   const locationSpaces = (spaces ?? []).filter((s) => s.type === 'store' && s.showInExpenses)
   const personSpaces = (spaces ?? []).filter((s) => s.type === 'person' && s.showInExpenses)
+  const myPersonSpaceId = personSpaces.find((s) => s.linkedUserId === user?.id)?.id ?? null
 
   const incomeTotal = (incomeEntries ?? []).reduce((sum, e) => sum + e.amount, 0)
 
@@ -202,6 +212,12 @@ function ExpensesPage() {
     } else {
       expenseMutations.create.mutate(data, { onSuccess: () => setExpenseResetKey((k) => k + 1) })
     }
+  }
+
+  function handleFlagClick(flagged: DuplicateEntry, matches: DuplicateEntry[]) {
+    setDupFlagged(flagged)
+    setDupMatches(matches)
+    setDupOpen(true)
   }
 
   function openAddExpense() {
@@ -401,6 +417,8 @@ function ExpensesPage() {
                   const t = (recurringTransactions ?? []).find((r) => r.id === id)
                   if (t) { setEditingRecurring(t); setRecurringDialogOpen(true) }
                 }}
+                onFlagClick={handleFlagClick}
+                showDuplicates={can.expensesDuplicates}
               />
             </>
           )}
@@ -592,6 +610,7 @@ function ExpensesPage() {
         isSaving={expenseMutations.create.isPending || expenseMutations.update.isPending}
         resetKey={expenseResetKey}
         defaultDate={`${year}-${String(month).padStart(2, '0')}-01`}
+        defaultPaidById={myPersonSpaceId}
       />
 
       {/* Income dialog */}
@@ -621,6 +640,41 @@ function ExpensesPage() {
         editing={editingRecurring ?? undefined}
         onSaved={handleRecurringSaved}
       />
+
+      {/* Duplicate expense dialog */}
+      {dupFlagged && (
+        <DuplicateExpenseDialog
+          open={dupOpen}
+          onOpenChange={(o) => { setDupOpen(o); if (!o) { setDupFlagged(null); setDupMatches([]) } }}
+          flagged={dupFlagged}
+          matches={dupMatches}
+          currency={currency}
+          locale={locale}
+          onDelete={(id) => {
+            expenseMutations.remove.mutate(id, {
+              onSuccess: () => {
+                // Deleting the flagged entry itself — close entirely
+                if (id === dupFlagged?.id) {
+                  setDupOpen(false)
+                  setDupFlagged(null)
+                  setDupMatches([])
+                  return
+                }
+                const remaining = dupMatches.filter((m) => m.id !== id)
+                if (remaining.length === 0) {
+                  setDupOpen(false)
+                  setDupFlagged(null)
+                  setDupMatches([])
+                } else {
+                  setDupMatches(remaining)
+                }
+              },
+            })
+          }}
+          onKeepAll={() => { setDupOpen(false); setDupFlagged(null); setDupMatches([]) }}
+          isDeleting={expenseMutations.remove.isPending}
+        />
+      )}
 
       {/* Catch-up dialog */}
       <CatchUpDialog

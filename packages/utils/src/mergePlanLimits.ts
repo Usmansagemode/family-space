@@ -42,12 +42,13 @@ export function mergePlanLimits(
   }
 
   return {
-    memberLimit: getLimit('memberLimit', fallback.memberLimit),
-    splitGroupLimit: getLimit('splitGroupLimit', fallback.splitGroupLimit),
+    membersLimit:     getLimit('members.limit',       fallback.membersLimit),
+    splitGroupsLimit: getLimit('splits.groupLimit',   fallback.splitGroupsLimit),
     can: {
-      analytics: getBool('analytics', fallback.can.analytics),
-      export: getBool('export', fallback.can.export),
-      aiImport: getBool('aiImport', fallback.can.aiImport),
+      charts:             getBool('charts',              fallback.can.charts),
+      chartsExport:       getBool('charts.export',       fallback.can.chartsExport),
+      importAi:           getBool('import.ai',           fallback.can.importAi),
+      expensesDuplicates: getBool('expenses.duplicates', fallback.can.expensesDuplicates),
     },
   }
 }

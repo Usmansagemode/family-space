@@ -19,7 +19,7 @@ import { INCOME_TYPES } from '#/lib/income-types'
 import type { IncomeEntry, IncomeType, Space } from '@family/types'
 
 const schema = z.object({
-  amount: z.coerce.number().positive('Amount must be positive'),
+  amount: z.number({ message: 'Amount is required' }).positive('Amount must be positive'),
   date: z.string().min(1, 'Date is required'),
   description: z.string().optional(),
 })
@@ -161,7 +161,7 @@ export function IncomeDialog({
                   min="0"
                   placeholder="0.00"
                   autoFocus
-                  {...register('amount')}
+                  {...register('amount', { valueAsNumber: true })}
                 />
                 {formState.errors.amount && (
                   <p className="text-xs text-destructive">{formState.errors.amount.message}</p>

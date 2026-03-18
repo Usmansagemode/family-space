@@ -1,6 +1,5 @@
-import { BarChart3, Check, FileDown, Lock, SplitSquareVertical, Sparkles } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
 import {
@@ -9,46 +8,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog'
-
-type PlanConfig = {
-  title: string
-  description: string
-  features: { icon: React.ElementType; label: string }[]
-  price: string
-  cta: string
-}
-
-const PLAN_CONFIG: Record<'plus' | 'pro', PlanConfig> = {
-  plus: {
-    title: 'Plus',
-    price: '$5',
-    cta: 'Upgrade to Plus',
-    description: 'Unlock yearly analytics and export for your family.',
-    features: [
-      { icon: BarChart3, label: '9 yearly analytics charts' },
-      { icon: FileDown, label: 'Export to CSV & PDF' },
-      { icon: SplitSquareVertical, label: 'Unlimited split groups' },
-      { icon: Check, label: 'Up to 5 family members' },
-    ],
-  },
-  pro: {
-    title: 'Pro',
-    price: '$10',
-    cta: 'Upgrade to Pro',
-    description: 'Let AI read your bank statements and import expenses automatically.',
-    features: [
-      { icon: Sparkles, label: 'AI PDF bank statement import' },
-      { icon: Check, label: 'Unlimited family members' },
-      { icon: Check, label: 'Everything in Plus' },
-    ],
-  },
-}
+import { PLAN_UI, getUpgradeCardFeatures } from '#/lib/plan-features'
 
 type Props = {
   /** The minimum plan required to access this feature */
   requiredPlan?: 'plus' | 'pro'
   /** What the locked page looks like — rendered blurred behind the prompt */
   preview?: React.ReactNode
+}
+
+type DialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  requiredPlan?: 'plus' | 'pro'
 }
 
 function DefaultPreview() {
@@ -61,65 +33,72 @@ function DefaultPreview() {
   )
 }
 
-type DialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  requiredPlan?: 'plus' | 'pro'
+function PlanCard({
+  plan,
+  isPrimary,
+}: {
+  plan: 'plus' | 'pro'
+  isPrimary: boolean
+}) {
+  const meta = PLAN_UI[plan]
+  const features = getUpgradeCardFeatures(plan)
+
+  return (
+    <div
+      className={`border rounded-xl p-5 flex flex-col gap-4 ${
+        isPrimary ? `${meta.cardClass}` : 'border-border'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-semibold text-lg">{meta.label}</div>
+          <div className="text-muted-foreground text-sm">per family / month</div>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${meta.badgeClass}`}>
+          {meta.price}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {features.map((f) => {
+          const Icon = f.icon
+          return (
+            <li key={f.key} className="flex items-start gap-2 text-sm">
+              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div>
+                <span>{f.label}</span>
+                <p className="text-xs text-muted-foreground">{f.description}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <Button
+        className="w-full mt-auto"
+        variant={isPrimary ? 'default' : 'outline'}
+        onClick={() => toast.info(`${meta.label} upgrade coming soon!`)}
+      >
+        {meta.cta}
+      </Button>
+    </div>
+  )
 }
 
 export function UpgradePlanDialog({ open, onOpenChange, requiredPlan = 'plus' }: DialogProps) {
   const plansToShow: Array<'plus' | 'pro'> =
     requiredPlan === 'pro' ? ['pro'] : ['plus', 'pro']
-
-  function handleUpgrade(plan: 'plus' | 'pro') {
-    toast.info(`${PLAN_CONFIG[plan].title} upgrade coming soon!`)
-  }
+  const meta = PLAN_UI[requiredPlan]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{PLAN_CONFIG[requiredPlan].title} Feature</DialogTitle>
+          <DialogTitle>{meta.label} Feature</DialogTitle>
         </DialogHeader>
-        <p className="text-muted-foreground text-sm">
-          {PLAN_CONFIG[requiredPlan].description}
-        </p>
+        <p className="text-muted-foreground text-sm">{meta.tagline}</p>
         <div className={`grid gap-4 ${plansToShow.length === 1 ? 'max-w-xs' : 'grid-cols-1 sm:grid-cols-2'}`}>
-          {plansToShow.map((plan) => {
-            const config = PLAN_CONFIG[plan]
-            const isPrimary = plan === requiredPlan
-            return (
-              <div
-                key={plan}
-                className={`border rounded-xl p-5 flex flex-col gap-4 ${isPrimary ? 'bg-primary/5 border-primary/20' : ''}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-lg">{config.title}</div>
-                    <div className="text-muted-foreground text-sm">per family / month</div>
-                  </div>
-                  <Badge className="text-base px-3 py-1" variant={isPrimary ? 'default' : 'secondary'}>
-                    {config.price}
-                  </Badge>
-                </div>
-                <ul className="flex flex-col gap-2">
-                  {config.features.map(({ icon: Icon, label }) => (
-                    <li key={label} className="flex items-center gap-2 text-sm">
-                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                      {label}
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="w-full mt-auto"
-                  variant={isPrimary ? 'default' : 'outline'}
-                  onClick={() => handleUpgrade(plan)}
-                >
-                  {config.cta}
-                </Button>
-              </div>
-            )
-          })}
+          {plansToShow.map((plan) => (
+            <PlanCard key={plan} plan={plan} isPrimary={plan === requiredPlan} />
+          ))}
         </div>
       </DialogContent>
     </Dialog>
@@ -129,10 +108,7 @@ export function UpgradePlanDialog({ open, onOpenChange, requiredPlan = 'plus' }:
 export function UpgradePlanPrompt({ requiredPlan = 'plus', preview }: Props) {
   const plansToShow: Array<'plus' | 'pro'> =
     requiredPlan === 'pro' ? ['pro'] : ['plus', 'pro']
-
-  function handleUpgrade(plan: 'plus' | 'pro') {
-    toast.info(`${PLAN_CONFIG[plan].title} upgrade coming soon!`)
-  }
+  const meta = PLAN_UI[requiredPlan]
 
   return (
     <div className="relative flex flex-col gap-6">
@@ -148,54 +124,14 @@ export function UpgradePlanPrompt({ requiredPlan = 'plus', preview }: Props) {
             <div className="bg-muted rounded-full p-3">
               <Lock className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h2 className="text-2xl font-bold">{PLAN_CONFIG[requiredPlan].title} Feature</h2>
-            <p className="text-muted-foreground text-sm max-w-sm">
-              {PLAN_CONFIG[requiredPlan].description}
-            </p>
+            <h2 className="text-2xl font-bold">{meta.label} Feature</h2>
+            <p className="text-muted-foreground text-sm max-w-sm">{meta.tagline}</p>
           </div>
 
-          {/* Tier cards */}
-          <div
-            className={`grid gap-4 w-full ${plansToShow.length === 1 ? 'max-w-xs' : 'grid-cols-1 sm:grid-cols-2'}`}
-          >
-            {plansToShow.map((plan) => {
-              const config = PLAN_CONFIG[plan]
-              const isPrimary = plan === requiredPlan
-              return (
-                <div
-                  key={plan}
-                  className={`border rounded-xl p-5 flex flex-col gap-4 ${isPrimary ? 'bg-primary/5 border-primary/20' : ''}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-lg">{config.title}</div>
-                      <div className="text-muted-foreground text-sm">per family / month</div>
-                    </div>
-                    <Badge
-                      className="text-base px-3 py-1"
-                      variant={isPrimary ? 'default' : 'secondary'}
-                    >
-                      {config.price}
-                    </Badge>
-                  </div>
-                  <ul className="flex flex-col gap-2">
-                    {config.features.map(({ icon: Icon, label }) => (
-                      <li key={label} className="flex items-center gap-2 text-sm">
-                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        {label}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className="w-full mt-auto"
-                    variant={isPrimary ? 'default' : 'outline'}
-                    onClick={() => handleUpgrade(plan)}
-                  >
-                    {config.cta}
-                  </Button>
-                </div>
-              )
-            })}
+          <div className={`grid gap-4 w-full ${plansToShow.length === 1 ? 'max-w-xs' : 'grid-cols-1 sm:grid-cols-2'}`}>
+            {plansToShow.map((plan) => (
+              <PlanCard key={plan} plan={plan} isPrimary={plan === requiredPlan} />
+            ))}
           </div>
         </div>
       </div>

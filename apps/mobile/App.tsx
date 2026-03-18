@@ -12,6 +12,7 @@ import { LoginScreen } from './src/screens/LoginScreen'
 import { SpacesScreen } from './src/screens/SpacesScreen'
 import { ItemsScreen } from './src/screens/ItemsScreen'
 import { CalendarScreen } from './src/screens/CalendarScreen'
+import { ExpensesScreen } from './src/screens/ExpensesScreen'
 import { SearchScreen } from './src/screens/SearchScreen'
 import { TabBar, type Tab } from './src/components/TabBar'
 
@@ -44,6 +45,9 @@ function AppNavigator() {
       </View>
       <View style={{ flex: 1, display: tab === 'calendar' ? 'flex' : 'none' }}>
         <CalendarScreen />
+      </View>
+      <View style={{ flex: 1, display: tab === 'expenses' ? 'flex' : 'none' }}>
+        <ExpensesScreen />
       </View>
       <View style={{ flex: 1, display: tab === 'search' ? 'flex' : 'none' }}>
         <SearchScreen />

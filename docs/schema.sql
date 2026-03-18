@@ -571,12 +571,12 @@ begin
   -- Per-family override wins over plan default
   select value into v_limit_val
   from family_feature_overrides
-  where family_id = NEW.family_id and feature_key = 'splitGroupLimit';
+  where family_id = NEW.family_id and feature_key = 'splits.groupLimit';
 
   if v_limit_val is null then
     select value into v_limit_val
     from plan_features
-    where plan = v_plan and feature_key = 'splitGroupLimit';
+    where plan = v_plan and feature_key = 'splits.groupLimit';
   end if;
 
   -- null value or missing row = unlimited
@@ -749,12 +749,12 @@ begin
   -- Per-family override wins over plan default
   select value into v_limit_val
   from family_feature_overrides
-  where family_id = p_family_id and feature_key = 'memberLimit';
+  where family_id = p_family_id and feature_key = 'members.limit';
 
   if v_limit_val is null then
     select value into v_limit_val
     from plan_features
-    where plan = v_plan and feature_key = 'memberLimit';
+    where plan = v_plan and feature_key = 'members.limit';
   end if;
 
   -- null value or missing row = unlimited
@@ -1217,21 +1217,24 @@ create policy "avatars_select"
 
 insert into plan_features (plan, feature_key, value) values
   -- free
-  ('free', 'memberLimit',      '{"limit": 3}'),
-  ('free', 'splitGroupLimit',  '{"limit": 1}'),
-  ('free', 'analytics',        '{"enabled": false}'),
-  ('free', 'export',           '{"enabled": false}'),
-  ('free', 'aiImport',         '{"enabled": false}'),
+  ('free', 'members.limit',       '{"limit": 3}'),
+  ('free', 'splits.groupLimit',   '{"limit": 1}'),
+  ('free', 'charts',              '{"enabled": false}'),
+  ('free', 'charts.export',       '{"enabled": false}'),
+  ('free', 'import.ai',           '{"enabled": false}'),
+  ('free', 'expenses.duplicates', '{"enabled": false}'),
   -- plus
-  ('plus', 'memberLimit',      '{"limit": 5}'),
-  ('plus', 'splitGroupLimit',  '{"limit": null}'),
-  ('plus', 'analytics',        '{"enabled": true}'),
-  ('plus', 'export',           '{"enabled": true}'),
-  ('plus', 'aiImport',         '{"enabled": false}'),
+  ('plus', 'members.limit',       '{"limit": 5}'),
+  ('plus', 'splits.groupLimit',   '{"limit": null}'),
+  ('plus', 'charts',              '{"enabled": true}'),
+  ('plus', 'charts.export',       '{"enabled": true}'),
+  ('plus', 'import.ai',           '{"enabled": false}'),
+  ('plus', 'expenses.duplicates', '{"enabled": true}'),
   -- pro
-  ('pro',  'memberLimit',      '{"limit": null}'),
-  ('pro',  'splitGroupLimit',  '{"limit": null}'),
-  ('pro',  'analytics',        '{"enabled": true}'),
-  ('pro',  'export',           '{"enabled": true}'),
-  ('pro',  'aiImport',         '{"enabled": true}')
+  ('pro',  'members.limit',       '{"limit": null}'),
+  ('pro',  'splits.groupLimit',   '{"limit": null}'),
+  ('pro',  'charts',              '{"enabled": true}'),
+  ('pro',  'charts.export',       '{"enabled": true}'),
+  ('pro',  'import.ai',           '{"enabled": true}'),
+  ('pro',  'expenses.duplicates', '{"enabled": true}')
 on conflict (plan, feature_key) do nothing;

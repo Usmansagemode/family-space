@@ -121,7 +121,7 @@ export function ExpenseSummary({ expenses, categories, personSpaces, prevTotal, 
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${pct}%`,
-                        background: c.color ?? 'hsl(var(--primary))',
+                        background: c.color ?? 'var(--primary)',
                       }}
                     />
                   </div>
@@ -162,7 +162,7 @@ export function ExpenseSummary({ expenses, categories, personSpaces, prevTotal, 
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${pct}%`,
-                        background: m.color ?? 'hsl(var(--primary))',
+                        background: m.color ?? 'var(--primary)',
                       }}
                     />
                   </div>

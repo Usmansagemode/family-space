@@ -43,7 +43,7 @@ function ImportPage() {
         locationSpaces={locationSpaces}
         personSpaces={personSpaces}
       >
-        <ImportWizard currency={family?.currency} locale={family?.locale} canAiImport={can.aiImport} />
+        <ImportWizard currency={family?.currency} locale={family?.locale} canAiImport={can.importAi} showDuplicates={can.expensesDuplicates} />
       </CSVImportProvider>
     </div>
   )

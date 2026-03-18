@@ -244,7 +244,7 @@ function ChartsPage() {
               onSelectionChange={setSelectedPaidBy}
             />
           )}
-          {can.export ? (
+          {can.chartsExport ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
@@ -276,7 +276,7 @@ function ChartsPage() {
       </div>
 
       {/* Charts */}
-      {!can.analytics ? (
+      {!can.charts ? (
         <UpgradePlanPrompt />
       ) : isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

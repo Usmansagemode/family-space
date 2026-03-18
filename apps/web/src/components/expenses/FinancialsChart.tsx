@@ -121,17 +121,17 @@ export function FinancialsChart({ familyId, year, currentMonth, currency, locale
             </linearGradient>
           </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.5} vertical={false} />
 
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             tickFormatter={(v) => formatCurrencyCompact(v)}
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
             axisLine={false}
             tickLine={false}
             width={52}
@@ -140,13 +140,13 @@ export function FinancialsChart({ familyId, year, currentMonth, currency, locale
 
           <Tooltip
             content={<CustomTooltip currency={currency} locale={locale} />}
-            cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+            cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
           />
 
           <Legend
             iconType="circle"
             iconSize={8}
-            wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
+            wrapperStyle={{ fontSize: 11, paddingTop: 12, color: 'var(--muted-foreground)' }}
           />
 
           {monthlyBudget > 0 && (

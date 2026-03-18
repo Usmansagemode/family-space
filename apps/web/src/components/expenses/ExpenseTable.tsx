@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { ArrowUp, ArrowDown, ArrowUpDown, Pencil, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, RefreshCw, Trash2 } from 'lucide-react'
+import { detectDuplicates } from '#/lib/duplicate-detection'
+import type { DuplicateEntry } from '#/components/expenses/DuplicateExpenseDialog'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
 import { BulkEditBar } from '#/components/expenses/BulkEditBar'
@@ -7,7 +9,7 @@ import { formatCurrency, parseLocalDate } from '#/lib/utils'
 import { cn } from '#/lib/utils'
 import type { Category, Space, ExpenseWithNames } from '@family/types'
 
-type SortField = 'date' | 'amount'
+type SortField = 'date' | 'amount' | 'description' | 'category' | 'location' | 'paidBy'
 type SortDir = 'asc' | 'desc'
 
 type Patch = {
@@ -32,6 +34,8 @@ type Props = {
   onDeleteMany: (ids: string[]) => void
   onBulkUpdate: (ids: string[], patch: Patch) => void
   onClickRecurring?: (recurringTransactionId: string) => void
+  onFlagClick?: (flagged: DuplicateEntry, matches: DuplicateEntry[]) => void
+  showDuplicates?: boolean
 }
 
 export function ExpenseTable({
@@ -46,6 +50,8 @@ export function ExpenseTable({
   onDeleteMany,
   onBulkUpdate,
   onClickRecurring,
+  onFlagClick,
+  showDuplicates = false,
 }: Props) {
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -56,11 +62,33 @@ export function ExpenseTable({
     else { setSortField(field); setSortDir('desc') }
   }
 
+  const duplicateMap = useMemo(
+    () => showDuplicates ? detectDuplicates(expenses) : new Map(),
+    [expenses, showDuplicates],
+  )
+
   const sorted = useMemo(() => {
     return [...expenses].sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1
       if (sortField === 'date') return a.date.localeCompare(b.date) * dir
-      return (a.amount - b.amount) * dir
+      if (sortField === 'amount') return (a.amount - b.amount) * dir
+      // String fields — nulls sort last regardless of direction
+      const strA = (
+        sortField === 'description' ? a.description :
+        sortField === 'category' ? a.categoryName :
+        sortField === 'location' ? a.locationName :
+        a.paidByName
+      ) ?? null
+      const strB = (
+        sortField === 'description' ? b.description :
+        sortField === 'category' ? b.categoryName :
+        sortField === 'location' ? b.locationName :
+        b.paidByName
+      ) ?? null
+      if (strA === null && strB === null) return 0
+      if (strA === null) return 1
+      if (strB === null) return -1
+      return strA.localeCompare(strB) * dir
     })
   }, [expenses, sortField, sortDir])
 
@@ -130,8 +158,13 @@ export function ExpenseTable({
                   Date <SortIcon field="date" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                Description
+              <th className="px-4 py-3 text-left">
+                <button
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+                  onClick={() => toggleSort('description')}
+                >
+                  Description <SortIcon field="description" />
+                </button>
               </th>
               <th className="px-4 py-3 text-right">
                 <button
@@ -141,9 +174,30 @@ export function ExpenseTable({
                   Amount <SortIcon field="amount" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Category</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Location</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Paid by</th>
+              <th className="px-4 py-3 text-left">
+                <button
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+                  onClick={() => toggleSort('category')}
+                >
+                  Category <SortIcon field="category" />
+                </button>
+              </th>
+              <th className="px-4 py-3 text-left">
+                <button
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+                  onClick={() => toggleSort('location')}
+                >
+                  Location <SortIcon field="location" />
+                </button>
+              </th>
+              <th className="px-4 py-3 text-left">
+                <button
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+                  onClick={() => toggleSort('paidBy')}
+                >
+                  Paid by <SortIcon field="paidBy" />
+                </button>
+              </th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -154,12 +208,13 @@ export function ExpenseTable({
               return (
                 <tr
                   key={expense.id}
+                  onClick={() => onEdit(expense)}
                   className={cn(
-                    'border-b last:border-0 transition-colors hover:bg-muted/20',
+                    'border-b last:border-0 transition-colors hover:bg-muted/20 cursor-pointer',
                     isSelected && 'bg-blue-50/50 dark:bg-blue-950/20',
                   )}
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={isSelected} onCheckedChange={() => toggleOne(expense.id)} aria-label="Select row" />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
@@ -173,7 +228,7 @@ export function ExpenseTable({
                             type="button"
                             title="Auto-generated from recurring transaction — click to edit"
                             className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
-                            onClick={() => onClickRecurring(expense.recurringTransactionId!)}
+                            onClick={(e) => { e.stopPropagation(); onClickRecurring(expense.recurringTransactionId!) }}
                           >
                             <RefreshCw className="h-3 w-3" />
                           </button>
@@ -182,6 +237,33 @@ export function ExpenseTable({
                             <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground/50" />
                           </span>
                         )
+                      )}
+                      {duplicateMap.has(expense.id) && onFlagClick && (
+                        <button
+                          type="button"
+                          title="Possible duplicate — click to review"
+                          aria-label="Possible duplicate — click to review"
+                          className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-amber-500 transition-colors duration-150 hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const toEntry = (ex: ExpenseWithNames, reason?: DuplicateEntry['reason']): DuplicateEntry => ({
+                              id: ex.id, date: ex.date, amount: ex.amount,
+                              description: ex.description, categoryName: ex.categoryName,
+                              categoryColor: ex.categoryColor, locationName: ex.locationName,
+                              paidByName: ex.paidByName, source: 'db', reason,
+                            })
+                            const matchEntries = duplicateMap.get(expense.id)!
+                            const matches = matchEntries
+                              .map(({ id, reason }) => {
+                                const ex = expenses.find((e) => e.id === id)
+                                return ex ? toEntry(ex, reason) : null
+                              })
+                              .filter(Boolean) as DuplicateEntry[]
+                            onFlagClick(toEntry(expense), matches)
+                          }}
+                        >
+                          <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                        </button>
                       )}
                       {expense.description
                         ? <span className="block truncate">{expense.description}</span>
@@ -208,22 +290,16 @@ export function ExpenseTable({
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{expense.locationName ?? '—'}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{expense.paidByName ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEdit(expense)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        onClick={() => onDelete(expense.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                    </div>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => onDelete(expense.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="sr-only">Delete</span>
+                    </Button>
                   </td>
                 </tr>
               )

@@ -4,12 +4,14 @@ import {
   Brain,
   Camera,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Copy,
   Crown,
   Eye,
   EyeOff,
+  Lock,
   Loader2,
   Pencil,
   Plus,
@@ -20,6 +22,7 @@ import {
   UserRoundPlus,
   Wallet,
   X,
+  Zap,
 } from 'lucide-react'
 import {
   GEMINI_MODELS,
@@ -70,15 +73,16 @@ import { archiveSpace, countSpaceExpenses } from '#/lib/supabase/spaces'
 import { AddSpaceSheet } from '#/components/board/AddSpaceSheet'
 import { cn, formatCurrency } from '#/lib/utils'
 import { SPACE_COLORS, CHART_COLORS } from '#/lib/config'
-import { usePlan } from '@family/hooks'
+import { usePlan, useDynamicPlan } from '@family/hooks'
 import type { Space, Category, Budget, BudgetPeriod, FamilyPlan } from '@family/types'
+import { PLAN_FEATURES, PLAN_UI, getUpgradeCardFeatures } from '#/lib/plan-features'
 
 export const Route = createFileRoute('/settings')({
   validateSearch: (s: Record<string, unknown>) => ({
     tab: (
-      ['account', 'family', 'members', 'locations', 'categories', 'integrations'] as const
-    ).includes(s.tab as 'account' | 'family' | 'members' | 'locations' | 'categories' | 'integrations')
-      ? (s.tab as 'account' | 'family' | 'members' | 'locations' | 'categories' | 'integrations')
+      ['account', 'family', 'billing', 'members', 'locations', 'categories', 'integrations'] as const
+    ).includes(s.tab as 'account' | 'family' | 'billing' | 'members' | 'locations' | 'categories' | 'integrations')
+      ? (s.tab as 'account' | 'family' | 'billing' | 'members' | 'locations' | 'categories' | 'integrations')
       : 'family',
   }),
   component: SettingsPage,
@@ -87,6 +91,7 @@ export const Route = createFileRoute('/settings')({
 const TABS = [
   { id: 'account', label: 'Account' },
   { id: 'family', label: 'Family' },
+  { id: 'billing', label: 'Plan' },
   { id: 'members', label: 'Members' },
   { id: 'locations', label: 'Locations' },
   { id: 'categories', label: 'Categories' },
@@ -152,6 +157,9 @@ function SettingsPage() {
         )}
         {tab === 'family' && family && (
           <FamilyTab family={family} userId={user?.id ?? ''} />
+        )}
+        {tab === 'billing' && family && (
+          <BillingTab familyId={familyId} plan={family.plan} />
         )}
         {tab === 'members' && family && (
           <MembersTab familyId={familyId} currentUserId={user?.id ?? ''} plan={family.plan} currency={family.currency} locale={family.locale} />
@@ -281,6 +289,150 @@ function FamilyTab({
           {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Save changes
         </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Billing Tab ─────────────────────────────────────────────────────────────
+
+function BillingTab({ familyId, plan }: { familyId: string; plan: FamilyPlan }) {
+  const limits = useDynamicPlan(familyId, plan)
+  const planMeta = PLAN_UI[plan]
+
+  const sections = [...new Set(PLAN_FEATURES.map((f) => f.section))]
+  const upgradePlans: Array<'plus' | 'pro'> =
+    plan === 'pro' ? [] : plan === 'plus' ? ['pro'] : ['plus', 'pro']
+
+  return (
+    <div className="mx-auto max-w-lg px-4 py-4 sm:px-6 sm:py-6">
+      <div className="flex flex-col gap-6">
+
+        {/* Current plan card */}
+        <div className={cn('rounded-xl border p-5', planMeta.cardClass)}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Current plan</p>
+              <p className="text-xl font-semibold">{planMeta.label}</p>
+              <p className="text-sm text-muted-foreground">{planMeta.tagline}</p>
+            </div>
+            <span className={cn('shrink-0 rounded-full px-3 py-1 text-sm font-semibold', planMeta.badgeClass)}>
+              {planMeta.price}
+            </span>
+          </div>
+        </div>
+
+        {/* Feature breakdown */}
+        <div className="flex flex-col gap-4">
+          <p className="text-sm font-semibold">What&apos;s included</p>
+          {sections.map((section) => {
+            const features = PLAN_FEATURES.filter((f) => f.section === section)
+            return (
+              <div key={section} className="flex flex-col gap-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{section}</p>
+                <div className="rounded-lg border border-border overflow-hidden">
+                  {features.map((feature, i) => {
+                    const enabled = feature.isEnabled(limits)
+                    const Icon = feature.icon
+                    return (
+                      <div
+                        key={feature.key}
+                        className={cn(
+                          'flex items-center gap-3 px-3.5 py-2.5',
+                          i > 0 && 'border-t border-border',
+                        )}
+                      >
+                        <Icon className={cn('h-4 w-4 shrink-0', enabled ? 'text-primary' : 'text-muted-foreground/50')} />
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className={cn('text-sm', !enabled && 'text-muted-foreground')}>
+                            {feature.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground/70 truncate">
+                            {feature.description}
+                          </span>
+                        </div>
+                        {enabled ? (
+                          <span className="shrink-0 text-sm text-muted-foreground">{feature.getValue(limits)}</span>
+                        ) : (
+                          <span className={cn(
+                            'shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                            feature.minPlan === 'pro'
+                              ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400'
+                              : 'bg-primary/10 text-primary',
+                          )}>
+                            <Lock className="h-2.5 w-2.5" />
+                            {PLAN_UI[feature.minPlan as 'plus' | 'pro'].label}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Upgrade section */}
+        {upgradePlans.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">Upgrade your plan</p>
+            </div>
+            <div className={cn('grid gap-3', upgradePlans.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 max-w-xs')}>
+              {upgradePlans.map((upgradePlan) => {
+                const meta = PLAN_UI[upgradePlan]
+                const isPrimary = upgradePlans[0] === upgradePlan
+                const cardFeatures = getUpgradeCardFeatures(upgradePlan)
+                return (
+                  <div
+                    key={upgradePlan}
+                    className={cn(
+                      'rounded-xl border p-4 flex flex-col gap-3',
+                      isPrimary ? meta.cardClass : 'border-border',
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{meta.label}</span>
+                      <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', meta.badgeClass)}>
+                        {meta.price}
+                      </span>
+                    </div>
+                    <ul className="flex flex-col gap-1.5">
+                      {cardFeatures.map((f) => {
+                        const Icon = f.icon
+                        return (
+                          <li key={f.key} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            {f.label}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    <Button
+                      className="w-full"
+                      variant={isPrimary ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => toast.info(`${meta.label} upgrade coming soon!`)}
+                    >
+                      {meta.cta}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50/60 px-4 py-3 dark:border-violet-800/30 dark:bg-violet-950/20">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
+            <div>
+              <p className="text-sm font-medium">You&apos;re on the Pro plan</p>
+              <p className="text-xs text-muted-foreground">All features are unlocked. Thank you for your support!</p>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
@@ -660,7 +812,7 @@ function PaidByOptions({
   const { data: budgets } = useBudgets(familyId)
   const budgetMutations = useBudgetMutations(familyId)
   const queryClient = useQueryClient()
-  const { memberLimit } = usePlan(plan)
+  const { membersLimit } = usePlan(plan)
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<Space | null>(null)
@@ -674,7 +826,7 @@ function PaidByOptions({
   // Virtual = person space with no linked user
   const virtualSpaces = personSpaces.filter((s) => !s.linkedUserId)
   // Member limit counts all person spaces (real + virtual)
-  const atLimit = memberLimit !== null && personSpaces.length >= memberLimit
+  const atLimit = membersLimit !== null && personSpaces.length >= membersLimit
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -708,7 +860,7 @@ function PaidByOptions({
   function openAdd() {
     if (atLimit) {
       toast.error(
-        `Your ${plan} plan allows up to ${memberLimit} members. Upgrade to add more.`,
+        `Your ${plan} plan allows up to ${membersLimit} members. Upgrade to add more.`,
       )
       return
     }
@@ -768,7 +920,7 @@ function PaidByOptions({
             className="gap-1.5"
             onClick={openAdd}
             disabled={atLimit}
-            title={atLimit ? `Upgrade to add more than ${memberLimit} members` : undefined}
+            title={atLimit ? `Upgrade to add more than ${membersLimit} members` : undefined}
           >
             <UserRoundPlus className="h-3.5 w-3.5" />
             Add
@@ -777,7 +929,7 @@ function PaidByOptions({
 
         {atLimit && (
           <p className="text-xs text-muted-foreground">
-            Member limit reached ({personSpaces.length}/{memberLimit}).{' '}
+            Member limit reached ({personSpaces.length}/{membersLimit}).{' '}
             <span className="font-medium text-foreground">Upgrade your plan</span> to add more.
           </p>
         )}
