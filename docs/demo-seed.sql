@@ -69,7 +69,7 @@ begin
   -- ── 3. Spaces: people (type='person') ─────────────────────────────────────
   insert into spaces (id, family_id, name, type, show_in_expenses, color, sort_order, is_system, linked_user_id)
   values
-    (s_zoro,  v_family_id, 'Zoro',  'person', true, 'oklch(0.82 0.10 152)', 0, true,  v_user_id),
+    (s_zoro,  v_family_id, 'Zoro',  'person', true, 'oklch(0.82 0.10 152)', 0, false, null),
     (s_nami,  v_family_id, 'Nami',  'person', true, 'oklch(0.82 0.10 55)',  1, false, null),
     (s_coby,  v_family_id, 'Coby',  'person', true, 'oklch(0.82 0.10 15)',  2, false, null),
     (s_vivi,  v_family_id, 'Vivi',  'person', true, 'oklch(0.82 0.10 240)', 3, false, null);
