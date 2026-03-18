@@ -339,3 +339,70 @@ CREATE INDEX idx_profiles_banned     ON profiles (banned_at) WHERE banned_at IS 
 - `apps/admin/` — new admin portal app (TanStack Start, port 4000, service role key)
 - `apps/web/src/routes/charts.tsx` — swaps `usePlan` → `useDynamicPlan`; server loader adds `resolvePlanLimits` check
 - `apps/web/src/lib/server/resolvePlanLimits.ts` — server-only plan resolver used in loaders/actions
+
+---
+
+## 005 — Invite audit columns, admin table triggers, avatar storage (2026-03-17)
+
+Adds invite audit columns, `updated_at` triggers for the two admin tables added in 004,
+and storage policies for the new avatar upload feature.
+
+```sql
+-- 1. Invite audit columns
+--    created_by: who generated the invite link
+--    accepted_by: who used it (mirrors used_by for audit purposes)
+ALTER TABLE invites
+  ADD COLUMN IF NOT EXISTS created_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS accepted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- 2. updated_at triggers for admin tables (missed in 004)
+CREATE TRIGGER trg_plan_features_updated_at
+  BEFORE UPDATE ON plan_features
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_family_feature_overrides_updated_at
+  BEFORE UPDATE ON family_feature_overrides
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- 3. Storage: avatar bucket RLS policies
+--    The bucket itself must be created manually in Supabase Dashboard:
+--      Storage → New bucket → name: "avatars", Public: true, Max file size: 204800 (200 KB)
+--      Allowed MIME types: image/jpeg, image/png, image/webp
+--    Then run the policies below:
+
+DROP POLICY IF EXISTS "avatars_insert" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_update" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_select" ON storage.objects;
+
+CREATE POLICY "avatars_insert"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'avatars'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "avatars_update"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'avatars'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "avatars_select"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'avatars');
+```
+
+**What it does**
+- `invites.created_by` — records who generated the invite link (set by app code, not a trigger)
+- `invites.accepted_by` — records who accepted it; complements existing `accepted_at`
+- Triggers on `plan_features` and `family_feature_overrides` keep `updated_at` in sync when admin edits feature flags
+- Storage policies allow authenticated users to upload/overwrite their own avatar at `avatars/{user_id}/avatar.{ext}`; bucket is public-readable
+
+**No back-fill needed** — `created_by` and `accepted_by` default to `null` for existing rows.
+
+**Related code changes**
+- `packages/supabase/src/profiles.ts` — new file: `fetchProfile`, `updateProfile`, `uploadAvatar` (200 KB limit enforced client-side)
+- `packages/hooks/src/auth/useProfile.ts` — new file: `useProfile` + `useProfileMutations`
+- `apps/web/src/routes/settings.tsx` — new **Account** tab: display name + avatar upload
+- `packages/supabase/src/client.ts` — added `initServiceClient` / `getServiceClient` to keep service-role client separate from the auth client (prevents RLS bypass being lost after `signInWithPassword`)

@@ -16,10 +16,10 @@ import { Button } from '#/components/ui/button'
 import { formatCurrency, formatCurrencyCompact } from '#/lib/utils'
 import type { ExpenseWithNames } from '@family/types'
 
-// Intensity colours matching daily-expenses
-const GREEN  = 'oklch(0.65 0.18 145)'
-const ORANGE = 'oklch(0.72 0.19 60)'
-const RED    = 'oklch(0.62 0.22 20)'
+// Pastel intensity colours: green = low spend, orange = mid, coral = high
+const GREEN  = 'oklch(0.82 0.10 152)'
+const ORANGE = 'oklch(0.84 0.11 88)'
+const RED    = 'oklch(0.82 0.10 22)'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 

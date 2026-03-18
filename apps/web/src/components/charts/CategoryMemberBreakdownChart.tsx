@@ -10,15 +10,9 @@ import {  BarChart,
 } from 'recharts'
 import { formatCurrency, formatCurrencyCompact } from '#/lib/utils'
 import type { ExpenseWithNames } from '@family/types'
+import { CHART_COLORS } from '#/lib/config'
 
-const MEMBER_COLORS = [
-  'oklch(0.60 0.15 250)',
-  'oklch(0.60 0.18 30)',
-  'oklch(0.60 0.18 145)',
-  'oklch(0.60 0.18 320)',
-  'oklch(0.60 0.15 60)',
-  'oklch(0.50 0.15 0)',
-]
+const MEMBER_COLORS = [...CHART_COLORS]
 
 type Props = {
   expenses: ExpenseWithNames[]

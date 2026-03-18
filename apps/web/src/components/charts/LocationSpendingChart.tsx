@@ -83,7 +83,7 @@ export function LocationSpendingChart({ expenses, currency, locale }: Props) {
         />
         <Bar
           dataKey="total"
-          fill="oklch(0.60 0.18 145)"
+          fill="oklch(0.82 0.10 152)"
           radius={[0, 4, 4, 0]}
         />
       </BarChart>

@@ -7,7 +7,7 @@ import type {
   PlanFeature,
   PlatformStats,
 } from '@family/types'
-import { getSupabaseClient } from './client'
+import { getServiceClient } from './client'
 
 // ---------------------------------------------------------------------------
 // Internal audit log writer — called by every mutating function
@@ -20,7 +20,7 @@ async function writeAuditLog(opts: {
   targetId?: string | null
   payload?: Record<string, unknown>
 }): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   await supabase.from('admin_audit_log').insert({
     admin_id: opts.adminId,
     action: opts.action,
@@ -103,7 +103,7 @@ function mapFamilyFeatureOverride(row: Record<string, unknown>): FamilyFeatureOv
 // ---------------------------------------------------------------------------
 
 export async function fetchPlatformStats(): Promise<PlatformStats> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
 
   const [familiesRes, usersRes, invitesRes] = await Promise.all([
     supabase.from('families').select('plan, suspended_at'),
@@ -141,7 +141,7 @@ export async function fetchAllFamilies(opts?: {
   suspended?: boolean
   search?: string
 }): Promise<{ data: AdminFamily[]; total: number }> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const page = opts?.page ?? 0
   const pageSize = opts?.pageSize ?? 50
   const from = page * pageSize
@@ -192,7 +192,7 @@ export async function fetchAllFamilies(opts?: {
 }
 
 export async function fetchFamilyAdmin(id: string): Promise<AdminFamily> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data, error } = await supabase
     .from('families')
     .select(
@@ -224,7 +224,7 @@ export async function updateFamilyPlan(
   adminId: string,
   reason?: string,
 ): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data: existing } = await supabase
     .from('families')
     .select('plan')
@@ -252,7 +252,7 @@ export async function suspendFamily(
   adminId: string,
   reason: string,
 ): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('families')
     .update({
@@ -274,7 +274,7 @@ export async function suspendFamily(
 }
 
 export async function unsuspendFamily(familyId: string, adminId: string): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('families')
     .update({ suspended_at: null, suspended_by: null, suspend_reason: null })
@@ -300,7 +300,7 @@ export async function fetchAllUsers(opts?: {
   banned?: boolean
   search?: string
 }): Promise<{ data: AdminProfile[]; total: number }> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const page = opts?.page ?? 0
   const pageSize = opts?.pageSize ?? 50
   const from = page * pageSize
@@ -340,7 +340,7 @@ export async function fetchAllUsers(opts?: {
 }
 
 export async function fetchUserAdmin(id: string): Promise<AdminProfile> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data, error } = await supabase
     .from('profiles')
     .select(
@@ -363,7 +363,7 @@ export async function banUser(
   adminId: string,
   reason: string,
 ): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('profiles')
     .update({
@@ -385,7 +385,7 @@ export async function banUser(
 }
 
 export async function unbanUser(userId: string, adminId: string): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('profiles')
     .update({ banned_at: null, banned_by: null, ban_reason: null })
@@ -402,7 +402,7 @@ export async function unbanUser(userId: string, adminId: string): Promise<void> 
 }
 
 export async function promoteUserToAdmin(userId: string, adminId: string): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('profiles')
     .update({ is_admin: true })
@@ -419,7 +419,7 @@ export async function promoteUserToAdmin(userId: string, adminId: string): Promi
 }
 
 export async function demoteAdminUser(userId: string, adminId: string): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('profiles')
     .update({ is_admin: false })
@@ -440,7 +440,7 @@ export async function demoteAdminUser(userId: string, adminId: string): Promise<
 // ---------------------------------------------------------------------------
 
 export async function fetchPlanFeatures(): Promise<PlanFeature[]> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data, error } = await supabase
     .from('plan_features')
     .select('plan, feature_key, value')
@@ -457,7 +457,7 @@ export async function updatePlanFeature(
   value: { enabled?: boolean; limit?: number | null },
   adminId: string,
 ): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase
     .from('plan_features')
     .upsert({ plan, feature_key: featureKey, value, updated_at: new Date().toISOString() })
@@ -479,7 +479,7 @@ export async function updatePlanFeature(
 export async function fetchFamilyFeatureOverrides(
   familyId: string,
 ): Promise<FamilyFeatureOverride[]> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data, error } = await supabase
     .from('family_feature_overrides')
     .select('*')
@@ -497,7 +497,7 @@ export async function setFamilyFeatureOverride(
   note: string | null,
   adminId: string,
 ): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { error } = await supabase.from('family_feature_overrides').upsert({
     family_id: familyId,
     feature_key: featureKey,
@@ -522,7 +522,7 @@ export async function removeFamilyFeatureOverride(
   overrideId: string,
   adminId: string,
 ): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data: existing } = await supabase
     .from('family_feature_overrides')
     .select('family_id, feature_key')
@@ -560,11 +560,11 @@ export type AdminInvite = {
 }
 
 export async function fetchAllInvites(): Promise<AdminInvite[]> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data, error } = await supabase
     .from('invites')
     .select('id, token, family_id, created_by, created_at, families(name)')
-    .is('used_at', null)
+    .is('accepted_at', null)
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -584,7 +584,7 @@ export async function fetchAllInvites(): Promise<AdminInvite[]> {
 }
 
 export async function revokeInvite(token: string, adminId: string): Promise<void> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const { data: existing } = await supabase
     .from('invites')
     .select('id, family_id')
@@ -615,7 +615,7 @@ export async function fetchAdminAuditLog(opts?: {
   since?: Date
   until?: Date
 }): Promise<{ data: AuditLogEntry[]; total: number }> {
-  const supabase = getSupabaseClient()
+  const supabase = getServiceClient()
   const page = opts?.page ?? 0
   const pageSize = opts?.pageSize ?? 50
   const from = page * pageSize

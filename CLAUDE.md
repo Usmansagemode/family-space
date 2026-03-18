@@ -17,6 +17,18 @@ See `docs/billing-gates.md` for:
 - Step-by-step Stripe setup (when ready to go live)
 - How to test plans locally without Stripe
 
+## Schema Changes
+
+**ALWAYS update `docs/schema.sql` when making any database change**, including:
+- New tables or columns
+- Modified column types, defaults, or constraints
+- New or changed RLS policies
+- New or changed triggers or functions
+- New indexes
+- New storage buckets or storage policies (PART 12)
+
+`docs/schema.sql` is the single source of truth. It is safe to re-run in full (drops and rebuilds everything). Keep it in sync with every code change that touches the database.
+
 ## Project Specification
 
 See `SPEC.md` in this directory for the full project specification including:

@@ -24,6 +24,9 @@ drop function if exists split_participant_is_family_member(uuid) cascade;
 drop function if exists split_share_is_family_member(uuid)   cascade;
 drop function if exists update_updated_at()                  cascade;
 
+drop table if exists admin_audit_log          cascade;
+drop table if exists family_feature_overrides cascade;
+drop table if exists plan_features            cascade;
 drop table if exists split_shares      cascade;
 drop table if exists split_settlements cascade;
 drop table if exists split_expenses    cascade;
@@ -53,6 +56,10 @@ create table profiles (
   name       text,
   email      text,
   avatar_url text,
+  is_admin   boolean not null default false,
+  banned_at  timestamptz,
+  banned_by  uuid references auth.users(id) on delete set null,
+  ban_reason text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -69,6 +76,9 @@ create table families (
   stripe_customer_id          text,
   stripe_subscription_id      text,
   stripe_subscription_status  text,
+  suspended_at                timestamptz,
+  suspended_by                uuid references auth.users(id) on delete set null,
+  suspend_reason              text,
   created_at                  timestamptz default now(),
   updated_at                  timestamptz default now()
 );
@@ -90,7 +100,45 @@ create table user_families (
 create table invites (
   token       uuid primary key default gen_random_uuid(),
   family_id   uuid not null references families(id) on delete cascade,
+  created_by  uuid references auth.users(id) on delete set null,
   accepted_at timestamptz,
+  accepted_by uuid references auth.users(id) on delete set null,
+  created_at  timestamptz default now()
+);
+
+-- Plan feature matrix — one row per (plan, feature_key).
+-- Managed exclusively by the admin app via service role.
+create table plan_features (
+  id          uuid primary key default gen_random_uuid(),
+  plan        text not null check (plan in ('free', 'plus', 'pro')),
+  feature_key text not null,
+  value       jsonb not null,
+  updated_at  timestamptz default now(),
+  unique (plan, feature_key)
+);
+
+-- Per-family overrides that win over plan_features defaults.
+-- Set by admin to grant/restrict features for specific families.
+create table family_feature_overrides (
+  id          uuid primary key default gen_random_uuid(),
+  family_id   uuid not null references families(id) on delete cascade,
+  feature_key text not null,
+  value       jsonb not null default '{}',
+  note        text,
+  created_by  uuid references auth.users(id) on delete set null,
+  updated_at  timestamptz default now(),
+  created_at  timestamptz default now(),
+  unique (family_id, feature_key)
+);
+
+-- Immutable audit trail for all admin actions.
+create table admin_audit_log (
+  id          uuid primary key default gen_random_uuid(),
+  admin_id    uuid references auth.users(id) on delete set null,
+  action      text not null,
+  target_type text not null check (target_type in ('family', 'user', 'invite', 'feature_flag')),
+  target_id   uuid,
+  payload     jsonb not null default '{}',
   created_at  timestamptz default now()
 );
 
@@ -99,7 +147,7 @@ create table spaces (
   id                 uuid primary key default gen_random_uuid(),
   family_id          uuid not null references families(id) on delete cascade,
   name               text not null,
-  color              text not null default 'oklch(0.7 0.15 250)',
+  color              text not null default 'oklch(0.93 0.06 228)',
   type               text not null default 'store' check (type in ('person', 'store', 'chore')),
   sort_order         integer not null default 0,
   show_in_expenses   boolean not null default true,
@@ -350,6 +398,11 @@ grant select, insert, update, delete  on split_expenses       to authenticated;
 grant select, insert, update, delete  on split_shares         to authenticated;
 grant select, insert, update, delete  on split_settlements    to authenticated;
 grant select, insert                  on activity_log         to authenticated;
+-- plan_features: web app needs SELECT to resolve useDynamicPlan
+grant select                          on plan_features              to authenticated;
+-- family_feature_overrides: web app needs SELECT to resolve per-family overrides
+grant select                          on family_feature_overrides   to authenticated;
+-- admin tables: service role only (no user grants needed — bypasses RLS)
 
 
 -- ----------------------------------------------------------------
@@ -372,8 +425,10 @@ create trigger trg_expenses_updated_at        before update on expenses        f
 create trigger trg_budgets_updated_at         before update on budgets         for each row execute function update_updated_at();
 create trigger trg_items_updated_at           before update on items           for each row execute function update_updated_at();
 create trigger trg_trackers_updated_at        before update on trackers        for each row execute function update_updated_at();
-create trigger trg_split_groups_updated_at    before update on split_groups    for each row execute function update_updated_at();
-create trigger trg_split_expenses_updated_at  before update on split_expenses  for each row execute function update_updated_at();
+create trigger trg_split_groups_updated_at          before update on split_groups          for each row execute function update_updated_at();
+create trigger trg_split_expenses_updated_at        before update on split_expenses        for each row execute function update_updated_at();
+create trigger trg_plan_features_updated_at         before update on plan_features         for each row execute function update_updated_at();
+create trigger trg_family_feature_overrides_updated_at before update on family_feature_overrides for each row execute function update_updated_at();
 
 
 -- ----------------------------------------------------------------
@@ -593,16 +648,17 @@ begin
   insert into spaces (family_id, name, type, show_in_expenses, is_system, linked_user_id, sort_order)
   values (v_family.id, coalesce(v_name, 'Owner'), 'person', true, true, p_user_id, 0);
 
-  -- Seed default categories for new families
+  -- Seed default categories for new families (pastel CHART_COLORS palette)
   insert into categories (family_id, name, color, icon, sort_order) values
-    (v_family.id, 'Grocery',   'oklch(0.60 0.18 30)',  'shopping-cart', 0),
-    (v_family.id, 'Misc',      'oklch(0.60 0.15 200)', 'circle-help',   1),
-    (v_family.id, 'Takeout',   'oklch(0.60 0.18 30)',  'utensils',      2),
-    (v_family.id, 'Shopping',  'oklch(0.50 0.15 0)',   'shirt',         3),
-    (v_family.id, 'Car',       'oklch(0.60 0.18 60)',  'car',           4),
-    (v_family.id, 'Travel',    'oklch(0.60 0.18 145)', 'plane',         5),
-    (v_family.id, 'Utilities', 'oklch(0.60 0.18 320)', 'zap',           6),
-    (v_family.id, 'Rent',      'oklch(0.55 0.18 80)',  'home',          7);
+    (v_family.id, 'Grocery',   'oklch(0.82 0.10 152)', 'shopping-cart', 0),
+    (v_family.id, 'Takeout',   'oklch(0.82 0.10 22)',  'utensils',      1),
+    (v_family.id, 'Shopping',  'oklch(0.82 0.10 308)', 'shirt',         2),
+    (v_family.id, 'Travel',    'oklch(0.82 0.10 228)', 'plane',         3),
+    (v_family.id, 'Utilities', 'oklch(0.84 0.11 88)',  'zap',           4),
+    (v_family.id, 'Car',       'oklch(0.82 0.10 188)', 'car',           5),
+    (v_family.id, 'Rent',      'oklch(0.82 0.10 50)',  'home',          6),
+    (v_family.id, 'Gifts',     'oklch(0.82 0.10 345)', 'gift',          7),
+    (v_family.id, 'Misc',      'oklch(0.82 0.05 270)', 'circle-help',   8);
 
   return row_to_json(v_family);
 end;
@@ -707,11 +763,14 @@ alter table budgets         enable row level security;
 alter table items           enable row level security;
 alter table trackers             enable row level security;
 alter table tracker_entries      enable row level security;
-alter table split_groups         enable row level security;
-alter table split_participants   enable row level security;
-alter table split_expenses       enable row level security;
-alter table split_shares         enable row level security;
-alter table split_settlements    enable row level security;
+alter table split_groups              enable row level security;
+alter table split_participants        enable row level security;
+alter table split_expenses            enable row level security;
+alter table split_shares              enable row level security;
+alter table split_settlements         enable row level security;
+alter table plan_features             enable row level security;
+alter table family_feature_overrides  enable row level security;
+alter table admin_audit_log           enable row level security;
 
 
 -- ----------------------------------------------------------------
@@ -913,6 +972,16 @@ create policy "activity_log_select" on activity_log
 create policy "activity_log_insert" on activity_log
   for insert to authenticated with check (is_family_member(family_id));
 
+-- plan_features — read-only for authenticated users; writes via service role only
+create policy "plan_features_select" on plan_features
+  for select to authenticated using (true);
+
+-- family_feature_overrides — families can read their own overrides; writes via service role only
+create policy "family_feature_overrides_select" on family_feature_overrides
+  for select to authenticated using (is_family_member(family_id));
+
+-- admin_audit_log — no direct user access; service role only
+
 
 -- ----------------------------------------------------------------
 -- PART 11: INDEXES
@@ -1020,3 +1089,43 @@ create index idx_split_settlements_group_date
 -- activity_log: family feed (newest first)
 create index idx_activity_log_family_recent
   on activity_log (family_id, created_at desc);
+
+-- ----------------------------------------------------------------
+-- PART 12: STORAGE
+-- ----------------------------------------------------------------
+
+-- Avatars bucket (public, 200 KB limit, images only)
+-- NOTE: Supabase storage buckets cannot be created via SQL.
+-- Run this once in Supabase Dashboard → Storage → New bucket:
+--   Name: avatars
+--   Public: true
+--   Max file size: 204800 (200 KB)
+--   Allowed MIME types: image/jpeg, image/png, image/webp
+--
+-- Then apply the RLS policies below in SQL Editor:
+
+-- Drop existing policies if re-running
+drop policy if exists "avatars_insert" on storage.objects;
+drop policy if exists "avatars_update" on storage.objects;
+drop policy if exists "avatars_select" on storage.objects;
+
+-- Users can upload into their own folder (avatars/{user_id}/*)
+create policy "avatars_insert"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Users can overwrite their own avatar
+create policy "avatars_update"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Anyone can read avatars (public bucket, but explicit policy is best practice)
+create policy "avatars_select"
+  on storage.objects for select to public
+  using (bucket_id = 'avatars');

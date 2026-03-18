@@ -1,4 +1,6 @@
-export { initSupabase, getSupabaseClient } from './client'
+export { initSupabase, getSupabaseClient, initServiceClient, getServiceClient } from './client'
+export { fetchProfile, updateProfile, uploadAvatar } from './profiles'
+export type { Profile } from './profiles'
 
 export {
   fetchSpaces,

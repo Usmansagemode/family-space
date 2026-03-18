@@ -45,7 +45,7 @@ export function AddSpaceSheet({
   const isEditing = !!editSpace
   const type: SpaceType = editSpace?.type ?? defaultType
   const [color, setColor] = useState(editSpace?.color ?? SPACE_COLORS[0])
-  const [showInExpenses, setShowInExpenses] = useState(editSpace?.showInExpenses ?? false)
+  const [showInExpenses, setShowInExpenses] = useState(editSpace?.showInExpenses ?? type !== 'chore')
   const isDark = useIsDark()
   const hue = extractHue(color)
   const accentColor = isDark
@@ -62,7 +62,7 @@ export function AddSpaceSheet({
     if (open) {
       reset({ name: editSpace?.name ?? '' })
       setColor(editSpace?.color ?? SPACE_COLORS[0])
-      setShowInExpenses(editSpace?.showInExpenses ?? false)
+      setShowInExpenses(editSpace?.showInExpenses ?? type !== 'chore')
     }
   }, [open, editSpace, reset])
 
@@ -105,13 +105,17 @@ export function AddSpaceSheet({
             )}
           </div>
 
-          {/* Show in expense locations — store spaces only */}
-          {type === 'store' && (
+          {/* Show in expenses toggle — store and person spaces only */}
+          {type !== 'chore' && (
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
               <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">Show in expense locations</span>
+                <span className="text-sm font-medium">
+                  {type === 'store' ? 'Show in expense locations' : 'Show in paid by'}
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  Makes this store available when logging an expense
+                  {type === 'store'
+                    ? 'Makes this store available when logging an expense'
+                    : 'Makes this person available as a "Paid by" option in expenses'}
                 </span>
               </div>
               <Switch

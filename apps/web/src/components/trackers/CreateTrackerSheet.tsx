@@ -15,15 +15,9 @@ import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { Textarea } from '#/components/ui/textarea'
 import type { Tracker } from '@family/types'
+import { CHART_COLORS } from '#/lib/config'
 
-const PRESET_COLORS = [
-  'oklch(0.60 0.15 250)',
-  'oklch(0.60 0.18 145)',
-  'oklch(0.60 0.18 30)',
-  'oklch(0.60 0.18 320)',
-  'oklch(0.60 0.15 60)',
-  'oklch(0.50 0.15 0)',
-]
+const PRESET_COLORS = [...CHART_COLORS]
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required').max(100),

@@ -33,7 +33,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
   const metas: Record<ActivityEventType, EventMeta> = {
     'item.added': {
       icon: <Plus className="h-3 w-3 opacity-70" />,
-      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.5 0.15 240)',
+      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.93 0.06 228)',
       text: () => (
         <>
           {actor && <span className="font-semibold">{actor} </span>}
@@ -45,7 +45,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
     },
     'item.completed': {
       icon: <CheckCheck className="h-3 w-3 opacity-70" />,
-      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.5 0.15 240)',
+      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.93 0.06 228)',
       text: () => (
         <>
           {actor && <span className="font-semibold">{actor} </span>}
@@ -57,7 +57,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
     },
     'expense.added': {
       icon: <Receipt className="h-3 w-3 opacity-70" />,
-      iconBg: 'oklch(0.55 0.18 145)',
+      iconBg: 'oklch(0.82 0.10 152)',
       text: () => (
         <>
           {actor && <span className="font-semibold">{actor} </span>}
@@ -71,7 +71,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
     },
     'expenses.imported': {
       icon: <Upload className="h-3 w-3 opacity-70" />,
-      iconBg: 'oklch(0.55 0.18 240)',
+      iconBg: 'oklch(0.82 0.10 228)',
       text: () => (
         <>
           {actor && <span className="font-semibold">{actor} </span>}
@@ -82,7 +82,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
     },
     'member.joined': {
       icon: <Users className="h-3 w-3 opacity-70" />,
-      iconBg: 'oklch(0.55 0.18 300)',
+      iconBg: 'oklch(0.82 0.10 308)',
       text: () => (
         <>
           <span className="font-semibold">{(p['name'] as string | undefined) ?? actor ?? 'Someone'}</span>

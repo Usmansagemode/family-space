@@ -107,13 +107,24 @@ with a call to `POST /api/billing/checkout` passing the relevant price ID.
 `plan` column: `'free' | 'plus' | 'pro'`, default `'free'`.
 Stripe columns present: `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status`.
 
-### 2. Hook (`packages/hooks/src/family/usePlan.ts`)
+### 2. Hooks — two layers
+
+**`usePlan` (static fallback)**
 ```ts
 const { can, memberLimit } = usePlan(family?.plan ?? 'free')
 // can.analytics, can.export, can.aiImport — booleans
 // memberLimit — number | null (null = unlimited)
 ```
-Static lookup, no RPC call. Import from `@family/hooks`.
+Hardcoded tier lookup in `packages/hooks/src/family/usePlan.ts`. Synchronous, no DB call. Used as an immediate fallback while the DB-backed hook loads.
+
+**`useDynamicPlan` (DB-backed — use this in gated UI)**
+```ts
+const limits = useDynamicPlan(familyId, family.plan)
+// Same shape as usePlan result, but values come from the DB
+```
+Fetches `plan_features` (plan-level config) and `family_feature_overrides` (per-family exceptions) from Supabase, merges them via `mergePlanLimits()`, and returns the result. Falls back to `usePlan` while loading so there's no flicker. Stale time: 10 minutes.
+
+Use `useDynamicPlan` everywhere in the UI. The admin panel can toggle feature flags in `plan_features` without a code deploy and they take effect within 10 minutes for all sessions. Per-family overrides in `family_feature_overrides` always win over the plan default.
 
 ### 3. Upgrade UI (`apps/web/src/components/billing/UpgradePlanPrompt.tsx`)
 - `requiredPlan="plus"` — shows Plus + Pro cards (Plus highlighted)

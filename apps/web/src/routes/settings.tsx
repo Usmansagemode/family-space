@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   Brain,
+  Camera,
   Check,
   ChevronDown,
   ChevronRight,
@@ -16,6 +17,7 @@ import {
   Trash2,
   User,
   UserPlus,
+  UserRoundPlus,
   Wallet,
   X,
 } from 'lucide-react'
@@ -52,6 +54,7 @@ import {
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
+import { useProfile, useProfileMutations } from '#/hooks/auth/useProfile'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
 import { useCategories } from '#/hooks/categories/useCategories'
@@ -61,21 +64,26 @@ import { useBudgets } from '#/hooks/budgets/useBudgets'
 import { useBudgetMutations } from '#/hooks/budgets/useBudgetMutations'
 import { createInvite } from '#/lib/supabase/invites'
 import { updateFamily, removeFamilyMember } from '#/lib/supabase/families'
+import { archiveSpace, countSpaceExpenses } from '#/lib/supabase/spaces'
+import { AddSpaceSheet } from '#/components/board/AddSpaceSheet'
 import { cn, formatCurrency } from '#/lib/utils'
-import type { Space, Category, Budget, BudgetPeriod } from '@family/types'
+import { SPACE_COLORS, CHART_COLORS } from '#/lib/config'
+import { usePlan } from '@family/hooks'
+import type { Space, Category, Budget, BudgetPeriod, FamilyPlan } from '@family/types'
 
 export const Route = createFileRoute('/settings')({
   validateSearch: (s: Record<string, unknown>) => ({
     tab: (
-      ['family', 'members', 'locations', 'categories', 'integrations'] as const
-    ).includes(s.tab as 'family' | 'members' | 'locations' | 'categories' | 'integrations')
-      ? (s.tab as 'family' | 'members' | 'locations' | 'categories' | 'integrations')
+      ['account', 'family', 'members', 'locations', 'categories', 'integrations'] as const
+    ).includes(s.tab as 'account' | 'family' | 'members' | 'locations' | 'categories' | 'integrations')
+      ? (s.tab as 'account' | 'family' | 'members' | 'locations' | 'categories' | 'integrations')
       : 'family',
   }),
   component: SettingsPage,
 })
 
 const TABS = [
+  { id: 'account', label: 'Account' },
   { id: 'family', label: 'Family' },
   { id: 'members', label: 'Members' },
   { id: 'locations', label: 'Locations' },
@@ -137,11 +145,14 @@ function SettingsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
+        {tab === 'account' && user && (
+          <AccountTab userId={user.id} />
+        )}
         {tab === 'family' && family && (
           <FamilyTab family={family} userId={user?.id ?? ''} />
         )}
         {tab === 'members' && family && (
-          <MembersTab familyId={familyId} currentUserId={user?.id ?? ''} currency={family.currency} locale={family.locale} />
+          <MembersTab familyId={familyId} currentUserId={user?.id ?? ''} plan={family.plan} currency={family.currency} locale={family.locale} />
         )}
         {tab === 'locations' && familyId && (
           <LocationsTab familyId={familyId} />
@@ -278,11 +289,13 @@ function FamilyTab({
 function MembersTab({
   familyId,
   currentUserId,
+  plan,
   currency,
   locale,
 }: {
   familyId: string
   currentUserId: string
+  plan: FamilyPlan
   currency?: string
   locale?: string
 }) {
@@ -615,8 +628,430 @@ function MembersTab({
             </div>
           )}
         </div>
+
+        {/* ── Paid-by options ─────────────────────────────────────────────── */}
+        <PaidByOptions familyId={familyId} personSpaces={personSpaces} plan={plan} currency={currency} locale={locale} />
       </div>
     </div>
+  )
+}
+
+// ─── Paid-by options (virtual person spaces) ─────────────────────────────────
+
+type DeleteState = { space: Space; count: number } | null
+
+function PaidByOptions({
+  familyId,
+  personSpaces,
+  plan,
+  currency,
+  locale,
+}: {
+  familyId: string
+  personSpaces: Space[]
+  plan: FamilyPlan
+  currency?: string
+  locale?: string
+}) {
+  const mutations = useSpaceMutations(familyId)
+  const { data: budgets } = useBudgets(familyId)
+  const budgetMutations = useBudgetMutations(familyId)
+  const queryClient = useQueryClient()
+  const { memberLimit } = usePlan(plan)
+
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [editing, setEditing] = useState<Space | null>(null)
+  const [deleteState, setDeleteState] = useState<DeleteState>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [budgetEditingId, setBudgetEditingId] = useState<string | null>(null)
+  const [budgetDraftAmount, setBudgetDraftAmount] = useState('')
+  const [budgetDraftPeriod, setBudgetDraftPeriod] = useState<BudgetPeriod>('monthly')
+
+  // Virtual = person space with no linked user
+  const virtualSpaces = personSpaces.filter((s) => !s.linkedUserId)
+  // Member limit counts all person spaces (real + virtual)
+  const atLimit = memberLimit !== null && personSpaces.length >= memberLimit
+
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function openBudgetEdit(spaceId: string, budget: Budget) {
+    setBudgetEditingId(spaceId)
+    setBudgetDraftAmount(String(budget.amount))
+    setBudgetDraftPeriod(budget.period)
+  }
+
+  function openBudgetNew(spaceId: string) {
+    setBudgetEditingId(spaceId)
+    setBudgetDraftAmount('')
+    setBudgetDraftPeriod('monthly')
+  }
+
+  function handleSaveBudget(spaceId: string) {
+    const amount = parseFloat(budgetDraftAmount)
+    if (isNaN(amount) || amount <= 0) return
+    budgetMutations.upsert.mutate(
+      { personId: spaceId, categoryId: null, amount, period: budgetDraftPeriod },
+      { onSuccess: () => setBudgetEditingId(null) },
+    )
+  }
+
+  function openAdd() {
+    if (atLimit) {
+      toast.error(
+        `Your ${plan} plan allows up to ${memberLimit} members. Upgrade to add more.`,
+      )
+      return
+    }
+    setEditing(null)
+    setSheetOpen(true)
+  }
+
+  function openEdit(space: Space) {
+    setEditing(space)
+    setSheetOpen(true)
+  }
+
+  async function handleDeleteClick(space: Space) {
+    setDeleteLoading(true)
+    try {
+      const count = await countSpaceExpenses(space.id)
+      setDeleteState({ space, count })
+    } catch {
+      toast.error('Failed to check expense references')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  async function handleArchive() {
+    if (!deleteState) return
+    try {
+      await archiveSpace(deleteState.space.id)
+      void queryClient.invalidateQueries({ queryKey: ['spaces', familyId] })
+      toast.success(`${deleteState.space.name} archived`)
+      setDeleteState(null)
+    } catch {
+      toast.error('Failed to archive')
+    }
+  }
+
+  function handleHardDelete() {
+    if (!deleteState) return
+    mutations.remove.mutate(deleteState.space.id, {
+      onSuccess: () => setDeleteState(null),
+    })
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Paid-by options</p>
+            <p className="text-xs text-muted-foreground">
+              People who pay expenses but don't need app access.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={openAdd}
+            disabled={atLimit}
+            title={atLimit ? `Upgrade to add more than ${memberLimit} members` : undefined}
+          >
+            <UserRoundPlus className="h-3.5 w-3.5" />
+            Add
+          </Button>
+        </div>
+
+        {atLimit && (
+          <p className="text-xs text-muted-foreground">
+            Member limit reached ({memberLimit}/{memberLimit}).{' '}
+            <span className="font-medium text-foreground">Upgrade your plan</span> to add more.
+          </p>
+        )}
+
+        {virtualSpaces.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No extra paid-by options yet. Add one above.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {virtualSpaces.map((space) => {
+              const isExpanded = expandedIds.has(space.id)
+              const memberBudget = (budgets ?? []).find(
+                (b) => b.personId === space.id && b.categoryId === null,
+              )
+              const isEditingBudget = budgetEditingId === space.id
+
+              return (
+                <div
+                  key={space.id}
+                  className="rounded-lg border border-border bg-muted/30"
+                >
+                  {/* Main row */}
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    {/* Expand chevron — only when show_in_expenses */}
+                    {space.showInExpenses ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(space.id)}
+                        className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                    ) : (
+                      <div className="w-4 shrink-0" />
+                    )}
+
+                    <div
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ background: space.color }}
+                    />
+                    <span className="flex-1 text-sm">{space.name}</span>
+
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Expenses</span>
+                      <Switch
+                        checked={space.showInExpenses}
+                        onCheckedChange={(checked) => {
+                          // Collapse if turning off
+                          if (!checked) {
+                            setExpandedIds((prev) => {
+                              const next = new Set(prev)
+                              next.delete(space.id)
+                              return next
+                            })
+                            setBudgetEditingId(null)
+                          }
+                          mutations.toggleShowInExpenses.mutate({ id: space.id, showInExpenses: checked })
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openEdit(space)}
+                      className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteClick(space)}
+                      disabled={deleteLoading}
+                      className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                      title="Delete"
+                    >
+                      {deleteLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Expanded: budget — only when show_in_expenses */}
+                  {isExpanded && space.showInExpenses && (
+                    <div className="border-t border-border px-3 pb-3 pt-2">
+                      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                        Spending budget
+                      </p>
+                      {isEditingBudget ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={budgetDraftAmount}
+                            onChange={(e) => setBudgetDraftAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="h-7 w-28 text-xs"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveBudget(space.id)
+                              if (e.key === 'Escape') setBudgetEditingId(null)
+                            }}
+                          />
+                          <div className="flex overflow-hidden rounded-md border border-border text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setBudgetDraftPeriod('monthly')}
+                              className={cn(
+                                'px-2 py-1 transition',
+                                budgetDraftPeriod === 'monthly'
+                                  ? 'bg-muted font-medium'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Monthly
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBudgetDraftPeriod('yearly')}
+                              className={cn(
+                                'border-l border-border px-2 py-1 transition',
+                                budgetDraftPeriod === 'yearly'
+                                  ? 'bg-muted font-medium'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Yearly
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveBudget(space.id)}
+                            disabled={budgetMutations.upsert.isPending}
+                            className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                            title="Save"
+                          >
+                            {budgetMutations.upsert.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5 text-emerald-500" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBudgetEditingId(null)}
+                            className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                            title="Cancel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : memberBudget ? (
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                          <Wallet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 text-xs">
+                            {formatCurrency(memberBudget.amount, currency, locale)}
+                            <span className="ml-1 text-muted-foreground">
+                              / {memberBudget.period}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openBudgetEdit(space.id, memberBudget)}
+                            className="shrink-0 text-muted-foreground transition hover:text-foreground"
+                            title="Edit budget"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => budgetMutations.remove.mutate(memberBudget.id)}
+                            disabled={budgetMutations.remove.isPending}
+                            className="shrink-0 text-muted-foreground transition hover:text-destructive"
+                            title="Remove budget"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => openBudgetNew(space.id)}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Set spending budget
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Add / Edit sheet */}
+      <AddSpaceSheet
+        open={sheetOpen}
+        onOpenChange={(open) => { setSheetOpen(open); if (!open) setEditing(null) }}
+        editSpace={editing ?? undefined}
+        defaultType="person"
+        isPending={mutations.create.isPending || mutations.update.isPending}
+        onCreate={(input) =>
+          mutations.create.mutate(input, { onSuccess: () => setSheetOpen(false) })
+        }
+        onUpdate={(input) =>
+          mutations.update.mutate(input, { onSuccess: () => setSheetOpen(false) })
+        }
+      />
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteState} onOpenChange={(open) => { if (!open) setDeleteState(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove "{deleteState?.space.name}"?</DialogTitle>
+          </DialogHeader>
+
+          {deleteState?.count === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              This person has no expenses. They'll be permanently deleted.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                This person is referenced in{' '}
+                <span className="font-medium text-foreground">{deleteState?.count}</span>{' '}
+                {deleteState?.count === 1 ? 'expense' : 'expenses'}.
+              </p>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <p className="mb-1 font-medium text-foreground">Archive (recommended)</p>
+                <p>Hides from pickers. Old expenses still show their name.</p>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <p className="mb-1 font-medium text-foreground">Delete anyway</p>
+                <p>Permanently removes them. Those expenses will show "Unknown member".</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setDeleteState(null)}>
+              Cancel
+            </Button>
+            {deleteState && deleteState.count > 0 && (
+              <Button variant="outline" onClick={handleArchive}>
+                Archive
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              onClick={handleHardDelete}
+              disabled={mutations.remove.isPending}
+            >
+              {mutations.remove.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : deleteState?.count === 0 ? (
+                'Delete'
+              ) : (
+                'Delete anyway'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -635,7 +1070,7 @@ function LocationsTab({ familyId }: { familyId: string }) {
   function submitAdd() {
     if (!newName.trim()) return
     mutations.create.mutate(
-      { name: newName.trim(), color: 'oklch(0.7 0.15 250)', type: 'store' },
+      { name: newName.trim(), color: SPACE_COLORS[0], type: 'store' },
       {
         onSuccess: () => {
           setNewName('')
@@ -759,17 +1194,7 @@ function LocationsTab({ familyId }: { familyId: string }) {
 
 // ─── Categories Tab ──────────────────────────────────────────────────────────
 
-const PRESET_COLORS = [
-  'oklch(0.60 0.18 30)',
-  'oklch(0.60 0.18 60)',
-  'oklch(0.60 0.18 145)',
-  'oklch(0.60 0.15 200)',
-  'oklch(0.60 0.15 250)',
-  'oklch(0.60 0.18 320)',
-  'oklch(0.50 0.15 0)',
-  'oklch(0.55 0.18 80)',
-  'oklch(0.65 0.14 170)',
-]
+const PRESET_COLORS = [...CHART_COLORS]
 
 
 function CategoriesTab({ familyId }: { familyId: string }) {
@@ -1081,6 +1506,141 @@ function IntegrationsTab() {
           {saved ? <Check className="h-4 w-4" /> : null}
           {saved ? 'Saved' : 'Save changes'}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Account Tab ─────────────────────────────────────────────────────────────
+
+function AccountTab({ userId }: { userId: string }) {
+  const { data: profile, isLoading } = useProfile(userId)
+  const { saveName, saveAvatar } = useProfileMutations(userId)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [name, setName] = useState('')
+  const [nameSaved, setNameSaved] = useState(false)
+
+  useEffect(() => {
+    if (profile?.name) setName(profile.name)
+  }, [profile?.name])
+
+  async function handleNameSave() {
+    if (!name.trim()) return
+    await saveName.mutateAsync(name.trim())
+    setNameSaved(true)
+    setTimeout(() => setNameSaved(false), 2000)
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      await saveAvatar.mutateAsync(file)
+      toast.success('Avatar updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to upload image')
+    } finally {
+      // reset so the same file can be re-selected if needed
+      e.target.value = ''
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6 max-w-md">
+        <Skeleton className="h-20 w-20 rounded-full" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+    )
+  }
+
+  const initials = (profile?.name ?? profile?.email ?? '?')
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
+  return (
+    <div className="p-6 space-y-8 max-w-md">
+      {/* Avatar */}
+      <div className="space-y-2">
+        <Label>Profile picture</Label>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={saveAvatar.isPending}
+            className="relative h-20 w-20 rounded-full overflow-hidden border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {profile?.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt="Avatar"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-xl font-medium text-muted-foreground">
+                {initials}
+              </span>
+            )}
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+              {saveAvatar.isPending ? (
+                <Loader2 className="h-5 w-5 text-white animate-spin" />
+              ) : (
+                <Camera className="h-5 w-5 text-white" />
+              )}
+            </span>
+          </button>
+          <div className="text-sm text-muted-foreground space-y-0.5">
+            <p>Click the image to change</p>
+            <p>JPEG, PNG or WebP · max 200 KB</p>
+          </div>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </div>
+
+      {/* Display name */}
+      <div className="space-y-2">
+        <Label htmlFor="display-name">Display name</Label>
+        <div className="flex gap-2">
+          <Input
+            id="display-name"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setNameSaved(false) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleNameSave() }}
+            placeholder="Your name"
+            className="max-w-xs"
+          />
+          <Button
+            onClick={() => void handleNameSave()}
+            disabled={saveName.isPending || nameSaved || !name.trim()}
+          >
+            {saveName.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : nameSaved ? (
+              <><Check className="h-4 w-4" /> Saved</>
+            ) : (
+              'Save'
+            )}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Shown to other members in your family space.
+        </p>
+      </div>
+
+      {/* Email (read-only) */}
+      <div className="space-y-2">
+        <Label>Email</Label>
+        <p className="text-sm text-muted-foreground">{profile?.email ?? '—'}</p>
       </div>
     </div>
   )

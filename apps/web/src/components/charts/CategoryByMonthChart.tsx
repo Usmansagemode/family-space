@@ -12,7 +12,7 @@ import { formatCurrency, formatCurrencyCompact } from '#/lib/utils'
 import type { ExpenseWithNames } from '@family/types'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const FALLBACK_COLOR = 'oklch(0.60 0.15 250)'
+const FALLBACK_COLOR = 'oklch(0.82 0.10 228)'
 
 type Props = {
   expenses: ExpenseWithNames[]

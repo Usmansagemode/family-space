@@ -36,11 +36,20 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-lg">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Shield className="h-6 w-6 text-primary" />
+          <div className="relative">
+            <img
+              src="/family-space-logo.jpg"
+              alt="Family Space"
+              className="h-14 w-14 rounded-2xl object-cover shadow-md"
+            />
+            <div className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary shadow-sm">
+              <Shield className="h-3.5 w-3.5 text-primary-foreground" />
+            </div>
           </div>
-          <h1 className="text-2xl font-bold">Admin Portal</h1>
-          <p className="text-sm text-muted-foreground">Family Space operator access only.</p>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold">Admin Portal</h1>
+            <p className="text-sm text-muted-foreground">Family Space operator access only.</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
