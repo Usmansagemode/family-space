@@ -33,7 +33,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
   const metas: Record<ActivityEventType, EventMeta> = {
     'item.added': {
       icon: <Plus className="h-3 w-3 opacity-70" />,
-      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.93 0.06 228)',
+      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.82 0.10 228)',
       text: () => (
         <>
           {actor && <span className="font-semibold">{actor} </span>}
@@ -45,7 +45,7 @@ function getEventMeta(event: ActivityEvent): EventMeta {
     },
     'item.completed': {
       icon: <CheckCheck className="h-3 w-3 opacity-70" />,
-      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.93 0.06 228)',
+      iconBg: (p['space_color'] as string | undefined) ?? 'oklch(0.82 0.10 228)',
       text: () => (
         <>
           {actor && <span className="font-semibold">{actor} </span>}

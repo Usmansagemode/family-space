@@ -131,6 +131,31 @@ export async function archiveSpace(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Restore a soft-deleted space by clearing deleted_at. */
+export async function restoreSpace(id: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('spaces')
+    .update({ deleted_at: null })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/** Fetch soft-deleted person spaces for a family (for the archived members list). */
+export async function fetchArchivedPersonSpaces(familyId: string): Promise<Space[]> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('spaces')
+    .select('*')
+    .eq('family_id', familyId)
+    .eq('type', 'person')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+
+  if (error) throw error
+  return data.map(rowToSpace)
+}
+
 /** Hard delete — only safe when no expenses reference this space. */
 export async function deleteSpace(id: string): Promise<void> {
   const supabase = getSupabaseClient()

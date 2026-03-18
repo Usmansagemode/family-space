@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { usePlan } from '@family/hooks'
+import { useDynamicPlan } from '@family/hooks'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
@@ -16,7 +16,7 @@ function ImportPage() {
   const { data: family } = useUserFamily(user?.id)
   const familyId = family?.id ?? ''
 
-  const { can } = usePlan(family?.plan ?? 'free')
+  const { can } = useDynamicPlan(familyId, family?.plan ?? 'free')
   const { data: categories } = useCategories(familyId)
   const { data: spaces } = useSpaces(familyId)
 

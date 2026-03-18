@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { createSplitGroup, updateSplitGroup, deleteSplitGroup } from '@family/supabase'
 
 export function useSplitGroupMutations(familyId: string) {
@@ -8,6 +9,13 @@ export function useSplitGroupMutations(familyId: string) {
   const create = useMutation({
     mutationFn: createSplitGroup,
     onSuccess: invalidate,
+    onError: (err: Error) => {
+      if (err.message.includes('split_group_limit_reached')) {
+        toast.error('Group limit reached. Upgrade your plan to create more split groups.')
+      } else {
+        toast.error('Failed to create group')
+      }
+    },
   })
 
   const update = useMutation({

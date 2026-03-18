@@ -57,11 +57,13 @@ import { useFamilyMembers } from '#/hooks/auth/useFamilyMembers'
 import { useProfile, useProfileMutations } from '#/hooks/auth/useProfile'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { useSpaceMutations } from '#/hooks/spaces/useSpaceMutations'
+import { useArchivedPersonSpaces } from '#/hooks/spaces/useArchivedPersonSpaces'
 import { useCategories } from '#/hooks/categories/useCategories'
 import { useAllCategories } from '#/hooks/categories/useAllCategories'
 import { useCategoriesMutations } from '#/hooks/categories/useCategoriesMutations'
 import { useBudgets } from '#/hooks/budgets/useBudgets'
 import { useBudgetMutations } from '#/hooks/budgets/useBudgetMutations'
+import { supabase } from '#/lib/supabase'
 import { createInvite } from '#/lib/supabase/invites'
 import { updateFamily, removeFamilyMember } from '#/lib/supabase/families'
 import { archiveSpace, countSpaceExpenses } from '#/lib/supabase/spaces'
@@ -654,6 +656,7 @@ function PaidByOptions({
   locale?: string
 }) {
   const mutations = useSpaceMutations(familyId)
+  const { data: archivedSpaces } = useArchivedPersonSpaces(familyId)
   const { data: budgets } = useBudgets(familyId)
   const budgetMutations = useBudgetMutations(familyId)
   const queryClient = useQueryClient()
@@ -774,7 +777,7 @@ function PaidByOptions({
 
         {atLimit && (
           <p className="text-xs text-muted-foreground">
-            Member limit reached ({memberLimit}/{memberLimit}).{' '}
+            Member limit reached ({personSpaces.length}/{memberLimit}).{' '}
             <span className="font-medium text-foreground">Upgrade your plan</span> to add more.
           </p>
         )}
@@ -1051,6 +1054,35 @@ function PaidByOptions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Archived members */}
+      {archivedSpaces && archivedSpaces.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-muted-foreground">Archived</p>
+          <div className="flex flex-col gap-2">
+            {archivedSpaces.map((space) => (
+              <div
+                key={space.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5"
+              >
+                <span className="flex-1 text-sm text-muted-foreground line-through">
+                  {space.name}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => mutations.restore.mutate(space.id)}
+                  disabled={mutations.restore.isPending}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Restore
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -1516,10 +1548,25 @@ function IntegrationsTab() {
 function AccountTab({ userId }: { userId: string }) {
   const { data: profile, isLoading } = useProfile(userId)
   const { saveName, saveAvatar } = useProfileMutations(userId)
+  const { user } = useAuthContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState('')
   const [nameSaved, setNameSaved] = useState(false)
+  const [linkingGoogle, setLinkingGoogle] = useState(false)
+
+  const isGoogleLinked = user?.identities?.some((i) => i.provider === 'google') ?? false
+
+  async function handleLinkGoogle() {
+    if (!supabase) return
+    setLinkingGoogle(true)
+    const { error } = await supabase.auth.linkIdentity({ provider: 'google' })
+    if (error) {
+      toast.error(error.message)
+      setLinkingGoogle(false)
+    }
+    // On success, Supabase redirects to Google — no need to reset state
+  }
 
   useEffect(() => {
     if (profile?.name) setName(profile.name)
@@ -1641,6 +1688,29 @@ function AccountTab({ userId }: { userId: string }) {
       <div className="space-y-2">
         <Label>Email</Label>
         <p className="text-sm text-muted-foreground">{profile?.email ?? '—'}</p>
+      </div>
+
+      {/* Linked accounts */}
+      <div className="space-y-3">
+        <Label>Linked accounts</Label>
+        <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+          <div className="flex items-center gap-3">
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            <span className="text-sm">Google</span>
+          </div>
+          {isGoogleLinked ? (
+            <Badge variant="secondary">Connected</Badge>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => void handleLinkGoogle()} disabled={linkingGoogle}>
+              {linkingGoogle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Link'}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )

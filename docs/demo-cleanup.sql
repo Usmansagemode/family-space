@@ -26,6 +26,7 @@ begin
   -- Delete in dependency order
   -- items has no family_id — cascade via spaces (on delete cascade) handles it,
   -- but we delete spaces after, so explicitly remove items first via space lookup
+  delete from activity_log    where family_id = v_family_id;
   delete from items where space_id in (select id from spaces where family_id = v_family_id);
   delete from expenses        where family_id = v_family_id;
   delete from categories      where family_id = v_family_id;

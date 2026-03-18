@@ -138,7 +138,7 @@ Use `useDynamicPlan` everywhere in the UI. The admin panel can toggle feature fl
 | Yearly analytics | `apps/web/src/routes/charts.tsx` | `!can.analytics` → `<UpgradePlanPrompt requiredPlan="plus">` |
 | Export button | `apps/web/src/routes/charts.tsx` | `!can.export` → button disabled + tooltip |
 | AI PDF import card | `apps/web/src/components/import/ImportWizard.tsx` | `canAiImport` prop → inline Pro badge + upgrade button |
-| Member limit | `accept_invite` Postgres function | Raises `member_limit_reached` exception server-side |
+| Member limit | `accept_invite` Postgres function + `PaidByOptions` in `settings.tsx` | Server-side: raises `member_limit_reached` exception. Client-side: counts **all active person spaces** (real members + virtual paid-by members). Archived spaces do not count. |
 
 ## Testing Without Stripe (plan gates only)
 ```sql

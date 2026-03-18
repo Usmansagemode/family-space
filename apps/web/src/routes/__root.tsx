@@ -3,6 +3,8 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
+  useNavigate,
+  useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -96,14 +98,28 @@ function BannedOverlay({ reason }: { reason: string | null }) {
   )
 }
 
+const PUBLIC_PATHS = ['/', '/privacy', '/terms']
+
 function AuthedLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthContext()
+  const { user, loading } = useAuthContext()
   const { data: family } = useUserFamily(user?.id)
   const { banned, banReason } = useBannedCheck(user?.id)
+  const navigate = useNavigate()
+  const { location } = useRouterState()
   const mainRef = useRef<HTMLElement>(null)
   const touchStartY = useRef(0)
   const [pullProgress, setPullProgress] = useState(0) // 0–1
   const [releasing, setReleasing] = useState(false)
+
+  const isPublicRoute =
+    PUBLIC_PATHS.includes(location.pathname) ||
+    location.pathname.startsWith('/invite')
+
+  useEffect(() => {
+    if (!loading && !user && !isPublicRoute) {
+      void navigate({ to: '/' })
+    }
+  }, [loading, user, isPublicRoute, navigate])
 
   useEffect(() => {
     const el = mainRef.current
@@ -142,7 +158,12 @@ function AuthedLayout({ children }: { children: React.ReactNode }) {
     }
   }, [pullProgress])
 
-  if (!user) return <>{children}</>
+  // No user: render public routes normally; for protected routes show nothing
+  // while the redirect (above) takes effect
+  if (!user) {
+    if (isPublicRoute) return <>{children}</>
+    return null
+  }
 
   // User banned — sign out already triggered by useBannedCheck
   if (banned) {

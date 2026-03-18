@@ -8,6 +8,7 @@ import {  BarChart,
   
 } from 'recharts'
 import { formatCurrency, formatCurrencyCompact, parseLocalDate } from '#/lib/utils'
+import { CHART_COLORS } from '#/lib/config'
 import type { ExpenseWithNames } from '@family/types'
 
 type Props = {
@@ -86,7 +87,7 @@ export function TopExpensesChart({ expenses, currency, locale }: Props) {
         />
         <Bar
           dataKey="amount"
-          fill="oklch(0.82 0.10 50)"
+          fill={CHART_COLORS[3]}
           radius={[0, 4, 4, 0]}
         />
       </BarChart>

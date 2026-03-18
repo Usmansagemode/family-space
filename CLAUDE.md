@@ -19,7 +19,14 @@ See `docs/billing-gates.md` for:
 
 ## Schema Changes
 
-**ALWAYS update `docs/schema.sql` when making any database change**, including:
+Two files must always be kept in sync for every database change:
+
+### 1. `docs/schema.sql` — fresh install reference
+The complete database definition. Safe to re-run (drops and rebuilds everything).
+Used for: local dev setup, new environments, disaster recovery.
+**Never run on production** — it drops all tables.
+
+Always update `schema.sql` when making any database change:
 - New tables or columns
 - Modified column types, defaults, or constraints
 - New or changed RLS policies
@@ -27,7 +34,47 @@ See `docs/billing-gates.md` for:
 - New indexes
 - New storage buckets or storage policies (PART 12)
 
-`docs/schema.sql` is the single source of truth. It is safe to re-run in full (drops and rebuilds everything). Keep it in sync with every code change that touches the database.
+### 2. `docs/migrations/NNNN_description.sql` — production changes
+Incremental, idempotent SQL applied to live databases without data loss.
+Each file is wrapped in a `do $migration$ begin ... end; $migration$;` block
+that checks `schema_migrations` and skips if already applied.
+
+**Every schema change needs BOTH files updated.**
+
+### Migration file template
+
+```sql
+-- Migration NNNN: short description of what this does and why
+
+do $migration$
+begin
+  if exists (select 1 from schema_migrations where version = 'NNNN') then
+    raise notice 'Migration NNNN already applied, skipping.';
+    return;
+  end if;
+
+  -- your DDL here (CREATE OR REPLACE, ALTER TABLE, INSERT, etc.)
+
+  insert into schema_migrations (version, name)
+  values ('NNNN', 'short_name');
+
+  raise notice 'Migration NNNN applied.';
+end;
+$migration$;
+```
+
+### Deploy process (develop → production)
+
+1. Merge code changes to `main`
+2. Deploy the app (Vercel / your host)
+3. In Supabase **production** SQL Editor, run each new migration file in order
+4. Verify: `select * from schema_migrations order by version;`
+
+### Rules
+- Migration files are **append-only** — never edit a migration that has been applied to production
+- Always write idempotent DDL (`CREATE OR REPLACE`, `IF NOT EXISTS`, `ON CONFLICT DO NOTHING`)
+- Number migrations sequentially: `0001`, `0002`, `0003`, …
+- If you forget to write a migration, derive it from the diff between schema.sql and what production currently has
 
 ## Project Specification
 
@@ -64,6 +111,16 @@ See `SPEC.md` in this directory for the full project specification including:
 - `type = 'chore'` → board only, never shown in expense pickers
 - All spaces soft-deleted (`deleted_at`), never hard deleted if expenses reference them
 
+### Person Spaces & Member Lifecycle
+- Every real member gets a **system person space** auto-created on join (`is_system = true`, `linked_user_id = <user_id>`)
+- **Member limit counts ALL active person spaces** (real + virtual) — `personSpaces.length` in the UI
+- A unique partial index (`spaces_family_linked_user_unique`) prevents duplicate active person spaces per user per family
+- When a member is **removed** from `user_families`, their person space is **unlinked** (`linked_user_id = null`) — it becomes a virtual member, preserving expense history
+- Virtual members (no `linked_user_id`) are manageable from Settings → Members → "Paid-by options"
+- Virtual members can be **archived** (soft-delete, hides from pickers) or **hard deleted** (if 0 expenses)
+- Archived virtual members can be **restored** via `restoreSpace()` — all data intact, just clears `deleted_at`
+- `items.created_by` / `items.completed_by` use `ON DELETE SET NULL` on `auth.users` — only nulled if the auth account is fully deleted, not on family removal
+
 ### Categories
 - Live in `categories` table per family — nothing hardcoded
 - Soft-deleted (`deleted_at`); archived categories still show on historical expenses
@@ -83,6 +140,21 @@ See `SPEC.md` in this directory for the full project specification including:
 - Every table has `family_id`; RLS enforces family isolation
 - All queries scoped to `family_id` from auth context
 - Indexes built around `(family_id, ...)` composite patterns
+
+### Colors & Palette
+
+`packages/config/src/index.ts` is the source of truth for the two palettes:
+- `SPACE_COLORS` — 14 swatches shown in the Edit Space color picker
+- `CHART_COLORS` — 12 colors used by all chart components (same hues as SPACE_COLORS)
+
+Both use `oklch(0.82 0.10 <hue>)` — pastel, readable, family-friendly. Keep them in sync.
+
+**Hardcoded copies that must be updated manually when the palette changes:**
+- `apps/web/src/lib/config.ts` → `DEFAULT_CATEGORIES` (category colors for onboarding)
+- `docs/schema.sql` → `find_or_create_family` RPC (same category colors, in SQL — can't import from JS)
+- `docs/demo-seed.sql` → space and category colors
+
+The SQL files can never import from the config package, so treat `packages/config/src/index.ts` as the reference and keep the SQL copies in sync by hand.
 
 ### Currency & Locale
 - `formatCurrency()` for full display (tooltips, cards, tables)

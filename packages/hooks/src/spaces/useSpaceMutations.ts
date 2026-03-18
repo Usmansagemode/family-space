@@ -4,6 +4,7 @@ import {
   createSpace,
   updateSpace,
   deleteSpace,
+  restoreSpace,
   reorderSpaces,
 } from '@family/supabase'
 import type { SpaceType } from '@family/types'
@@ -75,6 +76,18 @@ export function useSpaceMutations(familyId: string) {
     },
   })
 
+  const restore = useMutation({
+    mutationFn: (id: string) => restoreSpace(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: key })
+      void queryClient.invalidateQueries({ queryKey: ['spaces-archived', familyId] })
+      toast.success('Member restored')
+    },
+    onError: () => {
+      toast.error('Failed to restore member')
+    },
+  })
+
   const reorder = useMutation({
     mutationFn: (orderedIds: string[]) => reorderSpaces(orderedIds),
     onSuccess: () => {
@@ -96,5 +109,5 @@ export function useSpaceMutations(familyId: string) {
     },
   })
 
-  return { create, update, assign, remove, reorder, toggleShowInExpenses }
+  return { create, update, assign, remove, restore, reorder, toggleShowInExpenses }
 }

@@ -3,6 +3,12 @@ import { toast } from 'sonner'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Skeleton } from '#/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 
 type PlanConfig = {
   title: string
@@ -52,6 +58,71 @@ function DefaultPreview() {
         <Skeleton key={i} className="h-72 rounded-xl" />
       ))}
     </div>
+  )
+}
+
+type DialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  requiredPlan?: 'plus' | 'pro'
+}
+
+export function UpgradePlanDialog({ open, onOpenChange, requiredPlan = 'plus' }: DialogProps) {
+  const plansToShow: Array<'plus' | 'pro'> =
+    requiredPlan === 'pro' ? ['pro'] : ['plus', 'pro']
+
+  function handleUpgrade(plan: 'plus' | 'pro') {
+    toast.info(`${PLAN_CONFIG[plan].title} upgrade coming soon!`)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{PLAN_CONFIG[requiredPlan].title} Feature</DialogTitle>
+        </DialogHeader>
+        <p className="text-muted-foreground text-sm">
+          {PLAN_CONFIG[requiredPlan].description}
+        </p>
+        <div className={`grid gap-4 ${plansToShow.length === 1 ? 'max-w-xs' : 'grid-cols-1 sm:grid-cols-2'}`}>
+          {plansToShow.map((plan) => {
+            const config = PLAN_CONFIG[plan]
+            const isPrimary = plan === requiredPlan
+            return (
+              <div
+                key={plan}
+                className={`border rounded-xl p-5 flex flex-col gap-4 ${isPrimary ? 'bg-primary/5 border-primary/20' : ''}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-lg">{config.title}</div>
+                    <div className="text-muted-foreground text-sm">per family / month</div>
+                  </div>
+                  <Badge className="text-base px-3 py-1" variant={isPrimary ? 'default' : 'secondary'}>
+                    {config.price}
+                  </Badge>
+                </div>
+                <ul className="flex flex-col gap-2">
+                  {config.features.map(({ icon: Icon, label }) => (
+                    <li key={label} className="flex items-center gap-2 text-sm">
+                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="w-full mt-auto"
+                  variant={isPrimary ? 'default' : 'outline'}
+                  onClick={() => handleUpgrade(plan)}
+                >
+                  {config.cta}
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

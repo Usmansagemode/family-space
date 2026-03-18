@@ -10,6 +10,7 @@ import { WideFormatMapping } from '#/components/import/WideFormatMapping'
 import { ImportPreviewTable } from '#/components/import/ImportPreviewTable'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
+import { UpgradePlanDialog } from '#/components/billing/UpgradePlanPrompt'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import {
@@ -74,6 +75,7 @@ function UploadStep({ canAiImport }: { canAiImport: boolean }) {
   const { documentStyle, setDocumentStyle, handleFile, setStep, setMappedData, categories, locationSpaces, personSpaces } =
     useCSVImport()
   const [isProcessingPDF, setIsProcessingPDF] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -289,13 +291,10 @@ Rules:
               <p className="text-muted-foreground text-sm">
                 AI PDF import is available on the Pro plan.
               </p>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => toast.info('Pro upgrade coming soon!')}
-              >
+              <Button variant="default" size="sm" onClick={() => setUpgradeOpen(true)}>
                 Upgrade to Pro — $10/mo
               </Button>
+              <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} requiredPlan="pro" />
             </div>
           ) : (
             <>

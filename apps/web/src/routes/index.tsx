@@ -13,7 +13,9 @@ import { useUserFamily } from '#/hooks/auth/useUserFamily'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: (search.tab === 'chores' || search.tab === 'calendar') ? search.tab : 'lists' as 'lists' | 'chores' | 'calendar',
+    tab: (search.tab === 'chores' || search.tab === 'calendar')
+      ? (search.tab as 'chores' | 'calendar')
+      : undefined,
   }),
   component: BoardPage,
 })
@@ -58,7 +60,8 @@ function FamilyContent({
   calendarId: string | null
   embedUrl?: string
 }) {
-  const { tab } = Route.useSearch()
+  const { tab: rawTab } = Route.useSearch()
+  const tab = rawTab ?? 'lists'
   const [searchOpen, setSearchOpen] = useState(false)
 
   return (

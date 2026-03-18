@@ -3,7 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Lock, Plus, SplitSquareVertical, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SplitGroup } from '@family/types'
-import { usePlan } from '@family/hooks'
+import { useDynamicPlan } from '@family/hooks'
 import { useAuthContext } from '#/contexts/auth'
 import { useUserFamily } from '#/hooks/auth/useUserFamily'
 import { useSplitGroups } from '#/hooks/splits/useSplitGroups'
@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '#/components/ui/alert-dialog'
+import { UpgradePlanDialog } from '#/components/billing/UpgradePlanPrompt'
 import { BorderBeam } from '#/components/ui/border-beam'
 import { Button } from '#/components/ui/button'
 import { NumberTicker } from '#/components/ui/number-ticker'
@@ -162,8 +163,9 @@ function SplitsPage() {
   const { data: family } = useUserFamily(user?.id)
   const familyId = family?.id ?? ''
   const { data: groups, isLoading } = useSplitGroups(familyId)
-  const { splitGroupLimit } = usePlan(family?.plan ?? 'free')
+  const { splitGroupLimit } = useDynamicPlan(familyId, family?.plan ?? 'free')
   const [createOpen, setCreateOpen] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const totalGroups = groups?.length ?? 0
   const atLimit = splitGroupLimit !== null && totalGroups >= splitGroupLimit
@@ -220,7 +222,7 @@ function SplitsPage() {
             size="sm"
             variant="outline"
             className="shrink-0 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
-            onClick={() => toast.info('Plus upgrade coming soon!')}
+            onClick={() => setUpgradeOpen(true)}
           >
             Upgrade
           </Button>
@@ -245,7 +247,7 @@ function SplitsPage() {
               Create a group for a trip, shared bills, or any expense you split with others.
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="mt-1 gap-1.5">
+          <Button onClick={handleNewGroup} disabled={atLimit} className="mt-1 gap-1.5">
             <Plus className="h-4 w-4" /> New Group
           </Button>
         </div>
@@ -258,6 +260,7 @@ function SplitsPage() {
       )}
 
       <CreateGroupSheet familyId={familyId} open={createOpen} onOpenChange={setCreateOpen} />
+      <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} requiredPlan="plus" />
     </div>
   )
 }

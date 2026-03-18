@@ -14,12 +14,13 @@ import {
 import { BarChart3, LineChart as LineChartIcon } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { formatCurrency, formatCurrencyCompact } from '#/lib/utils'
+import { CHART_COLORS } from '#/lib/config'
 import type { ExpenseWithNames } from '@family/types'
 
-// Pastel intensity colours: green = low spend, orange = mid, coral = high
-const GREEN  = 'oklch(0.82 0.10 152)'
-const ORANGE = 'oklch(0.84 0.11 88)'
-const RED    = 'oklch(0.82 0.10 22)'
+// Pastel intensity colours: green = low spend, yellow = mid, coral = high
+const GREEN  = CHART_COLORS[1]  // mint green
+const ORANGE = CHART_COLORS[2]  // butter yellow
+const RED    = CHART_COLORS[7]  // coral
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 

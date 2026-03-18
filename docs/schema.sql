@@ -10,10 +10,10 @@
 -- ----------------------------------------------------------------
 
 drop trigger if exists on_auth_user_created        on auth.users;
-drop trigger if exists set_item_created_by_trigger on items;
 
 drop function if exists handle_new_user()                    cascade;
 drop function if exists set_item_created_by()                cascade;
+drop function if exists check_split_group_limit()            cascade;
 drop function if exists find_or_create_family(uuid)          cascade;
 drop function if exists accept_invite(uuid, uuid, uuid)      cascade;
 drop function if exists get_plan_limits(text)                cascade;
@@ -24,6 +24,8 @@ drop function if exists split_participant_is_family_member(uuid) cascade;
 drop function if exists split_share_is_family_member(uuid)   cascade;
 drop function if exists update_updated_at()                  cascade;
 
+drop table if exists schema_migrations        cascade;
+drop table if exists activity_log             cascade;
 drop table if exists admin_audit_log          cascade;
 drop table if exists family_feature_overrides cascade;
 drop table if exists plan_features            cascade;
@@ -35,8 +37,9 @@ drop table if exists split_groups      cascade;
 drop table if exists tracker_entries  cascade;
 drop table if exists trackers         cascade;
 drop table if exists budgets          cascade;
-drop table if exists income_entries   cascade;
-drop table if exists expenses         cascade;
+drop table if exists income_entries          cascade;
+drop table if exists expenses                cascade;
+drop table if exists recurring_transactions  cascade;
 drop table if exists items            cascade;
 drop table if exists invites          cascade;
 drop table if exists categories       cascade;
@@ -49,6 +52,14 @@ drop table if exists profiles         cascade;
 -- ----------------------------------------------------------------
 -- PART 2: TABLES
 -- ----------------------------------------------------------------
+
+-- Tracks which migration files have been applied.
+-- Migrations run on production; schema.sql is for fresh installs only.
+create table schema_migrations (
+  version     text primary key,          -- e.g. '0001'
+  name        text not null,             -- human-readable description
+  applied_at  timestamptz default now()
+);
 
 -- Mirrors auth.users — auto-populated via trigger on signup
 create table profiles (
@@ -147,7 +158,7 @@ create table spaces (
   id                 uuid primary key default gen_random_uuid(),
   family_id          uuid not null references families(id) on delete cascade,
   name               text not null,
-  color              text not null default 'oklch(0.93 0.06 228)',
+  color              text not null default 'oklch(0.82 0.10 228)',
   type               text not null default 'store' check (type in ('person', 'store', 'chore')),
   sort_order         integer not null default 0,
   show_in_expenses   boolean not null default true,
@@ -161,6 +172,11 @@ create table spaces (
   updated_at         timestamptz default now()
 );
 
+-- Prevent duplicate active person spaces for the same user in the same family
+create unique index if not exists spaces_family_linked_user_unique
+  on spaces(family_id, linked_user_id)
+  where linked_user_id is not null and deleted_at is null;
+
 -- Expense categories per family; soft-deleted to preserve history
 create table categories (
   id         uuid primary key default gen_random_uuid(),
@@ -172,6 +188,34 @@ create table categories (
   deleted_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
+);
+
+-- ----------------------------------------------------------------
+-- RECURRING TRANSACTIONS (Pro feature)
+-- Unified recurring template for both expenses and income.
+-- direction = 'expense' → generates into expenses table
+-- direction = 'income'  → generates into income_entries table
+-- next_due_date advances after each generation.
+-- ----------------------------------------------------------------
+
+create table recurring_transactions (
+  id            uuid primary key default gen_random_uuid(),
+  family_id     uuid not null references families(id) on delete cascade,
+  direction     text not null check (direction in ('expense', 'income')),
+  description   text not null,
+  amount        numeric(12, 2) not null,
+  frequency     text not null check (frequency in ('weekly', 'monthly', 'yearly')),
+  start_date    date not null,
+  next_due_date date not null,
+  end_date      date,
+  -- expense-only (null when direction = 'income')
+  category_id   uuid references categories(id) on delete set null,
+  location_id   uuid references spaces(id) on delete set null,
+  paid_by_id    uuid references spaces(id) on delete set null,
+  -- income-only (null when direction = 'expense')
+  person_id     uuid references spaces(id) on delete set null,
+  income_type   text check (income_type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
+  created_at    timestamptz default now()
 );
 
 -- All three FKs use ON DELETE SET NULL — deleting a space/category
@@ -262,36 +306,6 @@ create table tracker_entries (
   balance    numeric(12, 2) not null default 0,
   created_at timestamptz default now()
 );
-
-
--- ----------------------------------------------------------------
--- RECURRING TRANSACTIONS (Pro feature)
--- Unified recurring template for both expenses and income.
--- direction = 'expense' → generates into expenses table
--- direction = 'income'  → generates into income_entries table
--- next_due_date advances after each generation.
--- ----------------------------------------------------------------
-
-create table recurring_transactions (
-  id            uuid primary key default gen_random_uuid(),
-  family_id     uuid not null references families(id) on delete cascade,
-  direction     text not null check (direction in ('expense', 'income')),
-  description   text not null,
-  amount        numeric(12, 2) not null,
-  frequency     text not null check (frequency in ('weekly', 'monthly', 'yearly')),
-  start_date    date not null,
-  next_due_date date not null,
-  end_date      date,
-  -- expense-only (null when direction = 'income')
-  category_id   uuid references categories(id) on delete set null,
-  location_id   uuid references spaces(id) on delete set null,
-  paid_by_id    uuid references spaces(id) on delete set null,
-  -- income-only (null when direction = 'expense')
-  person_id     uuid references spaces(id) on delete set null,
-  income_type   text check (income_type in ('salary', 'side_gig', 'freelance', 'business', 'rental', 'investment', 'other')),
-  created_at    timestamptz default now()
-);
-
 
 
 -- ----------------------------------------------------------------
@@ -466,7 +480,10 @@ create trigger on_auth_user_created
 create or replace function set_item_created_by()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  new.created_by := auth.uid();
+  -- Only auto-stamp if not explicitly provided (allows seed scripts to set a value)
+  if new.created_by is null then
+    new.created_by := auth.uid();
+  end if;
   return new;
 end;
 $$;
@@ -532,6 +549,57 @@ $$;
 create trigger log_item_completed_trigger
   after update on items
   for each row execute function log_item_completed();
+
+
+-- ----------------------------------------------------------------
+-- PART 6c: SPLIT GROUP LIMIT TRIGGER
+-- Enforces splitGroupLimit from plan_features / family_feature_overrides
+-- before any INSERT into split_groups, so it cannot be bypassed via
+-- the Supabase client directly.
+-- ----------------------------------------------------------------
+
+create or replace function check_split_group_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_plan        text;
+  v_limit_val   jsonb;
+  v_group_limit int;
+  v_group_count int;
+begin
+  select plan into v_plan from families where id = NEW.family_id;
+
+  -- Per-family override wins over plan default
+  select value into v_limit_val
+  from family_feature_overrides
+  where family_id = NEW.family_id and feature_key = 'splitGroupLimit';
+
+  if v_limit_val is null then
+    select value into v_limit_val
+    from plan_features
+    where plan = v_plan and feature_key = 'splitGroupLimit';
+  end if;
+
+  -- null value or missing row = unlimited
+  if v_limit_val is null or (v_limit_val->>'limit') is null then
+    return NEW;
+  end if;
+
+  v_group_limit := (v_limit_val->>'limit')::int;
+
+  select count(*) into v_group_count
+  from split_groups where family_id = NEW.family_id;
+
+  if v_group_count >= v_group_limit then
+    raise exception 'split_group_limit_reached: this family has reached the % split group limit for the % plan', v_group_limit, v_plan;
+  end if;
+
+  return NEW;
+end;
+$$;
+
+create trigger check_split_group_limit_trigger
+  before insert on split_groups
+  for each row execute function check_split_group_limit();
 
 
 -- ----------------------------------------------------------------
@@ -671,18 +739,28 @@ declare
   v_name         text;
   v_plan         text;
   v_member_count int;
+  v_limit_val    jsonb;
   v_member_limit int;
 begin
-  -- Enforce member limits based on the family's plan
+  -- Enforce member limits — reads from plan_features/family_feature_overrides
+  -- so admin changes take effect immediately without a code deploy.
   select plan into v_plan from families where id = p_family_id;
 
-  v_member_limit := case v_plan
-    when 'free' then 3
-    when 'plus' then 5
-    else null  -- pro = unlimited
-  end;
+  -- Per-family override wins over plan default
+  select value into v_limit_val
+  from family_feature_overrides
+  where family_id = p_family_id and feature_key = 'memberLimit';
 
-  if v_member_limit is not null then
+  if v_limit_val is null then
+    select value into v_limit_val
+    from plan_features
+    where plan = v_plan and feature_key = 'memberLimit';
+  end if;
+
+  -- null value or missing row = unlimited
+  if v_limit_val is not null and (v_limit_val->>'limit') is not null then
+    v_member_limit := (v_limit_val->>'limit')::int;
+
     select count(*) into v_member_count
     from user_families where family_id = p_family_id;
 
@@ -1129,3 +1207,31 @@ create policy "avatars_update"
 create policy "avatars_select"
   on storage.objects for select to public
   using (bucket_id = 'avatars');
+
+-- ----------------------------------------------------------------
+-- PART 13: SEED — plan_features defaults
+-- 5 features × 3 plans = 15 rows.
+-- These are the baseline values; the admin panel can update them
+-- at any time via the feature-flags UI (upsert with onConflict).
+-- ----------------------------------------------------------------
+
+insert into plan_features (plan, feature_key, value) values
+  -- free
+  ('free', 'memberLimit',      '{"limit": 3}'),
+  ('free', 'splitGroupLimit',  '{"limit": 1}'),
+  ('free', 'analytics',        '{"enabled": false}'),
+  ('free', 'export',           '{"enabled": false}'),
+  ('free', 'aiImport',         '{"enabled": false}'),
+  -- plus
+  ('plus', 'memberLimit',      '{"limit": 5}'),
+  ('plus', 'splitGroupLimit',  '{"limit": null}'),
+  ('plus', 'analytics',        '{"enabled": true}'),
+  ('plus', 'export',           '{"enabled": true}'),
+  ('plus', 'aiImport',         '{"enabled": false}'),
+  -- pro
+  ('pro',  'memberLimit',      '{"limit": null}'),
+  ('pro',  'splitGroupLimit',  '{"limit": null}'),
+  ('pro',  'analytics',        '{"enabled": true}'),
+  ('pro',  'export',           '{"enabled": true}'),
+  ('pro',  'aiImport',         '{"enabled": true}')
+on conflict (plan, feature_key) do nothing;

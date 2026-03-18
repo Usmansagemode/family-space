@@ -23,7 +23,7 @@
 do $$
 declare
   -- ── CHANGE THIS ──────────────────────────────────────────
-  v_user_id        uuid := 'a7cbe236-0c94-4625-8ccb-51825842d478';  -- replace with your demo user's UUID
+  v_user_id        uuid := '5d84a45e-a4cc-4514-a5a3-79e14adca8ed';  -- replace with your demo user's UUID
   -- ─────────────────────────────────────────────────────────
 
   v_family_id      uuid := gen_random_uuid();
@@ -69,34 +69,34 @@ begin
   -- ── 3. Spaces: people (type='person') ─────────────────────────────────────
   insert into spaces (id, family_id, name, type, show_in_expenses, color, sort_order, is_system, linked_user_id)
   values
-    (s_zoro,  v_family_id, 'Zoro',  'person', true, 'oklch(55% 0.20 145)', 0, true,  v_user_id),
-    (s_nami,  v_family_id, 'Nami',  'person', true, 'oklch(68% 0.22 55)',  1, false, null),
-    (s_coby,  v_family_id, 'Coby',  'person', true, 'oklch(62% 0.18 0)',   2, false, null),
-    (s_vivi,  v_family_id, 'Vivi',  'person', true, 'oklch(65% 0.20 240)', 3, false, null);
+    (s_zoro,  v_family_id, 'Zoro',  'person', true, 'oklch(0.82 0.10 152)', 0, true,  v_user_id),
+    (s_nami,  v_family_id, 'Nami',  'person', true, 'oklch(0.82 0.10 55)',  1, false, null),
+    (s_coby,  v_family_id, 'Coby',  'person', true, 'oklch(0.82 0.10 15)',  2, false, null),
+    (s_vivi,  v_family_id, 'Vivi',  'person', true, 'oklch(0.82 0.10 240)', 3, false, null);
 
   -- ── 4. Spaces: stores (type='store') ──────────────────────────────────────
   insert into spaces (id, family_id, name, type, show_in_expenses, color, sort_order, is_system, linked_user_id)
   values
-    (s_walmart,    v_family_id, 'Walmart',             'store', true, 'oklch(60% 0.20 260)', 4, false, null),
-    (s_costco,     v_family_id, 'Costco',              'store', true, 'oklch(55% 0.22 15)',  5, false, null),
-    (s_tt,         v_family_id, 'T&T Supermarket',     'store', true, 'oklch(60% 0.20 150)', 6, false, null),
-    (s_shoppers,   v_family_id, 'Shoppers Drug Mart',  'store', true, 'oklch(60% 0.18 0)',   7, false, null),
-    (s_timhortons, v_family_id, 'Tim Hortons',         'store', true, 'oklch(65% 0.20 40)',  8, false, null),
-    (s_gas,        v_family_id, 'Gas Station',         'store', true, 'oklch(60% 0.16 230)', 9, false, null);
+    (s_walmart,    v_family_id, 'Walmart',             'store', true, 'oklch(0.82 0.10 260)', 4, false, null),
+    (s_costco,     v_family_id, 'Costco',              'store', true, 'oklch(0.82 0.10 22)',  5, false, null),
+    (s_tt,         v_family_id, 'T&T Supermarket',     'store', true, 'oklch(0.82 0.10 140)', 6, false, null),
+    (s_shoppers,   v_family_id, 'Shoppers Drug Mart',  'store', true, 'oklch(0.82 0.10 345)', 7, false, null),
+    (s_timhortons, v_family_id, 'Tim Hortons',         'store', true, 'oklch(0.82 0.10 50)',  8, false, null),
+    (s_gas,        v_family_id, 'Gas Station',         'store', true, 'oklch(0.82 0.10 228)', 9, false, null);
 
   -- ── 5. Categories ──────────────────────────────────────────────────────────
   insert into categories (id, family_id, name, color, icon, sort_order)
   values
-    (c_groceries,     v_family_id, 'Groceries',      'oklch(65% 0.18 145)', 'shopping-cart',  0),
-    (c_dining,        v_family_id, 'Dining Out',     'oklch(65% 0.20 25)',  'utensils',       1),
-    (c_gas,           v_family_id, 'Gas',            'oklch(60% 0.18 230)', 'fuel',           2),
-    (c_utilities,     v_family_id, 'Utilities',      'oklch(60% 0.14 200)', 'zap',            3),
-    (c_pharmacy,      v_family_id, 'Pharmacy',       'oklch(65% 0.16 0)',   'pill',           4),
-    (c_kids,          v_family_id, 'Kids',           'oklch(70% 0.20 300)', 'baby',           5),
-    (c_clothing,      v_family_id, 'Clothing',       'oklch(65% 0.18 270)', 'shirt',          6),
-    (c_household,     v_family_id, 'Household',      'oklch(60% 0.14 60)',  'home',           7),
-    (c_entertainment, v_family_id, 'Entertainment',  'oklch(65% 0.22 320)', 'tv',             8),
-    (c_personal,      v_family_id, 'Personal Care',  'oklch(70% 0.18 340)', 'sparkles',       9);
+    (c_groceries,     v_family_id, 'Groceries',      'oklch(0.82 0.10 152)', 'shopping-cart',  0),
+    (c_dining,        v_family_id, 'Dining Out',     'oklch(0.82 0.10 22)',  'utensils',       1),
+    (c_gas,           v_family_id, 'Gas',            'oklch(0.82 0.10 228)', 'fuel',           2),
+    (c_utilities,     v_family_id, 'Utilities',      'oklch(0.84 0.11 88)',  'zap',            3),
+    (c_pharmacy,      v_family_id, 'Pharmacy',       'oklch(0.82 0.10 0)',   'pill',           4),
+    (c_kids,          v_family_id, 'Kids',           'oklch(0.82 0.10 308)', 'baby',           5),
+    (c_clothing,      v_family_id, 'Clothing',       'oklch(0.82 0.10 270)', 'shirt',          6),
+    (c_household,     v_family_id, 'Household',      'oklch(0.82 0.10 50)',  'home',           7),
+    (c_entertainment, v_family_id, 'Entertainment',  'oklch(0.82 0.10 320)', 'tv',             8),
+    (c_personal,      v_family_id, 'Personal Care',  'oklch(0.82 0.10 345)', 'sparkles',       9);
 
   -- ── 6. Expenses (Oct–Dec 2025 + Jan 2026) ──────────────────────────────────
   -- ~60 expenses across 4 months — needed for all 9 analytics charts to look good

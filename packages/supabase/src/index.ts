@@ -4,10 +4,12 @@ export type { Profile } from './profiles'
 
 export {
   fetchSpaces,
+  fetchArchivedPersonSpaces,
   fetchExpensePickerSpaces,
   createSpace,
   updateSpace,
   archiveSpace,
+  restoreSpace,
   deleteSpace,
   countSpaceExpenses,
   reorderSpaces,

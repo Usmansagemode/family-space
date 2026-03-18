@@ -460,7 +460,7 @@ export async function updatePlanFeature(
   const supabase = getServiceClient()
   const { error } = await supabase
     .from('plan_features')
-    .upsert({ plan, feature_key: featureKey, value, updated_at: new Date().toISOString() })
+    .upsert({ plan, feature_key: featureKey, value, updated_at: new Date().toISOString() }, { onConflict: 'plan,feature_key' })
 
   if (error) throw error
 
@@ -505,7 +505,7 @@ export async function setFamilyFeatureOverride(
     note,
     created_by: adminId,
     updated_at: new Date().toISOString(),
-  })
+  }, { onConflict: 'family_id,feature_key' })
 
   if (error) throw error
 

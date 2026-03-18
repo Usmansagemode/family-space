@@ -64,7 +64,7 @@ The data access layer. Every function that touches the DB lives here. The web an
 | `client.ts` | Two clients: `getSupabaseClient()` (anon/auth key) and `getServiceClient()` (service role, bypasses RLS — admin only). Call `initSupabase()` and `initServiceClient()` once at app startup. |
 | `families.ts` | Family CRUD, `findOrCreateFamily()` (called on first login), `fetchFamilyMembers()` |
 | `profiles.ts` | `fetchProfile()`, `updateProfile()`, `uploadAvatar()` — avatar goes to Supabase Storage `avatars` bucket |
-| `spaces.ts` | Board column CRUD, reorder, archive/delete logic |
+| `spaces.ts` | Board column CRUD, reorder, archive/restore/delete logic. `fetchArchivedPersonSpaces()` fetches soft-deleted person spaces for the restore UI. |
 | `categories.ts` | Category CRUD, soft-delete, reassign-and-delete |
 | `expenses.ts` | Expense CRUD, monthly and yearly fetches |
 | `income.ts` | Income entry CRUD |
@@ -95,8 +95,9 @@ Shared React hooks (TanStack Query wrappers) used by both `apps/web` and `apps/m
 | `family/usePlan.ts` | **Static** plan limits from hardcoded tiers — fast, synchronous fallback |
 | `family/useDynamicPlan.ts` | **DB-backed** plan limits — fetches `plan_features` + `family_feature_overrides`, merges them. Falls back to `usePlan()` while loading. Use this in gated UI. |
 | `family/useActivityFeed.ts` | Activity log for the family feed |
-| `spaces/useSpaces.ts` | Board columns list |
-| `spaces/useSpaceMutations.ts` | Create/update/delete/reorder spaces |
+| `spaces/useSpaces.ts` | Active (non-deleted) board columns list |
+| `spaces/useArchivedPersonSpaces.ts` | Soft-deleted person spaces — used by the restore UI in Settings |
+| `spaces/useSpaceMutations.ts` | Create/update/delete/reorder/restore spaces. `restore` mutation clears `deleted_at` and invalidates both active + archived query keys. |
 | `items/useItems.ts` | Board items per space |
 | `items/useItemMutationsCore.ts` | Core item mutations (create, complete, delete, reorder) |
 | `items/useSearchItems.ts` | Cross-space item search |
@@ -282,7 +283,9 @@ src/lib/splitBalance.ts                 # Balance calculation logic (read this i
 src/routes/settings.tsx   # All tabs in one file (Account, Family, Members, Locations, Categories, Integrations)
 ```
 
-Tabs: **Account** (display name + avatar upload) → **Family** (name, currency, locale, Google Calendar) → **Members** (invite link, per-member budgets, paid-by options) → **Locations** (store spaces) → **Categories** (category CRUD with icon picker) → **Integrations** (Gemini API key for import).
+Tabs: **Account** (display name + avatar upload) → **Family** (name, currency, locale, Google Calendar) → **Members** (invite link, per-member budgets, paid-by options, archived member restore) → **Locations** (store spaces) → **Categories** (category CRUD with icon picker) → **Integrations** (Gemini API key for import).
+
+Member limit (`memberLimit`) counts all active person spaces (real + virtual). Archived spaces do not count. The "Archived" section at the bottom of the Paid-by tab shows soft-deleted person spaces with a Restore button.
 
 ---
 
@@ -446,7 +449,7 @@ Use `useDynamicPlan(familyId, plan)`. Never hardcode plan checks inline. Always 
 Never `new Date("2026-01-15")` — UTC shift will give you the wrong day. Always use `parseLocalDate()` from `@family/utils`.
 
 ### 3. Soft deletes
-Spaces and categories use `deleted_at` (soft delete). Expenses that referenced them show "(Unknown location)" etc. — the FKs use `ON DELETE SET NULL`.
+Spaces and categories use `deleted_at` (soft delete). Expenses that referenced them show "(Unknown location)" etc. — the FKs use `ON DELETE SET NULL`. Archived person spaces can be restored via `restoreSpace()` — no data is lost on archive.
 
 ### 4. Mutations pattern
 Every feature has a `use<Feature>Mutations` hook. Mutations invalidate TanStack Query cache keys on success. Never call Supabase directly from a component.
@@ -465,6 +468,8 @@ Every table has `family_id`. RLS policies use `is_family_member(family_id)` to e
 |------------------------------|-----------|
 | How auth works end-to-end | `apps/web/src/contexts/auth.tsx` → `__root.tsx` |
 | How a new user gets their family | `packages/supabase/src/families.ts` → `findOrCreateFamily()` |
+| How member removal works | `packages/supabase/src/families.ts` → `removeFamilyMember()` — removes from `user_families`, unlinks person space (becomes virtual) |
+| How archived members are restored | `packages/supabase/src/spaces.ts` → `restoreSpace()` + `useArchivedPersonSpaces` hook + Settings Members tab |
 | How plan limits are enforced | `packages/hooks/src/family/useDynamicPlan.ts` → `packages/utils/src/mergePlanLimits.ts` |
 | How the board drag-and-drop works | `apps/web/src/contexts/board.tsx` → `SpaceView.tsx` |
 | How expenses are stored and fetched | `packages/supabase/src/expenses.ts` → `apps/web/src/hooks/expenses/` |

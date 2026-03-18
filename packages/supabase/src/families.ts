@@ -130,6 +130,18 @@ export async function removeFamilyMember(
   if (error) throw error
   if (count === 0)
     throw new Error('Delete blocked — check RLS policy on user_families')
+
+  // Unlink the system person space so it becomes a virtual member.
+  // This keeps it visible as a "Paid by" option for historical expenses
+  // while making it manageable from the virtual members section.
+  await supabase
+    .from('spaces')
+    .update({ linked_user_id: null })
+    .eq('family_id', familyId)
+    .eq('linked_user_id', userId)
+    .eq('type', 'person')
+    .eq('is_system', true)
+    .is('deleted_at', null)
 }
 
 export async function findOrCreateFamily(userId: string): Promise<Family> {
