@@ -161,7 +161,7 @@ function AuthedLayout({ children }: { children: React.ReactNode }) {
   // No user: render public routes normally; for protected routes show nothing
   // while the redirect (above) takes effect
   if (!user) {
-    if (isPublicRoute) return <>{children}</>
+    if (isPublicRoute) return <main className="flex-1 overflow-auto">{children}</main>
     return null
   }
 
