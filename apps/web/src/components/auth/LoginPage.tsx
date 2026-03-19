@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   LayoutGrid,
-  CalendarDays,
   Receipt,
   RefreshCw,
   Check,
@@ -169,33 +168,33 @@ function EmailAuthForm() {
 const QUICK_FEATURES = [
   {
     icon: <Receipt className="h-5 w-5" />,
-    title: 'Expense tracking',
-    body: 'Log who paid, where, and what for — with categories, locations, and per-member totals.',
+    title: 'Track every expense',
+    body: 'Log who paid, where, and what for. Categories, store locations, and per-member totals — all in one view.',
   },
   {
     icon: <ArrowDownLeft className="h-5 w-5" />,
-    title: 'Income tracking',
-    body: 'Record salaries, freelance, and other income per person. See net cash flow at a glance.',
+    title: 'See total family income',
+    body: 'Record salaries, freelance, and rental income per person. Net cash flow at a glance, every month.',
   },
   {
     icon: <RefreshCw className="h-5 w-5" />,
-    title: 'Recurring transactions',
-    body: 'Set up rent, subscriptions, and paycheques once. They log themselves every month.',
+    title: 'Set it once, runs forever',
+    body: 'Recurring rent, subscriptions, and paycheques log themselves every cycle — income and expenses both.',
   },
   {
     icon: <TrendingUp className="h-5 w-5" />,
-    title: 'Yearly analytics',
-    body: '9 interactive charts break down spending by month, category, member, and store.',
+    title: '9 charts. A full year.',
+    body: 'Monthly trends, category breakdowns, member comparisons, and a 12-month heatmap. No guesswork.',
   },
   {
     icon: <ShoppingCart className="h-5 w-5" />,
-    title: 'Grocery lists',
-    body: 'Organised by store. Shared in real time. Add from history in one tap.',
+    title: 'One list per store',
+    body: 'Separate columns for Walmart, Costco, anywhere. Shared in real time. Add from history in one tap.',
   },
   {
     icon: <LayoutGrid className="h-5 w-5" />,
-    title: 'Chores board',
-    body: 'Drag-and-drop tasks per person. Dated items sync straight to Google Calendar.',
+    title: 'Assign it. Date it. Done.',
+    body: 'Drag-and-drop chores per person. Dated items sync straight to Google Calendar automatically.',
   },
 ]
 
@@ -205,10 +204,10 @@ const FEATURE_ROWS = [
   {
     badge: null,
     eyebrow: 'Finances',
-    title: "Your family's full financial picture.",
-    body: 'Track every expense and income entry in one place. The monthly chart shows income vs spending at a glance — so you always know where you stand before the month ends.',
+    title: 'Know exactly where your money goes.',
+    body: 'Stop wondering who paid what and when. Every expense and income entry lives in one clean view — with a monthly chart that shows income vs spending before you even have to ask.',
     bullets: [
-      'Per-member expense totals with month-over-month comparison',
+      'Per-member totals with month-over-month comparison',
       'Custom categories and store locations per family',
       'Bulk edit, Quick Tag, and duplicate detection built in',
     ],
@@ -222,12 +221,12 @@ const FEATURE_ROWS = [
   {
     badge: null,
     eyebrow: 'Income & recurring',
-    title: 'Log income and expenses. Automate both.',
-    body: 'Record salaries, freelance, and other income per person. Set up recurring transactions — rent, subscriptions, paycheques — and they log themselves every cycle, income included.',
+    title: 'Set it once. It runs itself.',
+    body: 'Log salaries, freelance, and rental income per person. Then set up recurring transactions — rent, subscriptions, paycheques — and they appear automatically every cycle, income included.',
     bullets: [
       'Income types: Salary, Freelance, Rental, Business, and more',
-      'Recurring expenses and income with weekly / monthly / yearly frequency',
-      'Missed entries caught up automatically — no manual back-filling',
+      'Recurring income and expenses — weekly, monthly, or yearly',
+      'Missed entries caught up automatically, no back-filling needed',
     ],
     screenshotSrc: '/screenshots/income-recurring-desktop.png',
     screenshotAlt:
@@ -239,12 +238,12 @@ const FEATURE_ROWS = [
   {
     badge: null,
     eyebrow: 'Yearly analytics',
-    title: 'A full year of spending, visualised.',
-    body: '9 interactive charts break down every dollar by month, category, member, and store. Filter by month, category, location, or who paid — export to PDF or Excel in one click.',
+    title: 'Your year in spending, visualised.',
+    body: '9 interactive charts break down every dollar by month, category, member, and store. Filter by anything — then export a PDF or Excel report in one click.',
     bullets: [
-      'Monthly spending trend, category donut, and member comparison',
+      'Monthly trend, category donut, and member comparison',
       'Category heatmap across all 12 months',
-      'Export to PDF report or Excel for your records (Plus+)',
+      'Export to PDF or Excel with one click (Plus+)',
     ],
     screenshotSrc: '/screenshots/analytics-desktop.png',
     screenshotAlt:
@@ -256,12 +255,12 @@ const FEATURE_ROWS = [
   {
     badge: null,
     eyebrow: 'Shared board',
-    title: 'Everyone sees their own lane.',
-    body: 'Create a column for each family member and each store. Grocery runs, chores, errands — everything visible at a glance, drag-and-dropped into place.',
+    title: 'Your whole family, organized.',
+    body: 'A column per person, a column per store. Grocery runs, chores, errands — drag, drop, check off. Separate tabs keep shopping and tasks from mixing. Dated items sync to Google Calendar.',
     bullets: [
-      'Separate "Lists" and "Chores" tabs — keep shopping away from tasks',
+      'Separate Lists and Chores tabs — no more mixed-up boards',
       'Dated items sync straight to Google Calendar',
-      'Search across all items in one keystroke',
+      'Search across all items across all columns instantly',
     ],
     screenshotSrc: '/screenshots/board-desktop.png',
     screenshotAlt:
@@ -273,12 +272,12 @@ const FEATURE_ROWS = [
   {
     badge: 'Pro',
     eyebrow: 'AI bank import',
-    title: 'Import your statement in seconds.',
-    body: 'Upload a PDF bank statement and Gemini AI extracts every transaction automatically. Review the mapped columns, correct anything, and import the whole month in one go.',
+    title: 'Upload a statement. Done in seconds.',
+    body: 'Drop in a PDF bank statement and Gemini AI pulls every transaction automatically. Review the mapped columns, fix anything, and import a full month in one go — no spreadsheet needed.',
     bullets: [
       'Supports standard and wide-format bank exports',
       'AI maps columns to your categories automatically',
-      'Preview and edit before importing anything',
+      'Review and edit every row before importing anything',
     ],
     screenshotSrc: '/screenshots/ai-import-desktop.png',
     screenshotAlt:
@@ -296,7 +295,7 @@ const PLANS = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'Everything a family needs to get started.',
+    description: 'Everything a small family needs — free, forever.',
     popular: false,
     cta: 'Get started free',
     features: [
@@ -339,6 +338,15 @@ const PLANS = [
   },
 ]
 
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+const STATS = [
+  { value: '$0', label: 'to start, forever' },
+  { value: '< 1 min', label: 'to set up' },
+  { value: '9 charts', label: 'of yearly analytics' },
+  { value: 'AI import', label: 'on Pro — PDF to entries' },
+]
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function LoginPage() {
@@ -350,29 +358,29 @@ export function LoginPage() {
       <section className="mx-auto flex max-w-2xl flex-col items-center px-6 pb-16 pt-20 text-center sm:pt-28">
         <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-medium text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          Free to get started — no credit card
+          Free to start · No credit card needed
         </span>
 
         <h1 className="text-4xl font-bold tracking-tight sm:text-[3.25rem] sm:leading-[1.12]">
-          One app for your family's{' '}
+          One app for your whole family.{' '}
           <span className="text-muted-foreground">
-            money, groceries, and chores.
+            Finances, lists & chores.
           </span>
         </h1>
 
         <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
-          Family Space replaces scattered spreadsheets and group chats with
-          shared expense tracking, income logging, recurring transactions,
-          yearly analytics, and a real-time board — all in one place.
+          Ditch the spreadsheets and group chats. Family Space brings shared
+          expense tracking, income logging, grocery lists by store, a chore
+          board, and yearly analytics into one place — synced for everyone.
         </p>
 
         <Button
           size="lg"
           onClick={signInWithGoogle}
-          className="mt-8 gap-3 px-7 py-6 text-base"
+          className="mt-8 gap-3 px-7 py-6 text-base cursor-pointer"
         >
           {GOOGLE_SVG}
-          Sign in with Google
+          Continue with Google
         </Button>
 
         <div className="mt-6 flex w-full max-w-sm items-center gap-3">
@@ -386,30 +394,60 @@ export function LoginPage() {
       </section>
 
       {/* ── Hero screenshot ────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-6 pb-20">
-        <img
-          src="/screenshots/hero-finances.png"
-          alt="Family Space finances page showing monthly income vs expense chart, per-member summary cards, and expense table"
-          className="w-full rounded-2xl border border-border shadow-md aspect-video sm:aspect-21/9 object-cover object-top"
-          loading="lazy"
-        />
+      <section className="mx-auto max-w-5xl px-6 pb-16">
+        <div className="rounded-2xl border border-border shadow-xl ring-1 ring-border/50 overflow-hidden">
+          <img
+            src="/screenshots/hero-finances.png"
+            alt="Family Space finances page showing monthly income vs expense chart, per-member summary cards, and expense table"
+            className="w-full aspect-video sm:aspect-21/9 object-cover object-top"
+            loading="lazy"
+          />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+            <TrendingUp className="h-3 w-3" />
+            Income vs. expenses, monthly
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+            <Receipt className="h-3 w-3" />
+            Per-member totals & category tags
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+            <RefreshCw className="h-3 w-3" />
+            Recurring transactions, automated
+          </span>
+        </div>
+      </section>
+
+      {/* ── Stats strip ───────────────────────────────────────────────────── */}
+      <section className="border-y border-border px-6 py-10">
+        <div className="mx-auto flex max-w-3xl flex-col items-center justify-around gap-8 text-center sm:flex-row sm:gap-4">
+          {STATS.map((stat) => (
+            <div key={stat.label}>
+              <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {stat.label}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ── Quick features bento ──────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-6 pb-24">
+      <section className="mx-auto max-w-5xl px-6 py-24">
         <div className="mb-10 text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Built for how families actually work
+            Not just a finance app. Not just a to-do list.
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Finances, lists, and chores — one app, always in sync.
+            Everything your family tracks — all in one place, always in sync.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {QUICK_FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-xl border border-border bg-muted/30 p-5 transition-colors hover:bg-muted/50"
+              className="rounded-xl border border-border bg-muted/30 p-5 transition-colors duration-200 hover:bg-muted/60 cursor-default"
             >
               <div className="mb-3 inline-flex items-center justify-center rounded-lg border border-border bg-background p-2 text-foreground">
                 {f.icon}
@@ -424,76 +462,80 @@ export function LoginPage() {
       </section>
 
       {/* ── Feature deep-dive rows ────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl space-y-28 px-6 pb-32">
-        {FEATURE_ROWS.map((f, i) => {
-          const textFirst = i % 2 === 0
-          return (
-            <div
-              key={f.title}
-              className="grid items-center gap-10 md:grid-cols-2"
-            >
-              {/* Text */}
-              <div className={textFirst ? 'md:order-1' : 'md:order-2'}>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {f.eyebrow}
-                  </span>
-                  {f.badge && (
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 text-[10px] uppercase tracking-wide"
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      {f.badge}
-                    </Badge>
+      <section className="border-t border-border bg-muted/10 px-6 py-24">
+        <div className="mx-auto max-w-5xl space-y-28">
+          {FEATURE_ROWS.map((f, i) => {
+            const textFirst = i % 2 === 0
+            return (
+              <div
+                key={f.title}
+                className="grid items-center gap-10 md:grid-cols-2"
+              >
+                {/* Text */}
+                <div className={textFirst ? 'md:order-1' : 'md:order-2'}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {f.eyebrow}
+                    </span>
+                    {f.badge && (
+                      <Badge
+                        variant="secondary"
+                        className="gap-1 text-[10px] uppercase tracking-wide"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {f.badge}
+                      </Badge>
+                    )}
+                  </div>
+                  <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                    {f.title}
+                  </h2>
+                  <p className="mt-3 leading-relaxed text-muted-foreground">
+                    {f.body}
+                  </p>
+                  <ul className="mt-5 space-y-2.5">
+                    {f.bullets.map((b) => (
+                      <li key={b} className="flex items-start gap-2.5 text-sm">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span className="text-muted-foreground">{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Screenshot */}
+                <div className={textFirst ? 'md:order-2' : 'md:order-1'}>
+                  {f.screenshotSrc ? (
+                    <div className="rounded-2xl border border-border shadow-lg ring-1 ring-border/40 overflow-hidden">
+                      <img
+                        src={f.screenshotSrc}
+                        alt={f.screenshotAlt}
+                        className="w-full"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <ScreenshotSlot
+                      label={f.screenshotLabel}
+                      tag={f.screenshotTag}
+                    />
                   )}
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  {f.title}
-                </h2>
-                <p className="mt-3 leading-relaxed text-muted-foreground">
-                  {f.body}
-                </p>
-                <ul className="mt-5 space-y-2.5">
-                  {f.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2.5 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      <span className="text-muted-foreground">{b}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
-
-              {/* Screenshot */}
-              <div className={textFirst ? 'md:order-2' : 'md:order-1'}>
-                {f.screenshotSrc ? (
-                  <img
-                    src={f.screenshotSrc}
-                    alt={f.screenshotAlt}
-                    className="w-full rounded-2xl border border-border shadow-md"
-                    loading="lazy"
-                  />
-                ) : (
-                  <ScreenshotSlot
-                    label={f.screenshotLabel}
-                    tag={f.screenshotTag}
-                  />
-                )}
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </section>
 
       {/* ── Pricing ───────────────────────────────────────────────────────── */}
-      <section className="border-t border-border bg-muted/20 px-6 py-24">
+      <section className="border-t border-border px-6 py-24">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Simple, honest pricing
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Start free. Upgrade when you're ready.
+              Start free. Upgrade only when you need more.
             </p>
           </div>
 
@@ -501,10 +543,10 @@ export function LoginPage() {
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative flex flex-col rounded-2xl border p-6 ${
+                className={`relative flex flex-col rounded-2xl border p-6 transition-shadow duration-200 ${
                   plan.popular
-                    ? 'border-foreground/30 bg-background shadow-lg'
-                    : 'border-border bg-background/60'
+                    ? 'border-foreground/30 bg-background shadow-lg hover:shadow-xl'
+                    : 'border-border bg-background/60 hover:shadow-md'
                 }`}
               >
                 {plan.popular && (
@@ -541,7 +583,7 @@ export function LoginPage() {
 
                 <Button
                   variant={plan.popular ? 'default' : 'outline'}
-                  className="w-full"
+                  className="w-full cursor-pointer"
                   onClick={signInWithGoogle}
                 >
                   {plan.cta}
@@ -557,55 +599,43 @@ export function LoginPage() {
         </div>
       </section>
 
-      {/* ── Social proof / stats strip ────────────────────────────────────── */}
-      <section className="border-t border-border px-6 py-14">
-        <div className="mx-auto flex max-w-3xl flex-col items-center justify-around gap-8 text-center sm:flex-row sm:gap-4">
-          {[
-            { value: 'Free', label: 'to get started' },
-            { value: '< 1 min', label: 'setup time' },
-            { value: '9 charts', label: 'of yearly analytics' },
-            { value: 'AI-powered', label: 'bank import (Pro)' },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {stat.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ── Mobile screenshots strip ──────────────────────────────────────── */}
-      <section className="border-t border-border bg-muted/20 px-6 py-20">
+      <section className="border-t border-border bg-muted/10 px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-10 text-center">
             <h2 className="text-2xl font-bold tracking-tight">
-              Works great on mobile too
+              Your family, right in your pocket.
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Log expenses from anywhere. Track income on the go.
+              Log an expense at checkout. Check off groceries in the aisle.
+              Assign chores from anywhere.
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-3">
-            <img
-              src="/screenshots/mobile-board.png"
-              alt="Family Space board view on mobile showing grocery list columns with checkboxes and bottom navigation"
-              className="w-full rounded-2xl border border-border shadow-md aspect-9/16 object-cover object-top"
-              loading="lazy"
-            />
-            <img
-              src="/screenshots/mobile-finances.png"
-              alt="Family Space finances page on mobile showing income vs expense chart and expense rows"
-              className="w-full rounded-2xl border border-border shadow-md aspect-9/16 object-cover object-top"
-              loading="lazy"
-            />
-            <img
-              src="/screenshots/mobile-analytics.png"
-              alt="Family Space analytics page on mobile showing year selector, total spend, and charts"
-              className="w-full rounded-2xl border border-border shadow-md aspect-9/16 object-cover object-top"
-              loading="lazy"
-            />
+            <div className="rounded-2xl border border-border shadow-md ring-1 ring-border/40 overflow-hidden">
+              <img
+                src="/screenshots/mobile-board.png"
+                alt="Family Space board view on mobile showing grocery list columns with checkboxes and bottom navigation"
+                className="w-full aspect-9/16 object-cover object-top"
+                loading="lazy"
+              />
+            </div>
+            <div className="rounded-2xl border border-border shadow-md ring-1 ring-border/40 overflow-hidden">
+              <img
+                src="/screenshots/mobile-finances.png"
+                alt="Family Space finances page on mobile showing income vs expense chart and expense rows"
+                className="w-full aspect-9/16 object-cover object-top"
+                loading="lazy"
+              />
+            </div>
+            <div className="rounded-2xl border border-border shadow-md ring-1 ring-border/40 overflow-hidden">
+              <img
+                src="/screenshots/mobile-analytics.png"
+                alt="Family Space analytics page on mobile showing year selector, total spend, and charts"
+                className="w-full aspect-9/16 object-cover object-top"
+                loading="lazy"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -614,18 +644,19 @@ export function LoginPage() {
       <section className="border-t border-border px-6 py-24">
         <div className="mx-auto flex max-w-xl flex-col items-center text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to get organised?
+            Your family's everything,{' '}
+            <span className="text-muted-foreground">in one place.</span>
           </h2>
           <p className="mt-3 leading-relaxed text-muted-foreground">
-            Set up takes less than a minute. Free forever for small families.
+            Free to start. Takes less than a minute to set up.
           </p>
           <Button
             size="lg"
             onClick={signInWithGoogle}
-            className="mt-8 gap-3 px-7 py-6 text-base"
+            className="mt-8 gap-3 px-7 py-6 text-base cursor-pointer"
           >
             {GOOGLE_SVG}
-            Get started with Google
+            Get started free
           </Button>
           <p className="mt-3 text-xs text-muted-foreground">
             No credit card required.
