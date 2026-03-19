@@ -212,6 +212,9 @@ const FEATURE_ROWS = [
       'Custom categories and store locations per family',
       'Bulk edit, Quick Tag, and duplicate detection built in',
     ],
+    screenshotSrc: '/screenshots/expenses-desktop.png',
+    screenshotAlt:
+      'Family Space finances page showing income vs expense chart, per-member summary cards, and expense table with category badges',
     screenshotLabel:
       'screenshot: finances page — FinancialsChart (income vs expense bars) at top, ExpenseSummary cards per member below, expense table with category badges. Light mode.',
     screenshotTag: 'Finances',
@@ -219,13 +222,16 @@ const FEATURE_ROWS = [
   {
     badge: null,
     eyebrow: 'Income & recurring',
-    title: 'Log income. Automate the rest.',
-    body: 'Record salaries, freelance, and other income per person. Set up recurring transactions once — rent, subscriptions, paycheques — and they appear automatically every cycle.',
+    title: 'Log income and expenses. Automate both.',
+    body: 'Record salaries, freelance, and other income per person. Set up recurring transactions — rent, subscriptions, paycheques — and they log themselves every cycle, income included.',
     bullets: [
       'Income types: Salary, Freelance, Rental, Business, and more',
       'Recurring expenses and income with weekly / monthly / yearly frequency',
       'Missed entries caught up automatically — no manual back-filling',
     ],
+    screenshotSrc: '/screenshots/income-recurring-desktop.png',
+    screenshotAlt:
+      'Family Space income tab showing total income card and list of income entries with type icons and person names',
     screenshotLabel:
       'screenshot: finances page income tab — total income card in green at top, list of income entries with type icons and person names. Light mode.',
     screenshotTag: 'Income & Recurring',
@@ -240,6 +246,9 @@ const FEATURE_ROWS = [
       'Category heatmap across all 12 months',
       'Export to PDF report or Excel for your records (Plus+)',
     ],
+    screenshotSrc: '/screenshots/analytics-desktop.png',
+    screenshotAlt:
+      'Family Space analytics page showing year selector, total spend, and multiple charts including bar chart, donut, and heatmap',
     screenshotLabel:
       'screenshot: analytics page — year selector, total spend in bold, 3–4 charts side by side (bar chart, donut, heatmap), export button visible. Light mode.',
     screenshotTag: 'Analytics',
@@ -254,6 +263,9 @@ const FEATURE_ROWS = [
       'Dated items sync straight to Google Calendar',
       'Search across all items in one keystroke',
     ],
+    screenshotSrc: '/screenshots/board-desktop.png',
+    screenshotAlt:
+      'Family Space board view with store columns showing grocery items with checkboxes and dates',
     screenshotLabel:
       'screenshot: board view with 3–4 store columns (Walmart, Costco, T&T) — items with checkboxes and dates, dark mode.',
     screenshotTag: 'Board',
@@ -268,6 +280,9 @@ const FEATURE_ROWS = [
       'AI maps columns to your categories automatically',
       'Preview and edit before importing anything',
     ],
+    screenshotSrc: '/screenshots/ai-import-desktop.png',
+    screenshotAlt:
+      'Family Space AI import wizard showing extracted transactions with category mapping dropdowns and editable rows',
     screenshotLabel:
       'screenshot: AI import wizard step 2 or 3 — extracted transactions with category mapping dropdowns, some rows highlighted/edited. Light mode.',
     screenshotTag: 'AI Import',
@@ -372,10 +387,11 @@ export function LoginPage() {
 
       {/* ── Hero screenshot ────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-6 pb-20">
-        <ScreenshotSlot
-          label="screenshot: finances page — FinancialsChart (income vs expense bars) at top, per-member summary cards, 8–10 expense rows with category badges. App header visible. Light mode."
-          tag="Full app"
-          className="aspect-[16/9] sm:aspect-[21/9]"
+        <img
+          src="/screenshots/hero-finances.png"
+          alt="Family Space finances page showing monthly income vs expense chart, per-member summary cards, and expense table"
+          className="w-full rounded-2xl border border-border shadow-md aspect-video sm:aspect-21/9 object-cover object-top"
+          loading="lazy"
         />
       </section>
 
@@ -450,10 +466,19 @@ export function LoginPage() {
 
               {/* Screenshot */}
               <div className={textFirst ? 'md:order-2' : 'md:order-1'}>
-                <ScreenshotSlot
-                  label={f.screenshotLabel}
-                  tag={f.screenshotTag}
-                />
+                {f.screenshotSrc ? (
+                  <img
+                    src={f.screenshotSrc}
+                    alt={f.screenshotAlt}
+                    className="w-full rounded-2xl border border-border shadow-md"
+                    loading="lazy"
+                  />
+                ) : (
+                  <ScreenshotSlot
+                    label={f.screenshotLabel}
+                    tag={f.screenshotTag}
+                  />
+                )}
               </div>
             </div>
           )
@@ -563,20 +588,23 @@ export function LoginPage() {
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-3">
-            <ScreenshotSlot
-              label="screenshot: mobile board view — one or two columns visible, items with checkboxes, bottom nav visible. Light mode."
-              tag="Mobile board"
-              className="aspect-[9/16] sm:aspect-[9/16]"
+            <img
+              src="/screenshots/mobile-board.png"
+              alt="Family Space board view on mobile showing grocery list columns with checkboxes and bottom navigation"
+              className="w-full rounded-2xl border border-border shadow-md aspect-9/16 object-cover object-top"
+              loading="lazy"
             />
-            <ScreenshotSlot
-              label="screenshot: mobile finances page — FinancialsChart compressed at top, 3–4 expense rows below, Add expense button visible. Light mode."
-              tag="Mobile finances"
-              className="aspect-[9/16] sm:aspect-[9/16]"
+            <img
+              src="/screenshots/mobile-finances.png"
+              alt="Family Space finances page on mobile showing income vs expense chart and expense rows"
+              className="w-full rounded-2xl border border-border shadow-md aspect-9/16 object-cover object-top"
+              loading="lazy"
             />
-            <ScreenshotSlot
-              label="screenshot: mobile analytics — year selector and total at top, one or two charts stacked, filter chips. Light or dark mode."
-              tag="Mobile analytics"
-              className="aspect-[9/16] sm:aspect-[9/16]"
+            <img
+              src="/screenshots/mobile-analytics.png"
+              alt="Family Space analytics page on mobile showing year selector, total spend, and charts"
+              className="w-full rounded-2xl border border-border shadow-md aspect-9/16 object-cover object-top"
+              loading="lazy"
             />
           </div>
         </div>
