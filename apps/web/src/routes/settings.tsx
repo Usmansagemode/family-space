@@ -77,7 +77,7 @@ import { archiveSpace, countSpaceExpenses } from '#/lib/supabase/spaces'
 import { AddSpaceSheet } from '#/components/board/AddSpaceSheet'
 import { cn, formatCurrency } from '#/lib/utils'
 import { SPACE_COLORS, CHART_COLORS } from '#/lib/config'
-import { usePlan, useDynamicPlan } from '@family/hooks'
+import { useDynamicPlan } from '@family/hooks'
 import type { Space, Category, Budget, BudgetPeriod, FamilyPlan } from '@family/types'
 import { PLAN_FEATURES, PLAN_UI, getUpgradeCardFeatures } from '#/lib/plan-features'
 
@@ -842,7 +842,7 @@ function PaidByOptions({
   const { data: budgets } = useBudgets(familyId)
   const budgetMutations = useBudgetMutations(familyId)
   const queryClient = useQueryClient()
-  const { membersLimit } = usePlan(plan)
+  const { membersLimit } = useDynamicPlan(familyId, plan)
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<Space | null>(null)

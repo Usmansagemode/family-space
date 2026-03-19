@@ -58,10 +58,6 @@ export async function createCategory(input: {
   color?: string
   icon?: string
 }): Promise<Category> {
-  const count = await fetchCategories(input.familyId)
-    .then((c) => c.length)
-    .catch(() => 0)
-
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('categories')
@@ -70,7 +66,6 @@ export async function createCategory(input: {
       name: input.name,
       color: input.color ?? null,
       icon: input.icon ?? null,
-      sort_order: count,
     })
     .select()
     .single()
@@ -139,20 +134,18 @@ export async function deleteCategory(id: string): Promise<void> {
   if (error) throw error
 }
 
-/** Reassign all expenses from one category to another, then hard-delete the old one. */
+/** Reassign all expenses from one category to another, then hard-delete the old one.
+ *  Runs in a single DB transaction via RPC to prevent partial failures. */
 export async function reassignAndDeleteCategory(
   oldId: string,
   newId: string,
 ): Promise<void> {
   const supabase = getSupabaseClient()
-  const { error: updateError } = await supabase
-    .from('expenses')
-    .update({ category_id: newId })
-    .eq('category_id', oldId)
-  if (updateError) throw updateError
-
-  const { error: deleteError } = await supabase.from('categories').delete().eq('id', oldId)
-  if (deleteError) throw deleteError
+  const { error } = await supabase.rpc('reassign_and_delete_category', {
+    p_old_id: oldId,
+    p_new_id: newId,
+  })
+  if (error) throw error
 }
 
 export async function reorderCategories(orderedIds: string[]): Promise<void> {

@@ -15,48 +15,51 @@ See `docs/demo-seed.sql` for the full seed script.
 - Family name: "The Khans" (or your own)
 - 3–4 members: e.g. Usman, Fatima, Adam, Sara
 - Spaces: Walmart, Costco, T&T, Usman, Fatima, Adam (type=person + type=store)
-- ~40–60 expenses spread across 3 months
+- ~60–80 expenses spread across 6 months (mix of categories)
+- ~10–12 income entries spread across the same months (Salary, Freelance, etc.)
+- ~4–5 recurring transactions (e.g. "Netflix $17/mo", "Rent $1800/mo", "Fatima — Salary $4000/mo")
 - ~20 board items across spaces
-- Categories: Groceries, Dining Out, Gas, Utilities, Pharmacy, Kids, Clothing
+- Categories: Groceries, Dining Out, Gas, Utilities, Pharmacy, Kids, Clothing, Entertainment
 
 ---
 
-## Screenshots to Take (7 total)
+## Screenshots to Take (9 total)
 
-### 1. `hero-board.png` — Full-width hero (top of page)
+### 1. `hero-finances.png` — Full-width hero (top of page)
 **Slot tag:** "Full app"
-**View:** Board tab (`/?tab=lists`)
+**View:** `/expenses` (Finances page)
 **What to show:**
-- 3 store columns visible: Walmart, Costco, T&T
-- Each column has 4–6 realistic items (e.g. "Olive oil", "Greek yogurt", "Tide pods", "Paper towels")
-- 1–2 items have dates set (shows the calendar badge)
-- App header visible at top
-- **Mode: Dark mode**
+- FinancialsChart visible at top — 6 months of bars showing income (green) vs expenses (a contrasting colour)
+- "Finances" heading with the MonthYearSelector
+- ExpenseSummary cards below the chart (3 per-member cards with amounts)
+- 8–10 rows of the expense table visible below
+- **Mode: Light mode**
 - **Window width: 1440px**
 - **Crop: full browser window minus browser chrome**
 
 ---
 
-### 2. `board-desktop.png` — Board feature row
-**Slot tag:** "Board"
-**View:** Board tab, zoomed in slightly
+### 2. `expenses-desktop.png` — Finances feature row
+**Slot tag:** "Finances"
+**View:** `/expenses` → Expenses tab
 **What to show:**
-- 2–3 columns, items with completion checkboxes, dates, member avatars
-- One column in a hovered/focused state
-- **Mode: Dark or Light (either looks good)**
+- The ExpenseSummary bar at the top with per-member totals and a "+/−% vs last month" badge
+- 10–12 expense rows with coloured category badges (Groceries green, Dining orange, Gas yellow, etc.)
+- The "Quick Tag" and "Add expense" buttons visible
+- Month selector showing e.g. "March 2026"
+- **Mode: Light mode**
 - **Window width: 1280px, aspect 16:9**
 
 ---
 
-### 3. `expenses-desktop.png` — Expense tracking feature row
-**Slot tag:** "Expenses"
-**View:** `/expenses`
-**What to show:**
-- A full month (e.g. January 2026), 10–15 expense rows
-- The summary bar at the top showing per-person totals
-- At least 2 filter chips active (e.g. "Groceries", "January")
-- Mix of categories: use different colored category badges
-- **Mode: Light mode** (tables read better in light)
+### 3. `income-recurring-desktop.png` — Income & Recurring feature row
+**Slot tag:** "Income & Recurring"
+**View:** `/expenses` → Income tab **or** Recurring tab
+**What to show (Income tab preferred):**
+- Total income card at top showing a bold green amount (e.g. "$8,500.00")
+- 3–4 income entries: Salary, Freelance, etc., each with the coloured icon and person name
+- Alternatively, the Recurring tab showing 4–5 recurring rows with "Next:" dates and frequency labels
+- **Mode: Light mode**
 - **Window width: 1280px, aspect 16:9**
 
 ---
@@ -65,17 +68,30 @@ See `docs/demo-seed.sql` for the full seed script.
 **Slot tag:** "Analytics"
 **View:** `/charts`
 **What to show:**
-- The ChartsHero section with 3–4 charts visible
-- Monthly spending trend chart (bar chart — most recognisable)
-- Category breakdown (pie or donut)
-- **Real data is critical here** — the charts must have varied, realistic numbers
-- Year selector showing 2025 or 2026
-- **Mode: Dark mode** (charts pop more in dark)
+- Year selector showing 2026 and the total spend in large bold text
+- 3–4 charts side by side: monthly bar chart, category donut, per-member bar, category heatmap
+- Filter chips visible (Month, Category, Location, Paid-by)
+- Export button visible in the top-right
+- **Real data is critical** — charts must have varied, realistic numbers
+- **Mode: Light mode**
 - **Window width: 1440px, aspect 16:9 or 21:9**
 
 ---
 
-### 5. `ai-import-desktop.png` — AI import feature row
+### 5. `board-desktop.png` — Board feature row
+**Slot tag:** "Board"
+**View:** Board tab (`/?tab=lists`)
+**What to show:**
+- 2–3 store columns (Walmart, Costco, T&T) with 4–6 realistic items each
+- Items show completion checkboxes and optional date badges
+- One column in a hovered/active state
+- **Mode: Light mode**
+- **Window width: 1280px, aspect 16:9**
+
+---
+
+### 6. `ai-import-desktop.png` — AI import feature row
+
 **Slot tag:** "AI Import"
 **View:** `/import` → Step 2 (column mapping) or Step 3 (preview table)
 **What to show:**
@@ -87,11 +103,11 @@ See `docs/demo-seed.sql` for the full seed script.
 
 ---
 
-### 6–8. Mobile screenshots (3 tall portraits)
+### 7–9. Mobile screenshots (3 tall portraits)
 Use Chrome DevTools → device emulation → iPhone 14 Pro (390×844)
 Or take real device screenshots.
 
-#### 6. `mobile-board.png`
+#### 7. `mobile-board.png`
 **Slot tag:** "Mobile board"
 **View:** Board on mobile (`/?tab=lists`)
 - Single column visible with 4–5 items
@@ -99,22 +115,21 @@ Or take real device screenshots.
 - **Mode: Light mode**
 - **Aspect: 9:16 (portrait)**
 
-#### 7. `mobile-expense.png`
-**Slot tag:** "Mobile add expense"
-**View:** Expense dialog open on mobile
-- Amount field filled: "$47.23"
-- Category selected: "Groceries"
-- Store selected: "Walmart"
-- Paid by filled in
-- **Mode: Dark mode**
+#### 8. `mobile-finances.png`
+**Slot tag:** "Mobile finances"
+**View:** `/expenses` on mobile
+- FinancialsChart visible at the top (compressed, still readable)
+- 3–4 expense rows below
+- "Add expense" button visible
+- **Mode: Light mode**
 - **Aspect: 9:16 (portrait)**
 
-#### 8. `mobile-analytics.png`
+#### 9. `mobile-analytics.png`
 **Slot tag:** "Mobile analytics"
 **View:** `/charts` on mobile
 - At least 1 full chart visible (monthly bar chart ideal)
-- Year selector visible at top
-- **Mode: Light or Dark**
+- Year selector and total amount visible at top
+- **Mode: Light mode**
 - **Aspect: 9:16 (portrait)**
 
 ---
@@ -125,8 +140,8 @@ Once you have the images, open `LoginPage.tsx` and replace each `<ScreenshotSlot
 
 ```tsx
 <img
-  src="/screenshots/hero-board.png"
-  alt="Family Space board view showing grocery lists organised by store"
+  src="/screenshots/hero-finances.png"
+  alt="Family Space finances page showing monthly income vs expense chart and expense table"
   className="w-full rounded-2xl border border-border shadow-md"
   loading="lazy"
 />
@@ -136,12 +151,28 @@ Match each `tag` value to the corresponding filename above.
 
 ---
 
+## Filename → Tag mapping
+
+| File | Tag in LoginPage |
+|------|-----------------|
+| `hero-finances.png` | "Full app" |
+| `expenses-desktop.png` | "Finances" |
+| `income-recurring-desktop.png` | "Income & Recurring" |
+| `analytics-desktop.png` | "Analytics" |
+| `board-desktop.png` | "Board" |
+| `ai-import-desktop.png` | "AI Import" |
+| `mobile-board.png` | "Mobile board" |
+| `mobile-finances.png` | "Mobile finances" |
+| `mobile-analytics.png` | "Mobile analytics" |
+
+---
+
 ## Tips for Great Screenshots
 
 - Use **real, meaningful data** — "Tide pods $14.99" reads better than "Item 1"
-- **Dark mode** works best for the board and analytics (high contrast, looks modern)
-- **Light mode** works best for the expense table and dialogs (readability)
+- **All screenshots use light mode** — the app defaults to light, keep it consistent
 - Hide dev tools panels and browser extensions before capturing
 - Use a tool like **CleanShot X** (macOS) for clean, shadow-free captures
 - Export as **WebP at 2x resolution** for crisp retina display
 - Compress with `squoosh.app` if files exceed 300KB
+- The FinancialsChart needs at least 4–6 months of data to look good — make sure the seed data covers this

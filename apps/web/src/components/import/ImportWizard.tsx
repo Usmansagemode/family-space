@@ -159,7 +159,17 @@ Rules:
       }>
 
       try {
-        transactions = JSON.parse(cleaned)
+        const parsed: unknown = JSON.parse(cleaned)
+        if (!Array.isArray(parsed)) throw new Error('Expected array')
+        transactions = (parsed as typeof transactions).filter((t) => {
+          const amount = parseFloat(String(t.amount))
+          return (
+            typeof t.date === 'string' &&
+            /^\d{4}-\d{2}-\d{2}$/.test(t.date) &&
+            !isNaN(amount) &&
+            amount > 0
+          )
+        })
       } catch {
         toast.error('AI returned invalid JSON', {
           description: 'The AI response could not be parsed. Try again.',

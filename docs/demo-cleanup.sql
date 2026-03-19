@@ -9,7 +9,7 @@
 
 do $$
 declare
-  v_user_id   uuid := '<<YOUR_DEMO_USER_ID>>';
+  v_user_id   uuid := '5d84a45e-a4cc-4514-a5a3-79e14adca8ed'; -- <<YOUR_DEMO_USER_ID>>
   v_family_id uuid;
 begin
   -- Find the demo family

@@ -30,18 +30,20 @@ export function nextOccurrence(date: string, frequency: RecurringFrequency): str
 
 /**
  * Returns all dates (inclusive) from nextDueDate up to and including today
- * that should have generated an entry but haven't yet.
+ * (or endDate if it comes first) that should have generated an entry but haven't yet.
  * Capped at 24 to avoid runaway loops on very old recurring transactions.
  */
 export function getMissedOccurrences(
   nextDueDate: string,
   frequency: RecurringFrequency,
+  endDate?: string | null,
 ): string[] {
   const today = toDateString(new Date())
+  const ceiling = endDate && endDate < today ? endDate : today
   const missed: string[] = []
   let cursor = nextDueDate
 
-  while (cursor <= today && missed.length < 24) {
+  while (cursor <= ceiling && missed.length < 24) {
     missed.push(cursor)
     cursor = nextOccurrence(cursor, frequency)
   }
@@ -70,7 +72,7 @@ export function buildCatchUpPlan(items: RecurringTransaction[]): CatchUpPlan {
   const needsReview: CatchUpItem[] = []
 
   for (const recurring of items) {
-    const missed = getMissedOccurrences(recurring.nextDueDate, recurring.frequency)
+    const missed = getMissedOccurrences(recurring.nextDueDate, recurring.frequency, recurring.endDate)
     if (missed.length === 0) continue
 
     const item: CatchUpItem = { recurring, missedDates: missed }

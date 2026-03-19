@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import type { FamilyPlan } from '@family/types'
+import type { FamilyPlan, PlanLimits } from '@family/types'
+import { PLAN_LIMITS } from '@family/types'
 import { getSupabaseClient } from '@family/supabase'
 import { mergePlanLimits } from '@family/utils'
-import { usePlan } from './usePlan'
-import type { PlanLimits } from './usePlan'
 
 async function fetchPlanFeaturesForPlan(
   plan: FamilyPlan,
@@ -41,12 +40,11 @@ async function fetchFamilyOverrides(
  * Dynamic plan hook — fetches plan_features + family_feature_overrides from DB,
  * merges them (override wins), and returns a PlanLimits object.
  *
- * Falls back to the static usePlan() result on error or while loading.
- * Existing usePlan() stays unchanged as the synchronous fallback.
+ * Falls back to the static PLAN_LIMITS constant on error or while loading.
  */
 export function useDynamicPlan(familyId: string, plan: FamilyPlan): PlanLimits {
   // Static fallback for immediate / error cases
-  const staticLimits = usePlan(plan)
+  const staticLimits = PLAN_LIMITS[plan]
 
   const { data: planFeatures } = useQuery({
     queryKey: ['plan_features', plan],

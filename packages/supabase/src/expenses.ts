@@ -192,14 +192,18 @@ export async function updateExpense(
   return rowToExpense(data)
 }
 
-export async function deleteExpense(id: string): Promise<void> {
+export async function deleteExpense(id: string, familyId?: string): Promise<void> {
   const supabase = getSupabaseClient()
-  const { error } = await supabase.from('expenses').delete().eq('id', id)
+  let query = supabase.from('expenses').delete().eq('id', id)
+  if (familyId) query = query.eq('family_id', familyId)
+  const { error } = await query
   if (error) throw error
 }
 
-export async function deleteExpenses(ids: string[]): Promise<void> {
+export async function deleteExpenses(ids: string[], familyId?: string): Promise<void> {
   const supabase = getSupabaseClient()
-  const { error } = await supabase.from('expenses').delete().in('id', ids)
+  let query = supabase.from('expenses').delete().in('id', ids)
+  if (familyId) query = query.eq('family_id', familyId)
+  const { error } = await query
   if (error) throw error
 }

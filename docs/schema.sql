@@ -11,12 +11,15 @@
 
 drop trigger if exists on_auth_user_created        on auth.users;
 
-drop function if exists handle_new_user()                    cascade;
-drop function if exists set_item_created_by()                cascade;
-drop function if exists check_split_group_limit()            cascade;
-drop function if exists find_or_create_family(uuid)          cascade;
-drop function if exists accept_invite(uuid, uuid, uuid)      cascade;
-drop function if exists get_plan_limits(text)                cascade;
+drop function if exists handle_new_user()                             cascade;
+drop function if exists set_item_created_by()                         cascade;
+drop function if exists check_split_group_limit()                     cascade;
+drop function if exists prevent_active_system_space_delete()          cascade;
+drop function if exists auto_sort_order_spaces()                      cascade;
+drop function if exists auto_sort_order_categories()                  cascade;
+drop function if exists find_or_create_family(uuid)                cascade;
+drop function if exists accept_invite(uuid, uuid, uuid)            cascade;
+drop function if exists reassign_and_delete_category(uuid, uuid)   cascade;
 drop function if exists is_family_member(uuid)               cascade;
 drop function if exists is_family_owner(uuid)                cascade;
 drop function if exists item_is_family_member(uuid)          cascade;
@@ -603,6 +606,64 @@ create trigger check_split_group_limit_trigger
 
 
 -- ----------------------------------------------------------------
+-- PART 6c: SYSTEM SPACE DELETE GUARD
+-- Prevents hard-deleting a space that is still linked to an active member.
+-- The correct flow is: remove the member (which unlinks the space), then
+-- the space becomes a virtual member that can be archived or deleted.
+-- ----------------------------------------------------------------
+
+create or replace function prevent_active_system_space_delete()
+returns trigger language plpgsql as $$
+begin
+  if OLD.is_system and OLD.linked_user_id is not null then
+    raise exception 'active_system_space_protected: cannot delete a space linked to an active member';
+  end if;
+  return OLD;
+end;
+$$;
+
+create trigger trg_prevent_active_system_space_delete
+  before delete on spaces
+  for each row execute function prevent_active_system_space_delete();
+
+
+-- ----------------------------------------------------------------
+-- PART 6d: AUTO SORT_ORDER ON INSERT
+-- Atomically assigns sort_order = MAX(sort_order) + 1 per family on insert,
+-- eliminating the TOCTOU race in client-side count-then-insert patterns.
+-- ----------------------------------------------------------------
+
+create or replace function auto_sort_order_spaces()
+returns trigger language plpgsql as $$
+begin
+  select coalesce(max(sort_order), -1) + 1 into NEW.sort_order
+  from spaces
+  where family_id = NEW.family_id and deleted_at is null;
+  return NEW;
+end;
+$$;
+
+create trigger trg_spaces_sort_order
+  before insert on spaces
+  for each row execute function auto_sort_order_spaces();
+
+
+create or replace function auto_sort_order_categories()
+returns trigger language plpgsql as $$
+begin
+  select coalesce(max(sort_order), -1) + 1 into NEW.sort_order
+  from categories
+  where family_id = NEW.family_id and deleted_at is null;
+  return NEW;
+end;
+$$;
+
+create trigger trg_categories_sort_order
+  before insert on categories
+  for each row execute function auto_sort_order_categories();
+
+
+-- ----------------------------------------------------------------
 -- PART 7: RLS HELPER FUNCTIONS
 -- SECURITY DEFINER lets them query user_families without going
 -- through RLS on that table (prevents infinite recursion).
@@ -805,24 +866,20 @@ begin
 end;
 $$;
 
--- Returns the member limit for a given plan (null = unlimited)
-create or replace function get_plan_limits(p_plan text)
-returns json language sql stable as $$
-  select json_build_object(
-    'member_limit', case p_plan
-      when 'free' then 3
-      when 'plus' then 5
-      else null
-    end,
-    'analytics',   p_plan in ('plus', 'pro'),
-    'export',      p_plan in ('plus', 'pro'),
-    'ai_import',   p_plan = 'pro'
-  )
-$$;
-
 grant execute on function find_or_create_family(uuid)     to authenticated;
 grant execute on function accept_invite(uuid, uuid, uuid) to authenticated;
-grant execute on function get_plan_limits(text)           to authenticated;
+
+-- Atomically reassign all expenses from one category to another, then hard-delete
+-- the old category. Runs as a single transaction to prevent partial failures.
+create or replace function reassign_and_delete_category(p_old_id uuid, p_new_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update expenses set category_id = p_new_id where category_id = p_old_id;
+  delete from categories where id = p_old_id;
+end;
+$$;
+
+grant execute on function reassign_and_delete_category(uuid, uuid) to authenticated;
 
 
 -- ----------------------------------------------------------------
@@ -885,7 +942,7 @@ create policy "invites_select"  on invites for select using (true);
 create policy "invites_insert"  on invites
   for insert to authenticated with check (is_family_member(family_id));
 create policy "invites_update"  on invites
-  for update to authenticated using (true) with check (true);
+  for update to authenticated using (is_family_member(family_id)) with check (true);
 
 -- spaces
 create policy "spaces_select" on spaces

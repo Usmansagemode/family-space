@@ -66,7 +66,7 @@ export function useExpenseMutations(
   })
 
   const remove = useMutation({
-    mutationFn: (id: string) => deleteExpense(id),
+    mutationFn: (id: string) => deleteExpense(id, familyId),
     onSuccess: () => {
       void invalidate()
       toast.success('Expense deleted')
@@ -77,7 +77,7 @@ export function useExpenseMutations(
   })
 
   const removeMany = useMutation({
-    mutationFn: (ids: string[]) => deleteExpenses(ids),
+    mutationFn: (ids: string[]) => deleteExpenses(ids, familyId),
     onSuccess: () => {
       void invalidate()
       toast.success('Expenses deleted')

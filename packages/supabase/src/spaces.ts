@@ -72,10 +72,6 @@ export async function createSpace(input: {
   type: SpaceType
   showInExpenses?: boolean
 }): Promise<Space> {
-  const count = await fetchSpaces(input.familyId)
-    .then((s) => s.length)
-    .catch(() => 0)
-
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('spaces')
@@ -84,7 +80,6 @@ export async function createSpace(input: {
       name: input.name,
       color: input.color,
       type: input.type,
-      sort_order: count,
       show_in_expenses: input.showInExpenses ?? true,
     })
     .select()
@@ -157,9 +152,11 @@ export async function fetchArchivedPersonSpaces(familyId: string): Promise<Space
 }
 
 /** Hard delete — only safe when no expenses reference this space. */
-export async function deleteSpace(id: string): Promise<void> {
+export async function deleteSpace(id: string, familyId?: string): Promise<void> {
   const supabase = getSupabaseClient()
-  const { error } = await supabase.from('spaces').delete().eq('id', id)
+  let query = supabase.from('spaces').delete().eq('id', id)
+  if (familyId) query = query.eq('family_id', familyId)
+  const { error } = await query
   if (error) throw error
 }
 

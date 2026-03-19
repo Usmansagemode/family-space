@@ -66,7 +66,7 @@ export function useSpaceMutations(familyId: string) {
   })
 
   const remove = useMutation({
-    mutationFn: (id: string) => deleteSpace(id),
+    mutationFn: (id: string) => deleteSpace(id, familyId),
     onSuccess: () => {
       void invalidate()
       toast.success('Space deleted')

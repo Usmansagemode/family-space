@@ -189,7 +189,10 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
   const isOwner = members?.find((m) => m.userId === user?.id)?.role === 'owner'
 
   const removeMember = useMutation({
-    mutationFn: (userId: string) => removeFamilyMember(family!.id, userId),
+    mutationFn: (userId: string) => {
+      if (!family?.id) throw new Error('Family not loaded')
+      return removeFamilyMember(family.id, userId)
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['family-members', family?.id],
@@ -200,7 +203,10 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
   })
 
   const invite = useMutation({
-    mutationFn: () => createInvite(family!.id),
+    mutationFn: () => {
+      if (!family?.id) throw new Error('Family not loaded')
+      return createInvite(family.id)
+    },
     onSuccess: (token: string) => {
       setInviteLink(`${window.location.origin}/invite?token=${token}`)
     },
@@ -216,12 +222,14 @@ export function SettingsSheet({ open, onOpenChange }: Props) {
   }
 
   const save = useMutation({
-    mutationFn: () =>
-      updateFamily(family!.id, {
+    mutationFn: () => {
+      if (!family?.id) throw new Error('Family not loaded')
+      return updateFamily(family.id, {
         name: familyName.trim() || 'Our Family',
         googleCalendarId: calendarId.trim() || undefined,
         googleCalendarEmbedUrl: embedUrl.trim() || undefined,
-      }),
+      })
+    },
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({
         queryKey: ['family', 'user', user?.id],

@@ -3,12 +3,13 @@ import {
   LayoutGrid,
   CalendarDays,
   Receipt,
-  Clock,
+  RefreshCw,
   Check,
   Sparkles,
   ImageIcon,
   ShoppingCart,
   TrendingUp,
+  ArrowDownLeft,
 } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { Badge } from '#/components/ui/badge'
@@ -61,7 +62,9 @@ function ScreenshotSlot({
       )}
       <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
         <ImageIcon className="h-8 w-8" />
-        <span className="px-4 text-center text-xs leading-relaxed">{label}</span>
+        <span className="px-4 text-center text-xs leading-relaxed">
+          {label}
+        </span>
       </div>
     </div>
   )
@@ -103,7 +106,7 @@ function EmailAuthForm() {
         type="email"
         placeholder="Email"
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={(e) => setEmail(e.target.value)}
         required
         autoComplete="email"
       />
@@ -111,7 +114,7 @@ function EmailAuthForm() {
         type="password"
         placeholder="Password"
         value={password}
-        onChange={e => setPassword(e.target.value)}
+        onChange={(e) => setPassword(e.target.value)}
         required
         autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
       />
@@ -165,34 +168,34 @@ function EmailAuthForm() {
 
 const QUICK_FEATURES = [
   {
-    icon: <ShoppingCart className="h-5 w-5" />,
-    title: 'Grocery lists',
-    body: 'Organised by store. Shared in real time.',
-  },
-  {
-    icon: <LayoutGrid className="h-5 w-5" />,
-    title: 'Chores board',
-    body: 'Drag-and-drop tasks per person. Nothing forgotten.',
-  },
-  {
     icon: <Receipt className="h-5 w-5" />,
     title: 'Expense tracking',
-    body: 'Log who paid, where, and what for.',
+    body: 'Log who paid, where, and what for — with categories, locations, and per-member totals.',
   },
   {
-    icon: <CalendarDays className="h-5 w-5" />,
-    title: 'Calendar sync',
-    body: 'Dated tasks push straight to Google Calendar.',
+    icon: <ArrowDownLeft className="h-5 w-5" />,
+    title: 'Income tracking',
+    body: 'Record salaries, freelance, and other income per person. See net cash flow at a glance.',
+  },
+  {
+    icon: <RefreshCw className="h-5 w-5" />,
+    title: 'Recurring transactions',
+    body: 'Set up rent, subscriptions, and paycheques once. They log themselves every month.',
   },
   {
     icon: <TrendingUp className="h-5 w-5" />,
     title: 'Yearly analytics',
-    body: '9 charts break down spending by month and member.',
+    body: '9 interactive charts break down spending by month, category, member, and store.',
   },
   {
-    icon: <Clock className="h-5 w-5" />,
-    title: 'Smart history',
-    body: 'Re-add last week\'s items in one tap.',
+    icon: <ShoppingCart className="h-5 w-5" />,
+    title: 'Grocery lists',
+    body: 'Organised by store. Shared in real time. Add from history in one tap.',
+  },
+  {
+    icon: <LayoutGrid className="h-5 w-5" />,
+    title: 'Chores board',
+    body: 'Drag-and-drop tasks per person. Dated items sync straight to Google Calendar.',
   },
 ]
 
@@ -201,45 +204,59 @@ const QUICK_FEATURES = [
 const FEATURE_ROWS = [
   {
     badge: null,
-    eyebrow: 'Shared board',
-    title: 'Everyone sees their own lane.',
-    body: 'Create a column for each family member and each store. Grocery runs, chores, errands — everything visible at a glance, drag-and-dropped into place.',
+    eyebrow: 'Finances',
+    title: "Your family's full financial picture.",
+    body: 'Track every expense and income entry in one place. The monthly chart shows income vs spending at a glance — so you always know where you stand before the month ends.',
     bullets: [
-      'Separate "Lists" and "Chores" tabs — keep shopping away from tasks',
-      'Collapse or focus any column to reduce noise',
-      'Search across all items in one keystroke',
+      'Per-member expense totals with month-over-month comparison',
+      'Custom categories and store locations per family',
+      'Bulk edit, Quick Tag, and duplicate detection built in',
     ],
     screenshotLabel:
-      'screenshot: board view with 3–4 columns (e.g. Walmart, Costco, Sarah, Tom) — several items with dates and tags, dark mode preferred',
-    screenshotTag: 'Board',
+      'screenshot: finances page — FinancialsChart (income vs expense bars) at top, ExpenseSummary cards per member below, expense table with category badges. Light mode.',
+    screenshotTag: 'Finances',
   },
   {
     badge: null,
-    eyebrow: 'Expense tracking',
-    title: 'Know exactly where the money goes.',
-    body: 'Log every expense by category, store, and who paid. Filter by month, store, or category in seconds. The monthly summary bar tells the whole story at a glance.',
+    eyebrow: 'Income & recurring',
+    title: 'Log income. Automate the rest.',
+    body: 'Record salaries, freelance, and other income per person. Set up recurring transactions once — rent, subscriptions, paycheques — and they appear automatically every cycle.',
     bullets: [
-      'Custom categories and locations per family',
-      'Monthly summaries with per-member totals',
-      'Bulk edit multiple expenses at once',
+      'Income types: Salary, Freelance, Rental, Business, and more',
+      'Recurring expenses and income with weekly / monthly / yearly frequency',
+      'Missed entries caught up automatically — no manual back-filling',
     ],
     screenshotLabel:
-      'screenshot: expenses table — one month with 10+ rows, filter chips active (e.g. "Groceries"), summary bar visible at top showing totals per person',
-    screenshotTag: 'Expenses',
+      'screenshot: finances page income tab — total income card in green at top, list of income entries with type icons and person names. Light mode.',
+    screenshotTag: 'Income & Recurring',
   },
   {
     badge: null,
     eyebrow: 'Yearly analytics',
     title: 'A full year of spending, visualised.',
-    body: '9 interactive charts break down every dollar by month, category, member, and store. Spot patterns, compare months, and plan ahead — no spreadsheets required.',
+    body: '9 interactive charts break down every dollar by month, category, member, and store. Filter by month, category, location, or who paid — export to PDF or Excel in one click.',
     bullets: [
-      'Monthly spending trend + category breakdown',
-      'Per-member and per-store spending comparison',
+      'Monthly spending trend, category donut, and member comparison',
       'Category heatmap across all 12 months',
+      'Export to PDF report or Excel for your records (Plus+)',
     ],
     screenshotLabel:
-      'screenshot: analytics page with ChartsHero visible — show 3–4 charts side by side, real data with varied categories (Groceries, Dining, Gas, etc.)',
+      'screenshot: analytics page — year selector, total spend in bold, 3–4 charts side by side (bar chart, donut, heatmap), export button visible. Light mode.',
     screenshotTag: 'Analytics',
+  },
+  {
+    badge: null,
+    eyebrow: 'Shared board',
+    title: 'Everyone sees their own lane.',
+    body: 'Create a column for each family member and each store. Grocery runs, chores, errands — everything visible at a glance, drag-and-dropped into place.',
+    bullets: [
+      'Separate "Lists" and "Chores" tabs — keep shopping away from tasks',
+      'Dated items sync straight to Google Calendar',
+      'Search across all items in one keystroke',
+    ],
+    screenshotLabel:
+      'screenshot: board view with 3–4 store columns (Walmart, Costco, T&T) — items with checkboxes and dates, dark mode.',
+    screenshotTag: 'Board',
   },
   {
     badge: 'Pro',
@@ -252,7 +269,7 @@ const FEATURE_ROWS = [
       'Preview and edit before importing anything',
     ],
     screenshotLabel:
-      'screenshot: AI import wizard step 2 or 3 — showing a list of extracted transactions with category mapping dropdowns, some rows highlighted/edited',
+      'screenshot: AI import wizard step 2 or 3 — extracted transactions with category mapping dropdowns, some rows highlighted/edited. Light mode.',
     screenshotTag: 'AI Import',
   },
 ]
@@ -269,10 +286,10 @@ const PLANS = [
     cta: 'Get started free',
     features: [
       'Shared grocery & chores board',
-      'Expense tracking',
+      'Expense & income tracking',
+      'Recurring transactions',
       'Up to 3 family members',
       'Google Calendar sync',
-      'Smart item history',
     ],
   },
   {
@@ -286,7 +303,7 @@ const PLANS = [
       'Everything in Free',
       'Up to 5 family members',
       'Yearly analytics (9 charts)',
-      'CSV & PDF export',
+      'Export to PDF & Excel',
       'Monthly budget tracking',
     ],
   },
@@ -314,7 +331,6 @@ export function LoginPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <section className="mx-auto flex max-w-2xl flex-col items-center px-6 pb-16 pt-20 text-center sm:pt-28">
         <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -325,14 +341,14 @@ export function LoginPage() {
         <h1 className="text-4xl font-bold tracking-tight sm:text-[3.25rem] sm:leading-[1.12]">
           One app for your family's{' '}
           <span className="text-muted-foreground">
-            groceries, chores, and money.
+            money, groceries, and chores.
           </span>
         </h1>
 
         <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
-          Family Space replaces the scattered group chats and spreadsheets with a
-          shared board, expense tracker, and yearly analytics — synced to Google
-          Calendar and built for everyone in the house.
+          Family Space replaces scattered spreadsheets and group chats with
+          shared expense tracking, income logging, recurring transactions,
+          yearly analytics, and a real-time board — all in one place.
         </p>
 
         <Button
@@ -346,7 +362,9 @@ export function LoginPage() {
 
         <div className="mt-6 flex w-full max-w-sm items-center gap-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">or sign in with email</span>
+          <span className="text-xs text-muted-foreground">
+            or sign in with email
+          </span>
           <div className="h-px flex-1 bg-border" />
         </div>
         <EmailAuthForm />
@@ -355,7 +373,7 @@ export function LoginPage() {
       {/* ── Hero screenshot ────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-6 pb-20">
         <ScreenshotSlot
-          label="screenshot: full-width board view — multiple columns with items, the app header visible at top, show both Lists and Chores tabs. Use real populated data. Dark mode."
+          label="screenshot: finances page — FinancialsChart (income vs expense bars) at top, per-member summary cards, 8–10 expense rows with category badges. App header visible. Light mode."
           tag="Full app"
           className="aspect-[16/9] sm:aspect-[21/9]"
         />
@@ -368,11 +386,11 @@ export function LoginPage() {
             Built for how families actually work
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Six features — one tab, always in sync.
+            Finances, lists, and chores — one app, always in sync.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {QUICK_FEATURES.map(f => (
+          {QUICK_FEATURES.map((f) => (
             <div
               key={f.title}
               className="rounded-xl border border-border bg-muted/30 p-5 transition-colors hover:bg-muted/50"
@@ -421,7 +439,7 @@ export function LoginPage() {
                   {f.body}
                 </p>
                 <ul className="mt-5 space-y-2.5">
-                  {f.bullets.map(b => (
+                  {f.bullets.map((b) => (
                     <li key={b} className="flex items-start gap-2.5 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                       <span className="text-muted-foreground">{b}</span>
@@ -455,7 +473,7 @@ export function LoginPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
-            {PLANS.map(plan => (
+            {PLANS.map((plan) => (
               <div
                 key={plan.name}
                 className={`relative flex flex-col rounded-2xl border p-6 ${
@@ -488,7 +506,7 @@ export function LoginPage() {
                 </div>
 
                 <ul className="mb-8 flex-1 space-y-3">
-                  {plan.features.map(feat => (
+                  {plan.features.map((feat) => (
                     <li key={feat} className="flex items-start gap-2.5 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                       <span className="text-muted-foreground">{feat}</span>
@@ -508,8 +526,8 @@ export function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
-            All plans include a 7-day free trial of paid features.
-            Cancel anytime.
+            All plans include a 7-day free trial of paid features. Cancel
+            anytime.
           </p>
         </div>
       </section>
@@ -520,12 +538,14 @@ export function LoginPage() {
           {[
             { value: 'Free', label: 'to get started' },
             { value: '< 1 min', label: 'setup time' },
-            { value: '9 charts', label: 'of spending analytics' },
+            { value: '9 charts', label: 'of yearly analytics' },
             { value: 'AI-powered', label: 'bank import (Pro)' },
-          ].map(stat => (
+          ].map((stat) => (
             <div key={stat.label}>
               <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">{stat.label}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>
@@ -539,7 +559,7 @@ export function LoginPage() {
               Works great on mobile too
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Add groceries from the store. Check chores on the go.
+              Log expenses from anywhere. Track income on the go.
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-3">
@@ -549,12 +569,12 @@ export function LoginPage() {
               className="aspect-[9/16] sm:aspect-[9/16]"
             />
             <ScreenshotSlot
-              label="screenshot: mobile expense entry — the expense dialog open on mobile, category/amount fields filled in. Dark mode."
-              tag="Mobile add expense"
+              label="screenshot: mobile finances page — FinancialsChart compressed at top, 3–4 expense rows below, Add expense button visible. Light mode."
+              tag="Mobile finances"
               className="aspect-[9/16] sm:aspect-[9/16]"
             />
             <ScreenshotSlot
-              label="screenshot: mobile analytics — ChartsHero on mobile, one or two charts stacked, visible filters. Light or dark mode."
+              label="screenshot: mobile analytics — year selector and total at top, one or two charts stacked, filter chips. Light or dark mode."
               tag="Mobile analytics"
               className="aspect-[9/16] sm:aspect-[9/16]"
             />
