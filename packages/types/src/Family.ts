@@ -23,6 +23,8 @@ export type Family = {
   /** Set by an admin when the family account has been suspended */
   suspendedAt?: Date | null
   suspendReason?: string | null
+  /** Null until the owner completes (or skips) the post-signup onboarding wizard */
+  onboardingCompletedAt?: Date | null
   createdAt: Date
   updatedAt: Date
 }

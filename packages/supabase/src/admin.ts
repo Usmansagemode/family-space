@@ -436,6 +436,86 @@ export async function demoteAdminUser(userId: string, adminId: string): Promise<
 }
 
 // ---------------------------------------------------------------------------
+// Family members (admin view)
+// ---------------------------------------------------------------------------
+
+export type AdminFamilyMember = {
+  userId: string
+  name: string | null
+  email: string | null
+  avatarUrl: string | null
+  role: 'owner' | 'member'
+  joinedAt: Date
+}
+
+export async function fetchFamilyMembersAdmin(
+  familyId: string,
+): Promise<AdminFamilyMember[]> {
+  const supabase = getServiceClient()
+  const { data, error } = await supabase
+    .from('user_families')
+    .select('user_id, role, joined_at, profiles(name, email, avatar_url)')
+    .eq('family_id', familyId)
+    .order('joined_at', { ascending: true })
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>
+    const profile = r['profiles'] as {
+      name: string | null
+      email: string | null
+      avatar_url: string | null
+    } | null
+    return {
+      userId: r['user_id'] as string,
+      name: profile?.name ?? null,
+      email: profile?.email ?? null,
+      avatarUrl: profile?.avatar_url ?? null,
+      role: r['role'] as 'owner' | 'member',
+      joinedAt: new Date(r['joined_at'] as string),
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// User families (admin view)
+// ---------------------------------------------------------------------------
+
+export type AdminUserFamily = {
+  familyId: string
+  familyName: string
+  role: 'owner' | 'member'
+  plan: string
+  joinedAt: Date
+}
+
+export async function fetchUserFamiliesAdmin(
+  userId: string,
+): Promise<AdminUserFamily[]> {
+  const supabase = getServiceClient()
+  const { data, error } = await supabase
+    .from('user_families')
+    .select('family_id, role, joined_at, families(name, plan)')
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: true })
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>
+    const family = r['families'] as { name: string; plan: string } | null
+    return {
+      familyId: r['family_id'] as string,
+      familyName: family?.name ?? '(Unknown)',
+      role: r['role'] as 'owner' | 'member',
+      plan: family?.plan ?? 'free',
+      joinedAt: new Date(r['joined_at'] as string),
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Plan features (DB-backed feature matrix)
 // ---------------------------------------------------------------------------
 
@@ -601,6 +681,131 @@ export async function revokeInvite(token: string, adminId: string): Promise<void
     targetType: 'invite',
     targetId: r?.['id'] as string | null,
     payload: { token, familyId: r?.['family_id'] ?? null },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Dangerous delete — full cascade wipe for testing / GDPR
+// ---------------------------------------------------------------------------
+
+/**
+ * Permanently deletes a family and all its data:
+ *   1. Unlinks system person spaces (bypasses the active_system_space_protected trigger)
+ *   2. Deletes the family row — cascade removes everything: spaces, items,
+ *      expenses, categories, invites, splits, user_families memberships, etc.
+ *   3. Writes an audit log entry.
+ *
+ * Member auth accounts are NOT deleted — they just lose access to this family.
+ */
+export async function deleteFamilyCompletely(
+  familyId: string,
+  adminId: string,
+): Promise<void> {
+  const supabase = getServiceClient()
+
+  // Snapshot for the audit log
+  const { data: familySnap } = await supabase
+    .from('families')
+    .select('name')
+    .eq('id', familyId)
+    .single()
+  const snap = familySnap as { name: string } | null
+
+  // Unlink system person spaces first so the trigger doesn't block cascade
+  const { error: unlinkErr } = await supabase
+    .from('spaces')
+    .update({ linked_user_id: null })
+    .eq('family_id', familyId)
+    .eq('is_system', true)
+    .not('linked_user_id', 'is', null)
+  if (unlinkErr) throw unlinkErr
+
+  // Delete family — FK cascades wipe all related data
+  const { error: deleteErr } = await supabase
+    .from('families')
+    .delete()
+    .eq('id', familyId)
+  if (deleteErr) throw deleteErr
+
+  await writeAuditLog({
+    adminId,
+    action: 'family.deleted_completely',
+    targetType: 'family',
+    targetId: familyId,
+    payload: { name: snap?.name ?? null },
+  })
+}
+
+/**
+ * Permanently deletes a user and everything they own:
+ *   1. Finds all families where this user is the owner and deletes them
+ *      (cascade removes: spaces, items, expenses, categories, invites, splits…)
+ *   2. Deletes the auth.users row via the Admin API
+ *      (cascade removes: profiles, user_families memberships in other families)
+ *   3. Writes an audit log entry.
+ *
+ * After this call the user's email is free and they can sign up fresh.
+ */
+export async function deleteUserCompletely(
+  userId: string,
+  adminId: string,
+): Promise<void> {
+  const supabase = getServiceClient()
+
+  // Snapshot profile for the audit log before anything is deleted
+  const { data: profileSnap } = await supabase
+    .from('profiles')
+    .select('name, email')
+    .eq('id', userId)
+    .single()
+  const snap = profileSnap as { name: string | null; email: string | null } | null
+
+  // Find every family this user owns
+  const { data: memberships, error: memberErr } = await supabase
+    .from('user_families')
+    .select('family_id, role')
+    .eq('user_id', userId)
+  if (memberErr) throw memberErr
+
+  const ownedIds = ((memberships ?? []) as Array<{ family_id: string; role: string }>)
+    .filter((m) => m.role === 'owner')
+    .map((m) => m.family_id)
+
+  // Delete owned families → FK cascades wipe all family data
+  if (ownedIds.length > 0) {
+    // The trigger `trg_prevent_active_system_space_delete` blocks deleting a
+    // space while linked_user_id is set. Unlink all system person spaces in
+    // the owned families first so the trigger doesn't fire during cascade.
+    const { error: unlinkErr } = await supabase
+      .from('spaces')
+      .update({ linked_user_id: null })
+      .in('family_id', ownedIds)
+      .eq('is_system', true)
+      .not('linked_user_id', 'is', null)
+    if (unlinkErr) throw unlinkErr
+
+    const { error: familyErr } = await supabase
+      .from('families')
+      .delete()
+      .in('id', ownedIds)
+    if (familyErr) throw familyErr
+  }
+
+  // Delete the auth user → cascades to profiles + any remaining user_families
+  const { error: authErr } = await supabase.auth.admin.deleteUser(userId)
+  if (authErr) throw authErr
+
+  // Audit trail
+  await writeAuditLog({
+    adminId,
+    action: 'user.deleted_completely',
+    targetType: 'user',
+    targetId: userId,
+    payload: {
+      name: snap?.name ?? null,
+      email: snap?.email ?? null,
+      ownedFamiliesDeleted: ownedIds.length,
+    },
   })
 }
 

@@ -93,6 +93,7 @@ create table families (
   suspended_at                timestamptz,
   suspended_by                uuid references auth.users(id) on delete set null,
   suspend_reason              text,
+  onboarding_completed_at     timestamptz,
   created_at                  timestamptz default now(),
   updated_at                  timestamptz default now()
 );

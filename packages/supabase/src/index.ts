@@ -113,7 +113,12 @@ export {
   fetchAllInvites,
   revokeInvite,
   fetchAdminAuditLog,
+  deleteFamilyCompletely,
+  deleteUserCompletely,
+  fetchFamilyMembersAdmin,
+  fetchUserFamiliesAdmin,
 } from './admin'
+export type { AdminFamilyMember, AdminUserFamily } from './admin'
 export type { AdminInvite } from './admin'
 
 export {

@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  deleteFamilyCompletely,
   fetchAllFamilies,
   fetchFamilyAdmin,
   fetchFamilyFeatureOverrides,
+  fetchFamilyMembersAdmin,
   removeFamilyFeatureOverride,
   setFamilyFeatureOverride,
   suspendFamily,
@@ -29,6 +31,14 @@ export function useAdminFamily(familyId: string) {
   return useQuery({
     queryKey: ['admin', 'family', familyId],
     queryFn: () => fetchFamilyAdmin(familyId),
+    enabled: !!familyId,
+  })
+}
+
+export function useAdminFamilyMembers(familyId: string) {
+  return useQuery({
+    queryKey: ['admin', 'family-members', familyId],
+    queryFn: () => fetchFamilyMembersAdmin(familyId),
     enabled: !!familyId,
   })
 }
@@ -108,5 +118,15 @@ export function useAdminFamilyMutations() {
     onError: () => toast.error('Failed to remove override'),
   })
 
-  return { changePlan, suspend, unsuspend, setOverride, removeOverride }
+  const deleteFamily = useMutation({
+    mutationFn: ({ familyId }: { familyId: string }) =>
+      deleteFamilyCompletely(familyId, adminId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'families'] })
+      toast.success('Family and all its data permanently deleted')
+    },
+    onError: () => toast.error('Failed to delete family'),
+  })
+
+  return { changePlan, suspend, unsuspend, setOverride, removeOverride, deleteFamily }
 }

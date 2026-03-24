@@ -108,11 +108,32 @@ function AuthedLayout({ children }: { children: React.ReactNode }) {
     PUBLIC_PATHS.includes(location.pathname) ||
     location.pathname.startsWith('/invite')
 
+  const isOnboarding = location.pathname === '/onboarding'
+
   useEffect(() => {
     if (!loading && !user && !isPublicRoute) {
       void navigate({ to: '/' })
     }
   }, [loading, user, isPublicRoute, navigate])
+
+  // Redirect new users to onboarding wizard before they see the app.
+  // Note: we cannot use !isPublicRoute here because '/' is in PUBLIC_PATHS
+  // (it doubles as the login page for unauthenticated visitors). Instead we
+  // explicitly exclude only the routes where an onboarding redirect makes no
+  // sense.
+  useEffect(() => {
+    if (
+      user &&
+      family &&
+      !family.onboardingCompletedAt &&
+      !isOnboarding &&
+      location.pathname !== '/privacy' &&
+      location.pathname !== '/terms' &&
+      !location.pathname.startsWith('/invite')
+    ) {
+      void navigate({ to: '/onboarding' })
+    }
+  }, [user, family, isOnboarding, location.pathname, navigate])
 
   // No user: render public routes normally; for protected routes show nothing
   // while the redirect (above) takes effect
@@ -131,12 +152,28 @@ function AuthedLayout({ children }: { children: React.ReactNode }) {
     return <SuspendedOverlay reason={(family as { suspendReason?: string | null }).suspendReason ?? null} />
   }
 
+  // Onboarding wizard: full-screen, no nav chrome
+  if (isOnboarding) {
+    return <main className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</main>
+  }
+
   return (
     <div className="relative flex min-h-0 flex-1">
       <AppNav />
       <main className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain">
         {children}
       </main>
+    </div>
+  )
+}
+
+function AppShell({ children }: { children: React.ReactNode }) {
+  const { location } = useRouterState()
+  const isOnboarding = location.pathname === '/onboarding'
+  return (
+    <div className="flex h-screen flex-col overflow-hidden">
+      {!isOnboarding && <Header />}
+      <AuthedLayout>{children}</AuthedLayout>
     </div>
   )
 }
@@ -153,10 +190,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <TanStackQueryProvider>
             <TooltipProvider>
               <MobileNavProvider>
-                <div className="flex h-screen flex-col overflow-hidden">
-                  <Header />
-                  <AuthedLayout>{children}</AuthedLayout>
-                </div>
+                <AppShell>{children}</AppShell>
               </MobileNavProvider>
             </TooltipProvider>
             <Toaster richColors position="bottom-right" />

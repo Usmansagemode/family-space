@@ -13,6 +13,7 @@ function mapFamily(data: {
   google_calendar_embed_url?: string | null
   suspended_at?: string | null
   suspend_reason?: string | null
+  onboarding_completed_at?: string | null
   created_at: string
   updated_at?: string | null
 }): Family {
@@ -26,6 +27,9 @@ function mapFamily(data: {
     googleCalendarEmbedUrl: data.google_calendar_embed_url ?? undefined,
     suspendedAt: data.suspended_at ? new Date(data.suspended_at) : null,
     suspendReason: data.suspend_reason ?? null,
+    onboardingCompletedAt: data.onboarding_completed_at
+      ? new Date(data.onboarding_completed_at)
+      : null,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at ?? data.created_at),
   }
@@ -51,6 +55,7 @@ export async function updateFamily(
     locale?: string
     googleCalendarId?: string
     googleCalendarEmbedUrl?: string
+    onboardingCompletedAt?: Date | string | null
   },
 ): Promise<Family> {
   const supabase = getSupabaseClient()
@@ -62,6 +67,12 @@ export async function updateFamily(
     dbInput['google_calendar_id'] = input.googleCalendarId || null
   if (input.googleCalendarEmbedUrl !== undefined)
     dbInput['google_calendar_embed_url'] = input.googleCalendarEmbedUrl || null
+  if (input.onboardingCompletedAt !== undefined) {
+    dbInput['onboarding_completed_at'] =
+      input.onboardingCompletedAt instanceof Date
+        ? input.onboardingCompletedAt.toISOString()
+        : input.onboardingCompletedAt
+  }
 
   const { data, error } = await supabase
     .from('families')

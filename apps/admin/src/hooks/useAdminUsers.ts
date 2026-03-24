@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   banUser,
+  deleteUserCompletely,
   demoteAdminUser,
   fetchAllUsers,
   fetchUserAdmin,
+  fetchUserFamiliesAdmin,
   promoteUserToAdmin,
   unbanUser,
 } from '@family/supabase'
@@ -25,6 +27,14 @@ export function useAdminUser(userId: string) {
   return useQuery({
     queryKey: ['admin', 'user', userId],
     queryFn: () => fetchUserAdmin(userId),
+    enabled: !!userId,
+  })
+}
+
+export function useAdminUserFamilies(userId: string) {
+  return useQuery({
+    queryKey: ['admin', 'user-families', userId],
+    queryFn: () => fetchUserFamiliesAdmin(userId),
     enabled: !!userId,
   })
 }
@@ -75,5 +85,15 @@ export function useAdminUserMutations() {
     onError: () => toast.error('Failed to demote user'),
   })
 
-  return { ban, unban, promote, demote }
+  const deleteUser = useMutation({
+    mutationFn: ({ userId }: { userId: string }) =>
+      deleteUserCompletely(userId, adminId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+      toast.success('User and all their data permanently deleted')
+    },
+    onError: () => toast.error('Failed to delete user'),
+  })
+
+  return { ban, unban, promote, demote, deleteUser }
 }
