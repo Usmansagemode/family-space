@@ -137,8 +137,9 @@ Each item:
 }
 
 Rules:
-- Extract every debit/expense transaction. Skip credits/deposits.
-- Amount must be a positive number.
+- Extract every debit/expense transaction as a positive amount.
+- Extract refunds/credits/reversals as a negative amount (e.g. -12.50).
+- Skip pure deposits and income (salary, transfers in).
 - Use null for missing IDs.
 - Return ONLY the JSON array.`
 
@@ -167,7 +168,7 @@ Rules:
             typeof t.date === 'string' &&
             /^\d{4}-\d{2}-\d{2}$/.test(t.date) &&
             !isNaN(amount) &&
-            amount > 0
+            amount !== 0
           )
         })
       } catch {

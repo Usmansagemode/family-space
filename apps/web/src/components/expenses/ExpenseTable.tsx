@@ -273,7 +273,10 @@ export function ExpenseTable({
                           {expense.description ?? 'No description'}
                         </span>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      <span className={cn(
+                        'shrink-0 text-sm font-semibold tabular-nums',
+                        expense.amount < 0 && 'text-emerald-600 dark:text-emerald-400',
+                      )}>
                         {formatCurrency(expense.amount, currency, locale)}
                       </span>
                     </div>
@@ -322,7 +325,7 @@ export function ExpenseTable({
 
                   {/* Delete */}
                   <div
-                    className="mt-0.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="mt-0.5 shrink-0 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Button
@@ -438,7 +441,10 @@ export function ExpenseTable({
                         : <span className="italic text-muted-foreground">—</span>}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">
+                  <td className={cn(
+                    'whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums',
+                    expense.amount < 0 && 'text-emerald-600 dark:text-emerald-400',
+                  )}>
                     {formatCurrency(expense.amount, currency, locale)}
                   </td>
                   <td className="px-4 py-3">

@@ -46,15 +46,15 @@ export function StandardFormatMapping() {
 
       <div className="space-y-3">
         {STANDARD_FIELDS.map((field) => (
-          <div key={field} className="flex items-center gap-4">
-            <span className="w-32 text-sm font-medium shrink-0">
+          <div key={field} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+            <span className="w-32 shrink-0 text-sm font-medium">
               {FIELD_LABELS[field] ?? field}
             </span>
             <Select
               onValueChange={(val) => handleStandardFieldSelect(field, val)}
               value={mapping[field as keyof typeof mapping] ?? NONE_VALUE}
             >
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-full sm:w-56">
                 <SelectValue placeholder="Select column" />
               </SelectTrigger>
               <SelectContent>

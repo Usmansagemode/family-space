@@ -52,15 +52,15 @@ export function WideFormatMapping() {
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">Basic Fields</h3>
           {BASIC_FIELDS.map((field) => (
-            <div key={field} className="flex items-center gap-3">
-              <span className="w-28 text-sm font-medium shrink-0">
+            <div key={field} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+              <span className="w-28 shrink-0 text-sm font-medium">
                 {FIELD_LABELS[field] ?? field}
               </span>
               <Select
                 onValueChange={(val) => handleStandardFieldSelect(field, val)}
                 value={(mapping[field as keyof WideFormatMapping] as string) ?? NONE_VALUE}
               >
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-full sm:w-44">
                   <SelectValue placeholder="Select column" />
                 </SelectTrigger>
                 <SelectContent>
