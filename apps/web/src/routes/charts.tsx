@@ -8,6 +8,7 @@ import { useYearlyExpenses } from '#/hooks/expenses/useYearlyExpenses'
 import { useBudgets } from '#/hooks/budgets/useBudgets'
 import { useSpaces } from '#/hooks/spaces/useSpaces'
 import { UpgradePlanPrompt } from '#/components/billing/UpgradePlanPrompt'
+import { UpcomingWidget } from '#/components/calendar/UpcomingWidget'
 import { CategoryFilter } from '#/components/charts/CategoryFilter'
 import { ChartsGrid } from '#/components/charts/ChartsGrid'
 import { LocationFilter } from '#/components/charts/LocationFilter'
@@ -274,6 +275,9 @@ function ChartsPage() {
           )}
         </div>
       </div>
+
+      {/* Upcoming items */}
+      <UpcomingWidget familyId={familyId} />
 
       {/* Charts */}
       {!can.charts ? (

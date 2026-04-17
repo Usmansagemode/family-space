@@ -7,6 +7,12 @@ export type UpcomingResult =
   | { kind: 'window'; items: Item[] }
   | { kind: 'next'; item: Item | null }
 
+// Single source of truth for the cache key — callers that need to do
+// setQueryData/cancelQueries should import this instead of reconstructing it.
+export function upcomingItemsQueryKey(familyId: string) {
+  return ['upcoming-items', familyId, format(new Date(), 'yyyy-MM-dd')] as const
+}
+
 // Single query — collapses the two-fetch chain so there's one cache entry,
 // one loading flag, and no mid-transition empty-state flicker.
 // todayKey in queryKey naturally invalidates when the calendar date rolls over.
