@@ -5,9 +5,15 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@family/types": "*",
     "date-fns": "^4.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.5"
   },
   "peerDependencies": {
     "react": ">=18"

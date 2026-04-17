@@ -2,8 +2,8 @@ export type Recurrence = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 export type Item = {
   id: string
-  spaceId: string
   familyId?: string
+  spaceId: string
   title: string
   description?: string
   quantity?: string
@@ -18,4 +18,9 @@ export type Item = {
   googleEventId?: string
   createdAt: Date
   updatedAt: Date
+}
+
+export type CalendarItem = Omit<Item, 'familyId'> & {
+  familyId: string
+  isVirtual: boolean
 }

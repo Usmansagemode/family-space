@@ -3,6 +3,7 @@ import { getSupabaseClient } from './client'
 
 function rowToItem(row: {
   id: string
+  family_id?: string | null
   space_id: string
   title: string
   description: string | null
@@ -19,6 +20,7 @@ function rowToItem(row: {
 }): Item {
   return {
     id: row.id,
+    familyId: row.family_id ?? undefined,
     spaceId: row.space_id,
     title: row.title,
     description: row.description ?? undefined,
@@ -209,6 +211,57 @@ export async function advanceRecurringItem(
 
   if (error) throw error
   return rowToItem(data)
+}
+
+// Query 1: non-recurring items strictly within the calendar window.
+// Uses full ISO timestamps (not date-only strings) so items stored at
+// non-midnight UTC (e.g. created at 10pm PST = next day UTC) are included.
+export async function fetchNonRecurringCalendarItems(
+  familyId: string,
+  windowStart: Date,
+  windowEnd: Date,
+): Promise<Item[]> {
+  const supabase = getSupabaseClient()
+  const start = new Date(windowStart)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(windowEnd)
+  end.setHours(23, 59, 59, 999)
+
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('family_id', familyId)
+    .is('recurrence', null)
+    .gte('start_date', start.toISOString())
+    .lte('start_date', end.toISOString())
+    .eq('completed', false)
+
+  if (error) throw error
+  return data.map(rowToItem)
+}
+
+// Query 2: all active recurring items whose current start_date falls at or before
+// the window end. No lower bound — expandRecurringItem projects occurrences
+// client-side. Historical navigation shows nothing for items already advanced
+// past the window (their past occurrences were completed and filtered out).
+export async function fetchRecurringCalendarItems(
+  familyId: string,
+  windowEnd: Date,
+): Promise<Item[]> {
+  const supabase = getSupabaseClient()
+  const end = new Date(windowEnd)
+  end.setHours(23, 59, 59, 999)
+
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('family_id', familyId)
+    .not('recurrence', 'is', null)
+    .lte('start_date', end.toISOString())
+    .eq('completed', false)
+
+  if (error) throw error
+  return data.map(rowToItem)
 }
 
 // Uncomplete an existing item rather than creating a new row.

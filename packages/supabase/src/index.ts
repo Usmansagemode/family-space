@@ -59,6 +59,8 @@ export {
 
 export {
   fetchItems,
+  fetchNonRecurringCalendarItems,
+  fetchRecurringCalendarItems,
   createItem,
   updateItem,
   completeItem,
