@@ -1,9 +1,14 @@
 import type { Item, Recurrence } from '@family/types'
 import { getSupabaseClient } from './client'
 
-// Items use a timestamptz column but the calendar treats them as all-day dates.
-// Always store as "YYYY-MM-DD" (Postgres interprets as UTC midnight) and parse
-// back as local midnight so format/comparison never shifts across a day boundary.
+// Noon (12:00 local) is the sentinel used by AddItemSheet for "date picked, no
+// explicit time". Any other hour/minute means the user deliberately set a time.
+function hasExplicitTime(date: Date): boolean {
+  return !(date.getHours() === 12 && date.getMinutes() === 0)
+}
+
+// Store as "YYYY-MM-DD" for date-only items (Postgres interprets as UTC midnight,
+// parseDateOnly recovers the local day without timezone shift).
 function toDateOnly(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -11,9 +16,26 @@ function toDateOnly(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+// Store date-only items as "YYYY-MM-DD"; timed items as full UTC ISO so the
+// time round-trips correctly through Supabase's UTC TIMESTAMPTZ column.
+function toItemDate(date: Date): string {
+  return hasExplicitTime(date) ? date.toISOString() : toDateOnly(date)
+}
+
+// Parse a date-only string (midnight UTC) back to local midnight without shift.
 function parseDateOnly(isoStr: string): Date {
   const [y, m, d] = isoStr.slice(0, 10).split('-').map(Number)
   return new Date(y, m - 1, d)
+}
+
+// Smart parser: midnight UTC → local date (avoids day shift); any other UTC
+// time → parse as UTC so the local time is correctly reconstructed.
+function parseItemDate(isoStr: string): Date {
+  const match = isoStr.match(/T(\d{2}):(\d{2}):(\d{2})/)
+  if (!match || (match[1] === '00' && match[2] === '00' && match[3] === '00')) {
+    return parseDateOnly(isoStr)
+  }
+  return new Date(isoStr)
 }
 
 function rowToItem(row: {
@@ -40,8 +62,8 @@ function rowToItem(row: {
     title: row.title,
     description: row.description ?? undefined,
     quantity: row.quantity ?? undefined,
-    startDate: row.start_date ? parseDateOnly(row.start_date) : undefined,
-    endDate: row.end_date ? parseDateOnly(row.end_date) : undefined,
+    startDate: row.start_date ? parseItemDate(row.start_date) : undefined,
+    endDate: row.end_date ? parseItemDate(row.end_date) : undefined,
     recurrence: row.recurrence as Recurrence | undefined,
     completed: row.completed,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
@@ -85,8 +107,8 @@ export async function createItem(input: {
       title: input.title,
       description: input.description ?? null,
       quantity: input.quantity ?? null,
-      start_date: input.startDate ? toDateOnly(input.startDate) : null,
-      end_date: input.endDate ? toDateOnly(input.endDate) : null,
+      start_date: input.startDate ? toItemDate(input.startDate) : null,
+      end_date: input.endDate ? toItemDate(input.endDate) : null,
       recurrence: input.recurrence ?? null,
       google_event_id: input.googleEventId ?? null,
       sort_order: 0,
@@ -119,9 +141,9 @@ export async function updateItem(
     dbInput['description'] = input.description
   if (input.quantity !== undefined) dbInput['quantity'] = input.quantity
   if (input.startDate !== undefined)
-    dbInput['start_date'] = toDateOnly(input.startDate)
+    dbInput['start_date'] = toItemDate(input.startDate)
   if (input.endDate !== undefined)
-    dbInput['end_date'] = toDateOnly(input.endDate)
+    dbInput['end_date'] = toItemDate(input.endDate)
   if (input.recurrence !== undefined) dbInput['recurrence'] = input.recurrence
   if (input.googleEventId !== undefined)
     dbInput['google_event_id'] = input.googleEventId
@@ -230,19 +252,21 @@ export async function advanceRecurringItem(
   return rowToItem(data)
 }
 
-// Query 1: non-recurring items strictly within the calendar window.
-// Uses full ISO timestamps (not date-only strings) so items stored at
-// non-midnight UTC (e.g. created at 10pm PST = next day UTC) are included.
+// Query 1: non-recurring items within the calendar window.
+// Boundaries use ±1 local day so timed items stored as UTC don't fall outside
+// the window due to UTC/local offset on the first or last day of the range.
+// Extra items fetched outside the visible window are harmless — schedule-x
+// only renders events that fall on a date in its current view.
 export async function fetchNonRecurringCalendarItems(
   familyId: string,
   windowStart: Date,
   windowEnd: Date,
 ): Promise<Item[]> {
   const supabase = getSupabaseClient()
-  // Use YYYY-MM-DD strings to match how dates are stored (UTC midnight).
-  // toDateOnly uses local date fields so the calendar day boundary is always correct.
-  const startStr = toDateOnly(windowStart)
-  const endStr = toDateOnly(windowEnd)
+  const startBuffer = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate() - 1)
+  const endBuffer = new Date(windowEnd.getFullYear(), windowEnd.getMonth(), windowEnd.getDate() + 1)
+  const startStr = toDateOnly(startBuffer)
+  const endStr = toDateOnly(endBuffer)
 
   const { data, error } = await supabase
     .from('items')
@@ -313,7 +337,8 @@ export async function fetchRecurringCalendarItems(
   windowEnd: Date,
 ): Promise<Item[]> {
   const supabase = getSupabaseClient()
-  const endStr = toDateOnly(windowEnd)
+  const endBuffer = new Date(windowEnd.getFullYear(), windowEnd.getMonth(), windowEnd.getDate() + 1)
+  const endStr = toDateOnly(endBuffer)
 
   const { data, error } = await supabase
     .from('items')
