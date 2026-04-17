@@ -95,7 +95,7 @@ function FamilyContent({
         </div>
       )}
       <div className={cn('min-h-0 flex-1', tab !== 'calendar' && 'hidden')}>
-        <CalendarView embedUrl={embedUrl} />
+        <CalendarView familyId={familyId} embedUrl={embedUrl} />
       </div>
 
       <SearchDialog
