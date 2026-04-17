@@ -1,6 +1,5 @@
 import { isSameDay } from 'date-fns'
-import pkg from 'rrule'
-const { RRule } = pkg
+import { RRule } from 'rrule'
 import type { CalendarItem, Item } from '@family/types'
 
 // rrule is timezone-naive and treats all dates as UTC. Normalize to UTC
