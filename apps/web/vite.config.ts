@@ -10,6 +10,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
+  optimizeDeps: {
+    include: ['rrule'],
+  },
+  ssr: {
+    noExternal: ['rrule'],
+  },
   plugins: [
     devtools(),
     nitro({ preset: 'vercel' }),
