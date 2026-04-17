@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCalendarApp, ScheduleXCalendar } from '@schedule-x/react'
 import { createViewWeek, createViewMonthGrid } from '@schedule-x/calendar'
 import type { CalendarEventExternal } from '@schedule-x/calendar'
-import '@schedule-x/theme-default/dist/index.css'
-import './calendar.css'
+import { Temporal as TemporalPolyfill } from 'temporal-polyfill'
 import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -12,6 +11,8 @@ import {
   updateItem,
   deleteItem as deleteItemFn,
   advanceRecurringItem,
+  fetchNonRecurringCalendarItems,
+  fetchRecurringCalendarItems,
 } from '@family/supabase'
 import { advanceDate } from '@family/utils'
 import {
@@ -20,13 +21,18 @@ import {
   calendarItemsQueryKeys,
 } from '@family/hooks'
 import type { CalendarItem, Item, Recurrence } from '@family/types'
-import {
-  fetchNonRecurringCalendarItems,
-  fetchRecurringCalendarItems,
-} from '@family/supabase'
 import { useIsDark } from '#/hooks/useIsDark'
 import { AddItemSheet } from '#/components/board/AddItemSheet'
 import { QuickCreateItemDialog } from '#/components/calendar/QuickCreateItemDialog'
+import '@schedule-x/theme-default/dist/index.css'
+import './calendar.css'
+
+// schedule-x references Temporal as a bare global (no import). Polyfill globalThis
+// if native Temporal is unavailable so schedule-x's instanceof checks find the same
+// class we use when creating PlainDate event dates.
+const g = globalThis as Record<string, unknown>
+if (!g['Temporal']) g['Temporal'] = TemporalPolyfill
+const Temporal = (g['Temporal'] ?? TemporalPolyfill) as typeof TemporalPolyfill
 
 export interface AppCalendarProps {
   familyId: string
@@ -90,12 +96,13 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
       if (!item.startDate) continue
       const dateStr = format(item.startDate, 'yyyy-MM-dd')
       const eventId = item.isVirtual ? `v-${item.id}-${dateStr}` : `r-${item.id}`
+      const plainDate = Temporal.PlainDate.from(dateStr)
       map.set(eventId, item)
       events.push({
         id: eventId,
         title: item.title,
-        start: dateStr,
-        end: dateStr,
+        start: plainDate,
+        end: plainDate,
         cssClass: item.isVirtual ? 'sx-event-virtual' : undefined,
       })
     }
