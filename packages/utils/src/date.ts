@@ -1,4 +1,5 @@
-import { RRule } from 'rrule'
+import pkg from 'rrule'
+const { RRule } = pkg
 import type { Recurrence } from '@family/types'
 
 /** Parse a YYYY-MM-DD date string into a local Date object without UTC shift. */
