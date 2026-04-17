@@ -266,9 +266,10 @@ create table budgets (
   unique (family_id, person_id, category_id, period)
 );
 
--- Board task / grocery cards (no family_id — scoped via space → family)
+-- Board task / grocery cards
 create table items (
   id              uuid primary key default gen_random_uuid(),
+  family_id       uuid not null references families(id) on delete cascade,
   space_id        uuid not null references spaces(id) on delete cascade,
   title           text not null,
   description     text,
@@ -505,16 +506,15 @@ create trigger set_item_created_by_trigger
 create or replace function log_item_added()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_family_id uuid;
-  v_space_name text;
+  v_space_name  text;
   v_space_color text;
 begin
-  select family_id, name, color into v_family_id, v_space_name, v_space_color
+  select name, color into v_space_name, v_space_color
   from spaces where id = NEW.space_id;
 
   insert into activity_log (family_id, actor_id, event_type, payload)
   values (
-    v_family_id,
+    NEW.family_id,
     auth.uid(),
     'item.added',
     jsonb_build_object('title', NEW.title, 'space_name', v_space_name, 'space_color', v_space_color)
@@ -530,17 +530,16 @@ create trigger log_item_added_trigger
 create or replace function log_item_completed()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_family_id uuid;
-  v_space_name text;
+  v_space_name  text;
   v_space_color text;
 begin
   if NEW.completed = true and (OLD.completed = false or OLD.completed is null) then
-    select family_id, name, color into v_family_id, v_space_name, v_space_color
+    select name, color into v_space_name, v_space_color
     from spaces where id = NEW.space_id;
 
     insert into activity_log (family_id, actor_id, event_type, payload)
     values (
-      v_family_id,
+      NEW.family_id,
       auth.uid(),
       'item.completed',
       jsonb_build_object('title', NEW.title, 'space_name', v_space_name, 'space_color', v_space_color)
@@ -685,7 +684,8 @@ returns boolean language sql security definer set search_path = public stable as
   )
 $$;
 
--- For items: checks membership via the parent space (items have no family_id)
+-- DEPRECATED: items now have family_id; new RLS uses is_family_member(family_id) directly.
+-- Retained for backward compatibility — do not wire new code to this function.
 create or replace function item_is_family_member(sid uuid)
 returns boolean language sql security definer set search_path = public stable as $$
   select exists(
@@ -1013,16 +1013,16 @@ create policy "budgets_update" on budgets
 create policy "budgets_delete" on budgets
   for delete to authenticated using (is_family_member(family_id));
 
--- items (scoped via space → family, no family_id column on items)
+-- items
 create policy "items_select" on items
-  for select to authenticated using (item_is_family_member(space_id));
+  for select to authenticated using (is_family_member(family_id));
 create policy "items_insert" on items
-  for insert to authenticated with check (item_is_family_member(space_id));
+  for insert to authenticated with check (is_family_member(family_id));
 create policy "items_update" on items
   for update to authenticated
-  using (item_is_family_member(space_id)) with check (item_is_family_member(space_id));
+  using (is_family_member(family_id)) with check (is_family_member(family_id));
 create policy "items_delete" on items
-  for delete to authenticated using (item_is_family_member(space_id));
+  for delete to authenticated using (is_family_member(family_id));
 
 -- trackers
 create policy "trackers_select" on trackers
@@ -1174,6 +1174,11 @@ create index idx_items_space_completed
 -- items: activity feed (recent items across spaces)
 create index idx_items_space_recent
   on items (space_id, created_at desc);
+
+-- items: calendar view (family-scoped, scheduled, incomplete)
+create index idx_items_family_start_date
+  on items (family_id, start_date)
+  where start_date is not null and completed = false;
 
 -- recurring_transactions: family list + due-date sweep
 create index idx_recurring_transactions_family
