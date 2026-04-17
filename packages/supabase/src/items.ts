@@ -281,33 +281,8 @@ export async function fetchNonRecurringCalendarItems(
   return data.map(rowToItem)
 }
 
-// Upcoming widget — primary: non-recurring items in [startISO, endISO], max 5.
-// Recurring items are excluded — the widget works on anchored start_dates only.
-// Callers are responsible for computing startISO/endISO boundaries.
-export async function fetchUpcomingItems(
-  familyId: string,
-  startISO: string,
-  endISO: string,
-): Promise<Item[]> {
-  const supabase = getSupabaseClient()
-
-  const { data, error } = await supabase
-    .from('items')
-    .select('*')
-    .eq('family_id', familyId)
-    .eq('completed', false)
-    .is('recurrence', null)
-    .gte('start_date', startISO)
-    .lte('start_date', endISO)
-    .order('start_date', { ascending: true })
-    .limit(5)
-
-  if (error) throw error
-  return data.map(rowToItem)
-}
-
-// Upcoming widget — fallback: next single non-recurring item after afterISO.
-// Only called when the primary window returns empty.
+// Upcoming timeline — fallback: next single non-recurring item after afterISO.
+// Only called when the 7-day window returns empty.
 export async function fetchNextItemAfter(
   familyId: string,
   afterISO: string,
