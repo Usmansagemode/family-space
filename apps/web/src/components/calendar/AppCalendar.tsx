@@ -14,7 +14,7 @@ import {
   fetchNonRecurringCalendarItems,
   fetchRecurringCalendarItems,
 } from '@family/supabase'
-import { advanceDate } from '@family/utils'
+import { advanceDate, hasExplicitTime } from '@family/utils'
 import {
   useCalendarItems,
   useSpaces,
@@ -29,10 +29,12 @@ import './calendar.css'
 
 // schedule-x references Temporal as a bare global (no import). Polyfill globalThis
 // if native Temporal is unavailable so schedule-x's instanceof checks find the same
-// class we use when creating PlainDate event dates.
+// class we use when creating PlainDate/ZonedDateTime event dates.
 const g = globalThis as Record<string, unknown>
 if (!g['Temporal']) g['Temporal'] = TemporalPolyfill
 const Temporal = (g['Temporal'] ?? TemporalPolyfill) as typeof TemporalPolyfill
+
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 export interface AppCalendarProps {
   familyId: string
@@ -94,15 +96,51 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
 
     for (const item of calendarItems) {
       if (!item.startDate) continue
-      const dateStr = format(item.startDate, 'yyyy-MM-dd')
+      const s = item.startDate
+      const dateStr = format(s, 'yyyy-MM-dd')
       const eventId = item.isVirtual ? `v-${item.id}-${dateStr}` : `r-${item.id}`
-      const plainDate = Temporal.PlainDate.from(dateStr)
+
+      let startVal: unknown
+      let endVal: unknown
+
+      if (hasExplicitTime(s)) {
+        // Timed item — place at the correct time slot using ZonedDateTime.
+        // End = explicit endDate if timed, otherwise +1 hour from start.
+        const e =
+          item.endDate && hasExplicitTime(item.endDate)
+            ? item.endDate
+            : new Date(s.getTime() + 60 * 60 * 1000)
+        startVal = Temporal.ZonedDateTime.from({
+          year: s.getFullYear(),
+          month: s.getMonth() + 1,
+          day: s.getDate(),
+          hour: s.getHours(),
+          minute: s.getMinutes(),
+          second: 0,
+          timeZone: LOCAL_TZ,
+        })
+        endVal = Temporal.ZonedDateTime.from({
+          year: e.getFullYear(),
+          month: e.getMonth() + 1,
+          day: e.getDate(),
+          hour: e.getHours(),
+          minute: e.getMinutes(),
+          second: 0,
+          timeZone: LOCAL_TZ,
+        })
+      } else {
+        // Date-only item — show in the all-day row.
+        const plainDate = Temporal.PlainDate.from(dateStr)
+        startVal = plainDate
+        endVal = plainDate
+      }
+
       map.set(eventId, item)
       events.push({
         id: eventId,
         title: item.title,
-        start: plainDate,
-        end: plainDate,
+        start: startVal as CalendarEventExternal['start'],
+        end: endVal as CalendarEventExternal['end'],
         cssClass: item.isVirtual ? 'sx-event-virtual' : undefined,
       })
     }
