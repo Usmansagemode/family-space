@@ -1,4 +1,4 @@
-import { addDays, format, startOfDay, endOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { fetchUpcomingItems, fetchNextItemAfter } from '@family/supabase'
 import type { Item } from '@family/types'
@@ -22,22 +22,20 @@ export function useUpcomingItems(familyId: string) {
   const query = useQuery({
     queryKey: ['upcoming-items', familyId, todayKey],
     queryFn: async (): Promise<UpcomingResult> => {
-      const windowStart = startOfDay(new Date())
-      const windowEnd = endOfDay(addDays(windowStart, 7))
+      const now = new Date()
+      // Use YYYY-MM-DD strings to match how start_date is stored (UTC midnight).
+      const todayStr = format(now, 'yyyy-MM-dd')
+      const in7Str = format(
+        new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
+        'yyyy-MM-dd',
+      )
 
       // Recurring items are excluded: the widget works on anchored start_dates
       // only. Recurring occurrences are projected by the calendar, not the widget.
-      const primary = await fetchUpcomingItems(
-        familyId,
-        windowStart.toISOString(),
-        windowEnd.toISOString(),
-      )
+      const primary = await fetchUpcomingItems(familyId, todayStr, in7Str)
       if (primary.length > 0) return { kind: 'window', items: primary }
 
-      const fallback = await fetchNextItemAfter(
-        familyId,
-        windowEnd.toISOString(),
-      )
+      const fallback = await fetchNextItemAfter(familyId, in7Str)
       return { kind: 'next', item: fallback[0] ?? null }
     },
     enabled: !!familyId,

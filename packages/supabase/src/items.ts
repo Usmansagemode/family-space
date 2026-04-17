@@ -1,6 +1,21 @@
 import type { Item, Recurrence } from '@family/types'
 import { getSupabaseClient } from './client'
 
+// Items use a timestamptz column but the calendar treats them as all-day dates.
+// Always store as "YYYY-MM-DD" (Postgres interprets as UTC midnight) and parse
+// back as local midnight so format/comparison never shifts across a day boundary.
+function toDateOnly(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function parseDateOnly(isoStr: string): Date {
+  const [y, m, d] = isoStr.slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 function rowToItem(row: {
   id: string
   family_id?: string | null
@@ -25,8 +40,8 @@ function rowToItem(row: {
     title: row.title,
     description: row.description ?? undefined,
     quantity: row.quantity ?? undefined,
-    startDate: row.start_date ? new Date(row.start_date) : undefined,
-    endDate: row.end_date ? new Date(row.end_date) : undefined,
+    startDate: row.start_date ? parseDateOnly(row.start_date) : undefined,
+    endDate: row.end_date ? parseDateOnly(row.end_date) : undefined,
     recurrence: row.recurrence as Recurrence | undefined,
     completed: row.completed,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
@@ -70,8 +85,8 @@ export async function createItem(input: {
       title: input.title,
       description: input.description ?? null,
       quantity: input.quantity ?? null,
-      start_date: input.startDate?.toISOString() ?? null,
-      end_date: input.endDate?.toISOString() ?? null,
+      start_date: input.startDate ? toDateOnly(input.startDate) : null,
+      end_date: input.endDate ? toDateOnly(input.endDate) : null,
       recurrence: input.recurrence ?? null,
       google_event_id: input.googleEventId ?? null,
       sort_order: 0,
@@ -104,9 +119,9 @@ export async function updateItem(
     dbInput['description'] = input.description
   if (input.quantity !== undefined) dbInput['quantity'] = input.quantity
   if (input.startDate !== undefined)
-    dbInput['start_date'] = input.startDate.toISOString()
+    dbInput['start_date'] = toDateOnly(input.startDate)
   if (input.endDate !== undefined)
-    dbInput['end_date'] = input.endDate.toISOString()
+    dbInput['end_date'] = toDateOnly(input.endDate)
   if (input.recurrence !== undefined) dbInput['recurrence'] = input.recurrence
   if (input.googleEventId !== undefined)
     dbInput['google_event_id'] = input.googleEventId
@@ -198,8 +213,8 @@ export async function advanceRecurringItem(
 ): Promise<Item> {
   const supabase = getSupabaseClient()
   const dbInput: Record<string, unknown> = {
-    start_date: nextStartDate.toISOString(),
-    end_date: nextEndDate?.toISOString() ?? null,
+    start_date: toDateOnly(nextStartDate),
+    end_date: nextEndDate ? toDateOnly(nextEndDate) : null,
     updated_at: new Date().toISOString(),
   }
   if (googleEventId !== undefined) dbInput['google_event_id'] = googleEventId
@@ -224,18 +239,18 @@ export async function fetchNonRecurringCalendarItems(
   windowEnd: Date,
 ): Promise<Item[]> {
   const supabase = getSupabaseClient()
-  const start = new Date(windowStart)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(windowEnd)
-  end.setHours(23, 59, 59, 999)
+  // Use YYYY-MM-DD strings to match how dates are stored (UTC midnight).
+  // toDateOnly uses local date fields so the calendar day boundary is always correct.
+  const startStr = toDateOnly(windowStart)
+  const endStr = toDateOnly(windowEnd)
 
   const { data, error } = await supabase
     .from('items')
     .select('*')
     .eq('family_id', familyId)
     .is('recurrence', null)
-    .gte('start_date', start.toISOString())
-    .lte('start_date', end.toISOString())
+    .gte('start_date', startStr)
+    .lte('start_date', endStr)
     .eq('completed', false)
 
   if (error) throw error
@@ -298,15 +313,14 @@ export async function fetchRecurringCalendarItems(
   windowEnd: Date,
 ): Promise<Item[]> {
   const supabase = getSupabaseClient()
-  const end = new Date(windowEnd)
-  end.setHours(23, 59, 59, 999)
+  const endStr = toDateOnly(windowEnd)
 
   const { data, error } = await supabase
     .from('items')
     .select('*')
     .eq('family_id', familyId)
     .not('recurrence', 'is', null)
-    .lte('start_date', end.toISOString())
+    .lte('start_date', endStr)
     .eq('completed', false)
 
   if (error) throw error
