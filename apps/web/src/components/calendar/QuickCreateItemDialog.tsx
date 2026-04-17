@@ -108,7 +108,7 @@ export function QuickCreateItemDialog({ open, onOpenChange, familyId, initialDat
 
   const create = useMutation({
     mutationFn: ({ title, spaceId: sid, date: d }: FormData) =>
-      createItem({ spaceId: sid, title, startDate: d }),
+      createItem({ familyId, spaceId: sid, title, startDate: d }),
     onSuccess: (_data, vars) => {
       localStorage.setItem(lastSpaceKey(familyId), vars.spaceId)
       void queryClient.invalidateQueries({ queryKey: ['calendar-items'] })

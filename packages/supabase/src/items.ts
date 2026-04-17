@@ -51,6 +51,7 @@ export async function fetchItems(spaceId: string): Promise<Item[]> {
 }
 
 export async function createItem(input: {
+  familyId: string
   spaceId: string
   title: string
   description?: string
@@ -64,6 +65,7 @@ export async function createItem(input: {
   const { data, error } = await supabase
     .from('items')
     .insert({
+      family_id: input.familyId,
       space_id: input.spaceId,
       title: input.title,
       description: input.description ?? null,

@@ -25,7 +25,7 @@ export function SpaceCard({ space, onFocus }: Props) {
   const [editItem, setEditItem] = useState<Item | null>(null)
 
   const { data: items = [], isLoading } = useItems(space.id)
-  const { complete, reAdd } = useItemMutationsCore(space.id, {
+  const { complete, reAdd } = useItemMutationsCore(space.id, space.familyId, {
     calendarId: null,
     getToken: () => Promise.resolve(null),
   })
@@ -182,6 +182,7 @@ export function SpaceCard({ space, onFocus }: Props) {
 
       <AddItemModal
         spaceId={space.id}
+        familyId={space.familyId}
         spaceColorAccent={accent}
         visible={showAdd}
         onClose={() => setShowAdd(false)}
@@ -190,6 +191,7 @@ export function SpaceCard({ space, onFocus }: Props) {
       <EditItemModal
         item={editItem}
         spaceId={space.id}
+        familyId={space.familyId}
         spaceColorAccent={accent}
         visible={editItem !== null}
         onClose={() => setEditItem(null)}

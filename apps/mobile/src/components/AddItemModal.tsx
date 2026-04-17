@@ -12,15 +12,16 @@ import { useItemMutationsCore } from '@family/hooks'
 
 type Props = {
   spaceId: string
+  familyId: string
   spaceColorAccent?: string
   visible: boolean
   onClose: () => void
 }
 
-export function AddItemModal({ spaceId, spaceColorAccent = '#3A7DB5', visible, onClose }: Props) {
+export function AddItemModal({ spaceId, familyId, spaceColorAccent = '#3A7DB5', visible, onClose }: Props) {
   const [title, setTitle] = useState('')
   const [quantity, setQuantity] = useState('')
-  const { create } = useItemMutationsCore(spaceId, {
+  const { create } = useItemMutationsCore(spaceId, familyId, {
     calendarId: null,
     getToken: () => Promise.resolve(null),
   })

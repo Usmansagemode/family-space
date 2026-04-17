@@ -15,6 +15,7 @@ import type { Item } from '@family/types'
 type Props = {
   item: Item | null
   spaceId: string
+  familyId: string
   spaceColorAccent?: string
   visible: boolean
   onClose: () => void
@@ -23,6 +24,7 @@ type Props = {
 export function EditItemModal({
   item,
   spaceId,
+  familyId,
   spaceColorAccent = '#3A7DB5',
   visible,
   onClose,
@@ -31,7 +33,7 @@ export function EditItemModal({
   const [quantity, setQuantity] = useState('')
   const [description, setDescription] = useState('')
 
-  const { update, remove } = useItemMutationsCore(spaceId, {
+  const { update, remove } = useItemMutationsCore(spaceId, familyId, {
     calendarId: null,
     getToken: () => Promise.resolve(null),
   })

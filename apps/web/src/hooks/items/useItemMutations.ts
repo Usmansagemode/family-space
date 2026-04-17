@@ -5,11 +5,11 @@ import { useAuthContext } from '#/contexts/auth'
 export { useItemMutationsCore }
 
 // Web wrapper — fills in opts from React contexts.
-export function useItemMutations(spaceId: string) {
+export function useItemMutations(spaceId: string, familyId: string) {
   const { calendarId, providerToken } = useBoardContext()
   const { refreshProviderToken } = useAuthContext()
 
-  return useItemMutationsCore(spaceId, {
+  return useItemMutationsCore(spaceId, familyId, {
     calendarId,
     getToken: () =>
       providerToken ? Promise.resolve(providerToken) : refreshProviderToken(),

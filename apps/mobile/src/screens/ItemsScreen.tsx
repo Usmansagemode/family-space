@@ -24,7 +24,7 @@ export function ItemsScreen({ space, onBack }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editItem, setEditItem] = useState<Item | null>(null)
   const { data: items = [], isLoading, refetch } = useItems(space.id)
-  const { complete, reAdd } = useItemMutationsCore(space.id, {
+  const { complete, reAdd } = useItemMutationsCore(space.id, space.familyId, {
     calendarId: null,
     getToken: () => Promise.resolve(null),
   })
@@ -156,6 +156,7 @@ export function ItemsScreen({ space, onBack }: Props) {
 
       <AddItemModal
         spaceId={space.id}
+        familyId={space.familyId}
         spaceColorAccent={accent}
         visible={showAdd}
         onClose={() => setShowAdd(false)}
@@ -164,6 +165,7 @@ export function ItemsScreen({ space, onBack }: Props) {
       <EditItemModal
         item={editItem}
         spaceId={space.id}
+        familyId={space.familyId}
         spaceColorAccent={accent}
         visible={editItem !== null}
         onClose={() => setEditItem(null)}

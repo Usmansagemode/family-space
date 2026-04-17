@@ -23,7 +23,7 @@ type ItemMutationOpts = {
 }
 
 // Core hook — no context imports, fully portable.
-export function useItemMutationsCore(spaceId: string, opts: ItemMutationOpts) {
+export function useItemMutationsCore(spaceId: string, familyId: string, opts: ItemMutationOpts) {
   const { calendarId, getToken } = opts
   const queryClient = useQueryClient()
   const key = ['items', spaceId]
@@ -48,7 +48,7 @@ export function useItemMutationsCore(spaceId: string, opts: ItemMutationOpts) {
           endDate: input.endDate,
         })
       }
-      return createItem({ spaceId, ...input, googleEventId })
+      return createItem({ familyId, spaceId, ...input, googleEventId })
     },
     onSuccess: () => {
       void invalidate()

@@ -73,7 +73,7 @@ export function SpaceColumn({ space, familyId, allSpaces, isDropTarget, onFocus,
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const { data: items, isLoading } = useItems(space.id)
-  const { create: createItem } = useItemMutations(space.id)
+  const { create: createItem } = useItemMutations(space.id, familyId)
   const { update: updateSpace, assign: assignSpace, remove: removeSpace } =
     useSpaceMutations(familyId)
 
