@@ -4,6 +4,10 @@
  */
 
 .sx-react-calendar-wrapper {
+  /* Contain schedule-x's internal z-indices so they don't bleed above
+     portaled app UI (sheets, dropdowns, modals). */
+  isolation: isolate;
+
   /* Primary — teal from app palette */
   --sx-color-primary: var(--primary);
   --sx-color-on-primary: var(--primary-foreground);
