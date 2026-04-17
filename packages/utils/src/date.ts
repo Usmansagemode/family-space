@@ -1,4 +1,4 @@
-import { addDays, addWeeks, addMonths, addYears } from 'date-fns'
+import { RRule } from 'rrule'
 import type { Recurrence } from '@family/types'
 
 /** Parse a YYYY-MM-DD date string into a local Date object without UTC shift. */
@@ -22,15 +22,19 @@ export function getDateStatus(date: Date): DateStatus {
   return 'future'
 }
 
+// rrule is timezone-naive — normalize to UTC midnight to avoid date shifts.
+function toUTCMidnight(d: Date): Date {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+}
+
+/** Returns the next occurrence of a recurring item strictly after `date`. */
 export function advanceDate(date: Date, recurrence: Recurrence): Date {
-  switch (recurrence) {
-    case 'daily':
-      return addDays(date, 1)
-    case 'weekly':
-      return addWeeks(date, 1)
-    case 'monthly':
-      return addMonths(date, 1)
-    case 'yearly':
-      return addYears(date, 1)
-  }
+  const utc = toUTCMidnight(date)
+  const rule = new RRule({
+    ...RRule.parseString(recurrence),
+    dtstart: utc,
+  })
+  const next = rule.after(utc, false)
+  if (!next) return date
+  return new Date(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate())
 }

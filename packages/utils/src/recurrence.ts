@@ -1,6 +1,17 @@
 import { isSameDay } from 'date-fns'
-import { advanceDate } from './date'
+import { RRule } from 'rrule'
 import type { CalendarItem, Item } from '@family/types'
+
+// rrule is timezone-naive and treats all dates as UTC. Normalize to UTC
+// midnight so that local dates (new Date(y,m,d)) don't shift when interpreted
+// as UTC in non-UTC timezones.
+function toUTCMidnight(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+}
+
+function fromUTCMidnight(date: Date): Date {
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
 
 /**
  * Projects all occurrences of a recurring item within [windowStart, windowEnd].
@@ -8,9 +19,9 @@ import type { CalendarItem, Item } from '@family/types'
  * The occurrence whose date matches the item's actual DB start_date is marked
  * isVirtual=false (real, editable). All projected occurrences are isVirtual=true.
  *
- * Note: historical weeks show no recurring items whose past occurrences were
- * already completed — those rows have start_date advanced forward and are
- * filtered by the DB query (completed=false). This is by design.
+ * Note: follows RFC 5545 for month-end rollover — e.g. FREQ=MONTHLY starting
+ * Jan 31 skips February (no day 31) and lands on Mar 31. This matches Google
+ * Calendar behavior.
  */
 export function expandRecurringItem(
   item: Item,
@@ -19,29 +30,20 @@ export function expandRecurringItem(
 ): CalendarItem[] {
   if (!item.startDate || !item.recurrence || !item.familyId) return []
 
-  const occurrences: CalendarItem[] = []
-  let current = new Date(item.startDate)
+  const rule = new RRule({
+    ...RRule.parseString(item.recurrence),
+    dtstart: toUTCMidnight(item.startDate),
+  })
 
-  // Fast-forward to the first occurrence on or after windowStart
-  while (current < windowStart) {
-    const next = advanceDate(current, item.recurrence)
-    if (next.getTime() <= current.getTime()) break // infinite loop guard
-    current = next
-  }
-
-  // Collect all occurrences within [windowStart, windowEnd]
-  while (current <= windowEnd) {
-    occurrences.push({
-      ...item,
-      familyId: item.familyId,
-      startDate: new Date(current),
-      isVirtual: !isSameDay(current, item.startDate),
+  return rule
+    .between(toUTCMidnight(windowStart), toUTCMidnight(windowEnd), true)
+    .map((utcDate) => {
+      const localDate = fromUTCMidnight(utcDate)
+      return {
+        ...item,
+        familyId: item.familyId as string,
+        startDate: localDate,
+        isVirtual: !isSameDay(localDate, item.startDate as Date),
+      }
     })
-
-    const next = advanceDate(current, item.recurrence)
-    if (next.getTime() <= current.getTime()) break
-    current = next
-  }
-
-  return occurrences
 }

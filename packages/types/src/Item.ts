@@ -1,4 +1,5 @@
-export type Recurrence = 'daily' | 'weekly' | 'monthly' | 'yearly'
+// RRULE string e.g. 'FREQ=WEEKLY', 'FREQ=WEEKLY;BYDAY=MO,TH'
+export type Recurrence = string
 
 export type Item = {
   id: string

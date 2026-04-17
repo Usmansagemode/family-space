@@ -27,10 +27,10 @@ import type { Item, Recurrence } from '#/entities/Item'
 import type { SpaceType } from '#/entities/Space'
 
 const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'yearly', label: 'Yearly' },
+  { value: 'FREQ=DAILY', label: 'Daily' },
+  { value: 'FREQ=WEEKLY', label: 'Weekly' },
+  { value: 'FREQ=MONTHLY', label: 'Monthly' },
+  { value: 'FREQ=YEARLY', label: 'Yearly' },
 ]
 
 const schema = z.object({

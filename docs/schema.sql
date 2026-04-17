@@ -274,7 +274,7 @@ create table items (
   title           text not null,
   description     text,
   quantity        text,
-  recurrence      text check (recurrence in ('daily', 'weekly', 'monthly', 'yearly')),
+  recurrence      text,                          -- RRULE string e.g. 'FREQ=WEEKLY'
   sort_order      integer not null default 0,
   start_date      timestamptz,
   end_date        timestamptz,
