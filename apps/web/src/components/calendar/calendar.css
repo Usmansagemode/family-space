@@ -29,6 +29,30 @@
   font-family: inherit;
 }
 
+/*
+ * Re-assert app tokens when schedule-x adds .is-dark (via calendar.setTheme('dark')).
+ * schedule-x's theme-default ships .sx-react-calendar-wrapper.is-dark { --sx-color-*: <hardcoded> }
+ * which wins by source order. We import our CSS after, so same specificity here overwrites it.
+ */
+.sx-react-calendar-wrapper.is-dark {
+  --sx-color-primary: var(--primary);
+  --sx-color-on-primary: var(--primary-foreground);
+  --sx-color-primary-container: oklch(from var(--primary) l c h / 0.15);
+  --sx-color-on-primary-container: var(--primary);
+
+  --sx-color-surface: var(--card);
+  --sx-color-surface-container: var(--card);
+  --sx-color-surface-container-high: var(--muted);
+  --sx-color-surface-container-low: var(--background);
+  --sx-color-background: var(--background);
+
+  --sx-color-on-surface: var(--foreground);
+  --sx-color-on-background: var(--foreground);
+
+  --sx-color-outline: var(--border);
+  --sx-color-outline-variant: var(--border);
+}
+
 /* Virtual (projected) recurring occurrences — visually dimmed, still clickable */
 .sx-react-calendar-wrapper .sx-event-virtual {
   opacity: 0.5;

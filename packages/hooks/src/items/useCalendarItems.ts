@@ -5,6 +5,17 @@ import { fetchNonRecurringCalendarItems, fetchRecurringCalendarItems } from '@fa
 import { expandRecurringItem } from '@family/utils'
 import type { CalendarItem, Item } from '@family/types'
 
+/** Returns the two query keys used by useCalendarItems for a given window.
+ *  Use this in prefetchQuery calls to avoid key drift between the hook and consumers. */
+export function calendarItemsQueryKeys(familyId: string, windowStart: Date, windowEnd: Date) {
+  const startKey = format(windowStart, 'yyyy-MM-dd')
+  const endKey = format(windowEnd, 'yyyy-MM-dd')
+  return {
+    nonRecurring: ['calendar-items', 'non-recurring', familyId, startKey, endKey] as const,
+    recurring: ['calendar-items', 'recurring', familyId, endKey] as const,
+  }
+}
+
 export function useCalendarItems(
   familyId: string,
   windowStart: Date,

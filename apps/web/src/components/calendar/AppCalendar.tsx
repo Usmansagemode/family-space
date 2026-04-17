@@ -14,8 +14,17 @@ import {
   advanceRecurringItem,
 } from '@family/supabase'
 import { advanceDate } from '@family/utils'
-import { useCalendarItems, useSpaces } from '@family/hooks'
+import {
+  useCalendarItems,
+  useSpaces,
+  calendarItemsQueryKeys,
+} from '@family/hooks'
 import type { CalendarItem, Item, Recurrence } from '@family/types'
+import {
+  fetchNonRecurringCalendarItems,
+  fetchRecurringCalendarItems,
+} from '@family/supabase'
+import { useIsDark } from '#/hooks/useIsDark'
 import { AddItemSheet } from '#/components/board/AddItemSheet'
 import { QuickCreateItemDialog } from '#/components/calendar/QuickCreateItemDialog'
 
@@ -30,15 +39,15 @@ type TemporalLike = { year: number; month: number; day: number }
 function toTemporalDate(v: unknown): TemporalLike | null {
   if (typeof v === 'string') {
     const [y, m, d] = v.split('-').map(Number)
-    if (y && m && d) return { year: y, month: m, day: d }
+    if (y && m >= 1 && m <= 12 && d >= 1 && d <= 31) return { year: y, month: m, day: d }
     return null
   }
   if (v && typeof v === 'object' && 'year' in v && 'month' in v && 'day' in v) {
     const t = v as Record<string, unknown>
     if (
       typeof t.year === 'number' &&
-      typeof t.month === 'number' &&
-      typeof t.day === 'number'
+      typeof t.month === 'number' && t.month >= 1 && t.month <= 12 &&
+      typeof t.day === 'number' && t.day >= 1 && t.day <= 31
     ) {
       return { year: t.year, month: t.month, day: t.day }
     }
@@ -68,6 +77,7 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
   const { data: calendarItems = [] } = useCalendarItems(familyId, windowStart, windowEnd)
   const { data: spaces = [] } = useSpaces(familyId)
   const queryClient = useQueryClient()
+  const isDark = useIsDark()
 
   // Bridges stable schedule-x callbacks with the latest React-rendered item data
   const itemMapRef = useRef(new Map<string, CalendarItem>())
@@ -99,7 +109,8 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
   }, [itemMap])
 
   const invalidateCalendar = () => {
-    void queryClient.invalidateQueries({ queryKey: ['calendar-items'] })
+    void queryClient.invalidateQueries({ queryKey: ['calendar-items', 'non-recurring', familyId] })
+    void queryClient.invalidateQueries({ queryKey: ['calendar-items', 'recurring', familyId] })
     void queryClient.invalidateQueries({ queryKey: ['upcoming-items', familyId] })
   }
 
@@ -162,6 +173,7 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
   const calendar = useCalendarApp({
     views: [createViewWeek(), createViewMonthGrid()],
     defaultView: 'week',
+    isDark,
     events: [],
     callbacks: {
       onEventClick: (event: CalendarEventExternal) => {
@@ -187,6 +199,44 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
     if (!calendar) return
     calendar.events.set(scheduleEvents)
   }, [calendar, scheduleEvents])
+
+  // Sync app dark mode to schedule-x so its .is-dark class applies correctly
+  useEffect(() => {
+    if (!calendar) return
+    calendar.setTheme(isDark ? 'dark' : 'light')
+  }, [calendar, isDark])
+
+  // Prefetch the adjacent 7-day windows so navigation shows no loading spinner
+  useEffect(() => {
+    const STALE = 1000 * 60 * 2
+
+    const prefetch = (start: Date, end: Date) => {
+      const keys = calendarItemsQueryKeys(familyId, start, end)
+      void queryClient.prefetchQuery({
+        queryKey: keys.nonRecurring,
+        queryFn: () => fetchNonRecurringCalendarItems(familyId, start, end),
+        staleTime: STALE,
+      })
+      void queryClient.prefetchQuery({
+        queryKey: keys.recurring,
+        queryFn: () => fetchRecurringCalendarItems(familyId, end),
+        staleTime: STALE,
+      })
+    }
+
+    const prevEnd = new Date(windowStart.getTime() - 1)
+    const prevStart = new Date(prevEnd)
+    prevStart.setDate(prevStart.getDate() - 6)
+    prevStart.setHours(0, 0, 0, 0)
+
+    const nextStart = new Date(windowEnd.getTime() + 1)
+    const nextEnd = new Date(nextStart)
+    nextEnd.setDate(nextEnd.getDate() + 6)
+    nextEnd.setHours(23, 59, 59, 999)
+
+    prefetch(prevStart, prevEnd)
+    prefetch(nextStart, nextEnd)
+  }, [windowStart, windowEnd, familyId, queryClient])
 
   const selectedItem = selectedEventId
     ? (itemMapRef.current.get(selectedEventId) ?? null)
