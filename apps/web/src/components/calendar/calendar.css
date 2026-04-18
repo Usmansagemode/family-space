@@ -127,6 +127,21 @@
   display: none;
 }
 
+/* Dropdown panel — min-width prevents "Month" from wrapping to two lines */
+.sx-react-calendar-wrapper .sx__view-selection-items {
+  min-width: 7rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* Dropdown items — compact height matching shadcn DropdownMenuItem */
+.sx-react-calendar-wrapper .sx__view-selection-item {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
 /* Date input → outline variant */
 .sx-react-calendar-wrapper .sx__calendar-header .sx__date-input {
   height: 2.25rem;
