@@ -70,6 +70,10 @@ type Props = {
   onDelete?: (item: Item) => void
   onMove?: (newSpaceId: string) => void
   isPending: boolean
+  /** Pre-fills date/time when creating a new item (e.g. from calendar click). */
+  initialDate?: Date
+  /** When true, hides the time picker and shows the pre-filled time read-only (e.g. from calendar cell click). */
+  lockTime?: boolean
   /** Optional banner rendered below the sheet header (e.g. recurring-item warning). */
   note?: string
 }
@@ -83,6 +87,8 @@ export function AddItemSheet({
   spaceColor,
   familyId,
   editItem,
+  initialDate,
+  lockTime,
   onCreate,
   onUpdate,
   onComplete,
@@ -178,11 +184,12 @@ export function AddItemSheet({
         description: editItem?.description ?? '',
         quantity: editItem?.quantity ?? '',
       })
-      setStartDate(editItem?.startDate)
+      const resolvedStart = editItem?.startDate ?? initialDate
+      setStartDate(resolvedStart)
       setEndDate(editItem?.endDate)
       setStartTimeStr(
-        editItem?.startDate && hasExplicitTime(editItem.startDate)
-          ? format(editItem.startDate, 'HH:mm')
+        resolvedStart && hasExplicitTime(resolvedStart)
+          ? format(resolvedStart, 'HH:mm')
           : '',
       )
       setEndTimeStr(
@@ -196,7 +203,7 @@ export function AddItemSheet({
       // Show suggestions immediately when creating (not editing)
       setShowSuggestions(!editItem)
     }
-  }, [open, editItem, reset])
+  }, [open, editItem, initialDate, reset])
 
   function onSubmit(data: FormData) {
     const description = data.description?.trim() || undefined
@@ -385,7 +392,11 @@ export function AddItemSheet({
                   </PopoverContent>
                 </Popover>
 
-                {startDate && (
+                {startDate && lockTime ? (
+                  <span className="flex h-9 w-28 items-center justify-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                    {startTimeStr || '—'}
+                  </span>
+                ) : startDate ? (
                   <input
                     type="time"
                     className="w-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -403,7 +414,7 @@ export function AddItemSheet({
                       setStartDate(updated)
                     }}
                   />
-                )}
+                ) : null}
               </div>
               {startDate && (
                 <button

@@ -35,15 +35,28 @@ export function expandRecurringItem(
     dtstart: toUTCMidnight(item.startDate),
   })
 
+  const originalStart = item.startDate as Date
+
   return rule
     .between(toUTCMidnight(windowStart), toUTCMidnight(windowEnd), true)
     .map((utcDate) => {
       const localDate = fromUTCMidnight(utcDate)
+      // Preserve the original time-of-day so timed recurring items appear at the
+      // correct hour. For date-only items the original hours/minutes are noon (12:00),
+      // which is also preserved correctly here.
+      const startDate = new Date(
+        localDate.getFullYear(),
+        localDate.getMonth(),
+        localDate.getDate(),
+        originalStart.getHours(),
+        originalStart.getMinutes(),
+        originalStart.getSeconds(),
+      )
       return {
         ...item,
         familyId: item.familyId as string,
-        startDate: localDate,
-        isVirtual: !isSameDay(localDate, item.startDate as Date),
+        startDate,
+        isVirtual: !isSameDay(localDate, originalStart),
       }
     })
 }

@@ -166,3 +166,37 @@
 .sx-react-calendar-wrapper .sx__calendar-header .sx__date-input-label {
   display: none;
 }
+
+/*
+ * Compact week column headers — show day name and date number on one row.
+ * Default schedule-x stacks them vertically (flex-flow: column) which wastes
+ * vertical space. We switch to a row and reduce the date-number size so the
+ * header strip stays tight.
+ */
+.sx-react-calendar-wrapper .sx__week-grid__date {
+  flex-flow: row;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0;
+}
+
+.sx-react-calendar-wrapper .sx__week-grid__date-number {
+  font-size: var(--sx-font-medium, 0.875rem);
+  height: 1.75em;
+  width: 1.75em;
+}
+
+/* Hover tint on week-view time-grid day columns */
+.sx-react-calendar-wrapper .sx__time-grid-day {
+  transition: background-color 120ms;
+  cursor: pointer;
+}
+.sx-react-calendar-wrapper .sx__time-grid-day:hover {
+  background-color: oklch(from var(--primary) l c h / 0.05);
+}
+
+/* Hover tint on month-view day cells */
+.sx-react-calendar-wrapper .sx__month-grid-day:hover {
+  background-color: oklch(from var(--primary) l c h / 0.04);
+  transition: background-color 120ms;
+}

@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   completeItem,
+  createItem,
   updateItem,
   deleteItem as deleteItemFn,
   advanceRecurringItem,
@@ -16,16 +17,24 @@ import {
 } from '@family/supabase'
 import { advanceDate, hasExplicitTime } from '@family/utils'
 import {
+  tryCreateCalendarEvent,
+  syncCalendarOnUpdate,
+  tryDeleteCalendarEvent,
+} from '@family/api'
+import {
   useCalendarItems,
   useSpaces,
   calendarItemsQueryKeys,
 } from '@family/hooks'
-import type { CalendarItem, Item, Recurrence } from '@family/types'
+import type { CalendarItem, Item, Recurrence, Space } from '@family/types'
 import { useIsDark } from '#/hooks/useIsDark'
+import { useAuthContext } from '#/contexts/auth'
+import { useBoardContext } from '#/contexts/board'
 import { AddItemSheet } from '#/components/board/AddItemSheet'
-import { QuickCreateItemDialog } from '#/components/calendar/QuickCreateItemDialog'
 import '@schedule-x/theme-default/dist/index.css'
 import './calendar.css'
+
+const CALENDAR_SPACE_TYPES = ['person', 'chore'] as const
 
 // schedule-x references Temporal as a bare global (no import). Polyfill globalThis
 // if native Temporal is unavailable so schedule-x's instanceof checks find the same
@@ -90,13 +99,39 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
   })
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
   const [createDate, setCreateDate] = useState<Date | undefined>()
+  const [createSpaceId, setCreateSpaceId] = useState<string | null>(null)
+  const [createSheetOpen, setCreateSheetOpen] = useState(false)
 
   const { data: calendarItems = [] } = useCalendarItems(familyId, windowStart, windowEnd)
   const { data: spaces = [] } = useSpaces(familyId)
   const queryClient = useQueryClient()
   const isDark = useIsDark()
+  const { user } = useAuthContext()
+  const { calendarId, providerToken } = useBoardContext()
+  const { refreshProviderToken } = useAuthContext()
+  const getToken = () => providerToken ? Promise.resolve(providerToken) : refreshProviderToken()
+
+  const calendarSpaces = useMemo(
+    () => spaces.filter((s): s is Space => (CALENDAR_SPACE_TYPES as readonly string[]).includes(s.type)),
+    [spaces],
+  )
+
+  // Ref so schedule-x callbacks (captured at mount) always see the latest spaces
+  const calendarSpacesRef = useRef<Space[]>([])
+  useEffect(() => { calendarSpacesRef.current = calendarSpaces }, [calendarSpaces])
+
+  function openCreateFlow(date: Date) {
+    const spaces = calendarSpacesRef.current
+    // Prefer the current user's linked person space, otherwise first calendar space
+    const defaultSpace =
+      spaces.find((s) => s.type === 'person' && s.linkedUserId === user?.id) ??
+      spaces[0]
+    if (!defaultSpace) return
+    setCreateDate(date)
+    setCreateSpaceId(defaultSpace.id)
+    setCreateSheetOpen(true)
+  }
 
   // Bridges stable schedule-x callbacks with the latest React-rendered item data
   const itemMapRef = useRef(new Map<string, CalendarItem>())
@@ -172,11 +207,19 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
 
   const completeMutation = useMutation({
     mutationFn: async (item: Item) => {
+      const token = await getToken()
       if (item.recurrence && item.startDate) {
+        await tryDeleteCalendarEvent(token, calendarId, item.googleEventId)
         const nextStart = advanceDate(item.startDate, item.recurrence)
         const nextEnd = item.endDate ? advanceDate(item.endDate, item.recurrence) : undefined
-        return advanceRecurringItem(item.id, nextStart, nextEnd, null)
+        const newEventId = (await tryCreateCalendarEvent(token, calendarId, {
+          title: item.title,
+          startDate: nextStart,
+          endDate: nextEnd,
+        })) ?? null
+        return advanceRecurringItem(item.id, nextStart, nextEnd, newEventId)
       }
+      await tryDeleteCalendarEvent(token, calendarId, item.googleEventId)
       return completeItem(item.id)
     },
     onSuccess: (_, item) => {
@@ -194,18 +237,35 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
+      existingEventId,
+      prevTitle,
       ...rest
     }: {
       id: string
+      existingEventId?: string
+      prevTitle?: string
       title?: string
       description?: string
       quantity?: string | null
       startDate?: Date
       endDate?: Date
       recurrence?: Recurrence | null
-    }) => updateItem(id, rest),
+    }) => {
+      const token = await getToken()
+      const googleEventIdChange = await syncCalendarOnUpdate(token, calendarId, {
+        existingEventId,
+        title: rest.title ?? prevTitle ?? '',
+        prevTitle: prevTitle ?? '',
+        startDate: rest.startDate,
+        endDate: rest.endDate,
+      })
+      return updateItem(id, {
+        ...rest,
+        ...(googleEventIdChange !== undefined && { googleEventId: googleEventIdChange }),
+      })
+    },
     onSuccess: () => {
       invalidateCalendar()
       toast.success('Item updated')
@@ -215,7 +275,11 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
   })
 
   const removeMutation = useMutation({
-    mutationFn: (item: Item) => deleteItemFn(item.id),
+    mutationFn: async (item: Item) => {
+      const token = await getToken()
+      await tryDeleteCalendarEvent(token, calendarId, item.googleEventId)
+      return deleteItemFn(item.id)
+    },
     onSuccess: (_, item) => {
       void queryClient.invalidateQueries({ queryKey: ['items', item.spaceId] })
       invalidateCalendar()
@@ -223,6 +287,47 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
       setSelectedEventId(null)
     },
     onError: () => toast.error('Failed to delete item'),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: async (input: {
+      title: string
+      description?: string
+      quantity?: string
+      startDate?: Date
+      endDate?: Date
+      recurrence?: Recurrence
+      spaceId: string
+    }) => {
+      let googleEventId: string | undefined
+      if (calendarId && input.startDate) {
+        const token = await getToken()
+        googleEventId = await tryCreateCalendarEvent(token, calendarId, {
+          title: input.title,
+          startDate: input.startDate,
+          endDate: input.endDate,
+        })
+      }
+      return createItem({
+        familyId,
+        spaceId: input.spaceId,
+        title: input.title,
+        description: input.description,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        recurrence: input.recurrence,
+        googleEventId,
+      })
+    },
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['items', input.spaceId] })
+      invalidateCalendar()
+      toast.success('Item added')
+      setCreateSheetOpen(false)
+      setCreateSpaceId(null)
+      setCreateDate(undefined)
+    },
+    onError: () => toast.error('Failed to add item'),
   })
 
   // Stable state setters in callbacks avoid stale closures without refs
@@ -244,16 +349,14 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
       onClickDate: (date: unknown) => {
         const d = toTemporalDate(date)
         if (!d) return
-        setCreateDate(new Date(d.year, d.month - 1, d.day, 12, 0, 0))
-        setCreateOpen(true)
+        openCreateFlow(new Date(d.year, d.month - 1, d.day, 12, 0, 0))
       },
       // Fires when clicking a specific time slot in week view.
-      // Passes the exact hour/minute so the create dialog pre-fills the time.
+      // Passes the exact hour/minute so the create sheet pre-fills the time.
       onClickDateTime: (dateTime: unknown) => {
         const dt = toTemporalDateTime(dateTime)
         if (!dt) return
-        setCreateDate(new Date(dt.year, dt.month - 1, dt.day, dt.hour, dt.minute, 0))
-        setCreateOpen(true)
+        openCreateFlow(new Date(dt.year, dt.month - 1, dt.day, dt.hour, dt.minute, 0))
       },
       onRangeUpdate: (range: unknown) => {
         const r = range as { start: unknown; end: unknown }
@@ -334,22 +437,45 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
           editItem={selectedItem}
           note={isVirtual ? 'Editing this will update all future occurrences.' : undefined}
           onCreate={() => {}}
-          onUpdate={(input) => updateMutation.mutate(input)}
+          onUpdate={(input) =>
+            updateMutation.mutate({
+              ...input,
+              existingEventId: selectedItem?.googleEventId,
+              prevTitle: selectedItem?.title,
+            })
+          }
           onComplete={(item) => completeMutation.mutate(item)}
           onDelete={(item) => removeMutation.mutate(item)}
           isPending={isPending}
         />
       )}
 
-      <QuickCreateItemDialog
-        open={createOpen}
-        onOpenChange={(open) => {
-          setCreateOpen(open)
-          if (!open) setCreateDate(undefined)
-        }}
-        familyId={familyId}
-        initialDate={createDate}
-      />
+      {/* Create sheet — opens directly with the user's default space */}
+      {(() => {
+        const space = calendarSpaces.find((s) => s.id === createSpaceId)
+        if (!space) return null
+        return (
+          <AddItemSheet
+            open={createSheetOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setCreateSheetOpen(false)
+                setCreateSpaceId(null)
+                setCreateDate(undefined)
+              }
+            }}
+            spaceId={space.id}
+            spaceName={space.name}
+            spaceType={space.type}
+            spaceColor={space.color}
+            familyId={familyId}
+            initialDate={createDate}
+            lockTime
+            onCreate={(input) => createMutation.mutate({ ...input, spaceId: space.id })}
+            isPending={createMutation.isPending}
+          />
+        )
+      })()}
     </>
   )
 }
