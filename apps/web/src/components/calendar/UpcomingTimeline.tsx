@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'motion/react'
 import { format, isToday, isTomorrow } from 'date-fns'
 import { Check, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -127,14 +128,20 @@ export function UpcomingTimeline({ familyId }: Props) {
     <div className="print:hidden">
       {/* Desktop: horizontal 7-column grid */}
       <div className="relative hidden md:block">
-        {/* Horizontal connector — bisects the h-6 (24px) nodes */}
+        {/* Horizontal connector line — bisects the h-6 (24px) nodes */}
         <div className="absolute left-0 right-0 top-3 h-px bg-border" />
         <div className="grid grid-cols-7 gap-1">
-          {days.map((day) => {
+          {days.map((day, i) => {
             const todayNode = isToday(day.date)
             const empty = day.items.length === 0
             return (
-              <div key={format(day.date, 'yyyy-MM-dd')} className="flex min-w-0 flex-col items-center gap-1.5">
+              <motion.div
+                key={format(day.date, 'yyyy-MM-dd')}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: i * 0.03 }}
+                className="flex min-w-0 flex-col items-center gap-1.5"
+              >
                 <div
                   className={cn(
                     'relative z-10 h-6 w-6 rounded-full border-2',
@@ -147,9 +154,9 @@ export function UpcomingTimeline({ familyId }: Props) {
                 />
                 <p
                   className={cn(
-                    'text-center text-[11px] leading-tight',
+                    'w-full text-center text-[11px] leading-tight',
                     todayNode
-                      ? 'font-bold text-foreground'
+                      ? 'font-semibold text-foreground'
                       : empty
                         ? 'text-muted-foreground/40'
                         : 'text-muted-foreground',
@@ -157,7 +164,7 @@ export function UpcomingTimeline({ familyId }: Props) {
                 >
                   {getDayLabel(day.date)}
                 </p>
-                <div className="w-full space-y-0.5">
+                <div className="w-full space-y-1">
                   {day.items.map((item) => (
                     <DesktopItemRow
                       key={item.id + (item.isVirtual ? '-v' : '')}
@@ -168,7 +175,7 @@ export function UpcomingTimeline({ familyId }: Props) {
                     />
                   ))}
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>
@@ -178,11 +185,17 @@ export function UpcomingTimeline({ familyId }: Props) {
       <div className="relative md:hidden">
         <div className="absolute bottom-0 left-3 top-0 w-px bg-border" />
         <div className="space-y-3">
-          {days.map((day) => {
+          {days.map((day, i) => {
             const todayNode = isToday(day.date)
             const empty = day.items.length === 0
             return (
-              <div key={format(day.date, 'yyyy-MM-dd')} className="flex gap-3">
+              <motion.div
+                key={format(day.date, 'yyyy-MM-dd')}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: i * 0.03 }}
+                className="flex gap-3"
+              >
                 <div
                   className={cn(
                     'relative z-10 mt-0.5 h-6 w-6 flex-shrink-0 rounded-full border-2',
@@ -198,7 +211,7 @@ export function UpcomingTimeline({ familyId }: Props) {
                     className={cn(
                       'text-sm leading-tight',
                       todayNode
-                        ? 'font-bold text-foreground'
+                        ? 'font-semibold text-foreground'
                         : empty
                           ? 'text-muted-foreground/40'
                           : 'text-muted-foreground',
@@ -209,7 +222,7 @@ export function UpcomingTimeline({ familyId }: Props) {
                   {empty ? (
                     <p className="text-xs text-muted-foreground/30">—</p>
                   ) : (
-                    <div className="mt-1 space-y-0.5">
+                    <div className="mt-1.5 space-y-1">
                       {day.items.map((item) => (
                         <MobileItemRow
                           key={item.id + (item.isVirtual ? '-v' : '')}
@@ -222,7 +235,7 @@ export function UpcomingTimeline({ familyId }: Props) {
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>
@@ -240,30 +253,27 @@ interface ItemRowProps {
 
 function DesktopItemRow({ item, spaceColor, pending, onComplete }: ItemRowProps) {
   return (
-    <div className="flex min-w-0 items-start gap-0.5 rounded px-1 py-0.5 hover:bg-muted/50">
-      <div
-        className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full"
-        style={{ backgroundColor: spaceColor }}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] leading-snug">{item.title}</p>
-        {item.startDate && hasExplicitTime(item.startDate) && (
-          <p className="hidden text-[10px] text-muted-foreground lg:block">
-            {formatTime(item.startDate)}
-          </p>
-        )}
-      </div>
+    <div
+      className="flex min-w-0 items-center gap-1 overflow-hidden rounded-md bg-muted/40 px-1.5 py-1 transition-colors hover:bg-muted/70"
+      style={{ borderLeft: `2px solid ${spaceColor}` }}
+    >
+      <span className="flex-1 truncate text-[11px] font-medium leading-tight">{item.title}</span>
+      {item.startDate && hasExplicitTime(item.startDate) && (
+        <span className="hidden flex-shrink-0 text-[10px] text-muted-foreground lg:inline">
+          {formatTime(item.startDate)}
+        </span>
+      )}
       {item.recurrence ? (
-        <RotateCcw className="mt-0.5 h-3 w-3 flex-shrink-0 text-muted-foreground/60" />
+        <RotateCcw className="h-2.5 w-2.5 flex-shrink-0 text-muted-foreground/50" />
       ) : (
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-green-600"
+          className="h-4 w-4 flex-shrink-0 text-muted-foreground/60 hover:text-green-600"
           disabled={pending}
           onClick={onComplete}
         >
-          <Check className="h-3 w-3" />
+          <Check className="h-2.5 w-2.5" />
         </Button>
       )}
     </div>
@@ -272,11 +282,10 @@ function DesktopItemRow({ item, spaceColor, pending, onComplete }: ItemRowProps)
 
 function MobileItemRow({ item, spaceColor, pending, onComplete }: ItemRowProps) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <div
-        className="h-2 w-2 flex-shrink-0 rounded-full"
-        style={{ backgroundColor: spaceColor }}
-      />
+    <div
+      className="flex min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/40 px-2 py-1.5 transition-colors hover:bg-muted/70"
+      style={{ borderLeft: `2px solid ${spaceColor}` }}
+    >
       <span className="flex-1 truncate text-sm leading-snug">{item.title}</span>
       {item.startDate && hasExplicitTime(item.startDate) && (
         <span className="flex-shrink-0 text-xs text-muted-foreground">
@@ -284,12 +293,12 @@ function MobileItemRow({ item, spaceColor, pending, onComplete }: ItemRowProps) 
         </span>
       )}
       {item.recurrence ? (
-        <RotateCcw className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/60" />
+        <RotateCcw className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/50" />
       ) : (
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-green-600"
+          className="h-6 w-6 flex-shrink-0 text-muted-foreground/60 hover:text-green-600"
           disabled={pending}
           onClick={onComplete}
         >

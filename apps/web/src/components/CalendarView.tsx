@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AppCalendarLazy } from '#/components/calendar/AppCalendarLazy'
+import { Button } from '#/components/ui/button'
 
 const STORAGE_KEY = 'calendar-view'
 
@@ -45,7 +46,7 @@ export function CalendarView({ familyId, embedUrl }: Props) {
           <div
             role="group"
             aria-label="Calendar view"
-            className="flex rounded-lg border border-border bg-muted p-0.5 text-sm"
+            className="flex rounded-lg border border-border bg-muted p-0.5"
           >
             {(
               [
@@ -53,19 +54,17 @@ export function CalendarView({ familyId, embedUrl }: Props) {
                 { id: 'google', label: 'Google Calendar' },
               ] as const
             ).map(({ id, label }) => (
-              <button
+              <Button
                 key={id}
                 type="button"
+                variant={view === id ? 'secondary' : 'ghost'}
+                size="sm"
                 aria-pressed={view === id}
                 onClick={() => setView(id)}
-                className={
-                  view === id
-                    ? 'rounded-md bg-background px-3 py-1 font-medium shadow-sm'
-                    : 'px-3 py-1 text-muted-foreground hover:text-foreground'
-                }
+                className={view === id ? 'shadow-sm' : 'text-muted-foreground'}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

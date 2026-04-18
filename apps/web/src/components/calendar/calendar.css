@@ -61,3 +61,93 @@
 .sx-react-calendar-wrapper .sx-event-virtual {
   opacity: 0.5;
 }
+
+/*
+ * Remove schedule-x's outer border/radius — the app layout already provides
+ * visual separation via the sidebar and page container.
+ */
+.sx-react-calendar-wrapper .sx__calendar {
+  border: none;
+  border-radius: 0;
+}
+
+/*
+ * Header controls — restyled to match the app's shadcn button aesthetic.
+ * Targets: Today button, prev/next chevrons, View selector, Date input.
+ */
+
+/* Today → outline variant (h-9, rounded-md, border) */
+.sx-react-calendar-wrapper .sx__today-button {
+  height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border) !important;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 150ms, color 150ms;
+}
+.sx-react-calendar-wrapper .sx__today-button:hover,
+.sx-react-calendar-wrapper .sx__today-button:focus {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* Prev/Next chevrons → ghost icon-button variant */
+.sx-react-calendar-wrapper .sx__chevron-wrapper {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: var(--radius);
+  background: transparent;
+  transition: background-color 150ms;
+}
+.sx-react-calendar-wrapper .sx__chevron-wrapper:hover,
+.sx-react-calendar-wrapper .sx__chevron-wrapper:focus {
+  background-color: var(--accent);
+}
+
+/* View selector → outline variant */
+.sx-react-calendar-wrapper .sx__view-selection-selected-item {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius) !important;
+  border: 1px solid var(--border) !important;
+  background-color: var(--background);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 150ms;
+}
+.sx-react-calendar-wrapper .sx__view-selection-selected-item:hover {
+  background-color: var(--accent);
+}
+
+/* Hide the Material-style floating "View" label — redundant when value is shown */
+.sx-react-calendar-wrapper .sx__view-selection-label {
+  display: none;
+}
+
+/* Date input → outline variant */
+.sx-react-calendar-wrapper .sx__calendar-header .sx__date-input {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border) !important;
+  background-color: var(--background);
+  font-size: 0.875rem;
+  font-weight: 500;
+  width: auto;
+  cursor: pointer;
+  transition: background-color 150ms, border-color 150ms;
+}
+.sx-react-calendar-wrapper .sx__calendar-header .sx__date-input:hover {
+  background-color: var(--accent);
+}
+.sx-react-calendar-wrapper .sx__calendar-header .sx__date-input--active .sx__date-input {
+  border-color: var(--primary) !important;
+}
+
+/* Hide the Material-style floating "Date" label */
+.sx-react-calendar-wrapper .sx__calendar-header .sx__date-input-label {
+  display: none;
+}
