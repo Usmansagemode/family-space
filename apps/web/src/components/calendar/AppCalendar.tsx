@@ -43,6 +43,7 @@ export interface AppCalendarProps {
 // Narrow shape of schedule-x's Temporal objects (global Temporal API, not in TS stdlib yet).
 // Guards against schedule-x emitting a plain string ('YYYY-MM-DD') in some versions.
 type TemporalLike = { year: number; month: number; day: number }
+type TemporalDateTimeLike = TemporalLike & { hour: number; minute: number }
 
 function toTemporalDate(v: unknown): TemporalLike | null {
   if (typeof v === 'string') {
@@ -61,6 +62,16 @@ function toTemporalDate(v: unknown): TemporalLike | null {
     }
   }
   return null
+}
+
+// Extracts date + time from a ZonedDateTime emitted by onClickDateTime.
+function toTemporalDateTime(v: unknown): TemporalDateTimeLike | null {
+  const date = toTemporalDate(v)
+  if (!date) return null
+  const t = v as Record<string, unknown>
+  const hour = typeof t.hour === 'number' ? t.hour : 12
+  const minute = typeof t.minute === 'number' ? t.minute : 0
+  return { ...date, hour, minute }
 }
 
 export function AppCalendar({ familyId }: AppCalendarProps) {
@@ -219,15 +230,29 @@ export function AppCalendar({ familyId }: AppCalendarProps) {
     views: [createViewWeek(), createViewMonthGrid()],
     defaultView: 'week',
     isDark,
+    // Pass the user's local timezone so schedule-x computes "today" correctly.
+    // Without this it defaults to UTC, shifting the highlighted day for users
+    // in negative-offset timezones (e.g. EST shows Apr 18 when it's Apr 17).
+    timezone: LOCAL_TZ,
     events: [],
     callbacks: {
       onEventClick: (event: CalendarEventExternal) => {
         setSelectedEventId(String(event.id))
       },
+      // Fires when clicking the all-day row or a date cell in month view.
+      // Uses noon as a neutral sentinel (no explicit time).
       onClickDate: (date: unknown) => {
         const d = toTemporalDate(date)
         if (!d) return
         setCreateDate(new Date(d.year, d.month - 1, d.day, 12, 0, 0))
+        setCreateOpen(true)
+      },
+      // Fires when clicking a specific time slot in week view.
+      // Passes the exact hour/minute so the create dialog pre-fills the time.
+      onClickDateTime: (dateTime: unknown) => {
+        const dt = toTemporalDateTime(dateTime)
+        if (!dt) return
+        setCreateDate(new Date(dt.year, dt.month - 1, dt.day, dt.hour, dt.minute, 0))
         setCreateOpen(true)
       },
       onRangeUpdate: (range: unknown) => {
